@@ -436,14 +436,17 @@ function delExp(id){
 }
 
 async function handleCap(ev){
-  const file=ev.target.files[0];if(!file)return;
+  const file=ev.target.files[0];
+  const dbg=document.getElementById('ocrRes');
+  if(!file){if(dbg)dbg.innerHTML='<div style="color:var(--red)">파일을 못 읽었어요</div>';return;}
   const reader=new FileReader();
+  reader.onerror=()=>{if(dbg)dbg.innerHTML='<div style="color:var(--red)">이미지 읽기 실패</div>';};
   reader.onload=async(e)=>{
     const dataUrl=e.target.result;
     document.getElementById('ocrLoad').classList.remove('hidden');
-    document.getElementById('ocrRes').innerHTML='';
+    dbg.innerHTML='<div style="color:var(--text2);font-size:12px">① 이미지 읽기 완료, API 호출 중...</div>';
     document.getElementById('applyBtn').classList.add('hidden');
-    if(!S.visionKey){document.getElementById('ocrLoad').classList.add('hidden');showManual();showToast('Vision API 키가 없어요');return;}
+    if(!S.visionKey){document.getElementById('ocrLoad').classList.add('hidden');dbg.innerHTML='<div style="background:var(--orange-light);color:var(--orange);padding:12px;border-radius:8px;font-size:12px">⚠️ Vision API 키가 비어있어요. 설정에서 키를 저장했는지 확인해주세요.</div>';showManual();return;}
     try{
       const b64=dataUrl.split(',')[1];
       const res=await fetch(`https://vision.googleapis.com/v1/images:annotate?key=${S.visionKey}`,{
