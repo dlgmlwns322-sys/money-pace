@@ -131,16 +131,17 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 .cal-title{font-size:16px;font-weight:800;}
 .cal-nav{display:flex;gap:8px;}
 .cal-nav button{width:30px;height:30px;border-radius:8px;border:none;background:var(--bg);color:var(--text2);font-size:15px;cursor:pointer;font-family:inherit;}
-.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;}
 .cal-dow{text-align:center;font-size:11px;font-weight:700;color:var(--text3);padding:4px 0;}
-.cal-cell{aspect-ratio:1;border-radius:9px;background:var(--bg);padding:4px;cursor:pointer;display:flex;flex-direction:column;position:relative;transition:background 0.15s;overflow:hidden;}
+.cal-cell{min-height:62px;border-radius:10px;background:var(--bg);padding:5px 4px;cursor:pointer;display:flex;flex-direction:column;position:relative;transition:background 0.15s;overflow:hidden;}
 .cal-cell:active{background:var(--blue-light);}
 .cal-cell.empty{background:transparent;cursor:default;}
 .cal-cell.today{background:var(--blue-light);border:1.5px solid var(--blue);}
-.cal-day{font-size:11px;font-weight:700;color:var(--text2);}
+.cal-day{font-size:13px;font-weight:700;color:var(--text2);}
 .cal-cell.today .cal-day{color:var(--blue);}
-.cal-memo{font-size:8px;color:var(--text);line-height:1.2;margin-top:2px;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-all;}
-.cal-dot{position:absolute;top:4px;right:4px;width:5px;height:5px;border-radius:50%;background:var(--blue);}
+.cal-amt{font-size:10px;font-weight:800;color:var(--red);margin-top:2px;line-height:1.1;}
+.cal-memo{font-size:9px;color:var(--text2);line-height:1.25;margin-top:1px;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-all;}
+.cal-dot{position:absolute;top:5px;right:5px;width:5px;height:5px;border-radius:50%;background:var(--blue);}
 .cal-sun{color:var(--red);}
 .cal-sat{color:var(--blue);}
 /* Memo modal */
@@ -288,6 +289,10 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 <div id="memoModal" class="modal-bg hidden">
   <div class="modal">
     <div class="modal-title" id="memoModalTitle">메모</div>
+    <div style="display:flex;align-items:center;background:var(--bg);border-radius:var(--r-xs);padding:11px 13px;gap:6px;margin-bottom:10px;">
+      <span style="font-size:17px;font-weight:900;color:var(--text3)">₩</span>
+      <input type="text" id="memoAmt" inputmode="numeric" placeholder="금액 (선택)" oninput="onMoneyInput(this)" style="background:transparent;border:none;outline:none;font-size:18px;font-weight:800;flex:1;font-family:inherit;color:var(--text)"/>
+    </div>
     <textarea class="modal-ta" id="memoInput" placeholder="이 날의 메모를 남겨보세요"></textarea>
     <div class="modal-btns">
       <button class="btn btn-sm" onclick="closeMemo()" style="background:var(--bg);color:var(--text2);flex:1">취소</button>
@@ -713,16 +718,30 @@ function renderCalendar(){
   for(let i=0;i<firstDay;i++)html+='<div class="cal-cell empty"></div>';
   for(let d=1;d<=daysInMonth;d++){
     const dateStr=`${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-    const memo=S.memos[dateStr];
+    const memo=getMemo(dateStr); // {amt, text} 또는 null
     const isToday=dateStr===todayS;
     const dow=new Date(calYear,calMonth,d).getDay();
     const dayCls=dow===0?'cal-sun':dow===6?'cal-sat':'';
+    let inner='';
+    if(memo){
+      inner+='<div class="cal-dot"></div>';
+      if(memo.amt>0)inner+=`<div class="cal-amt">${memo.amt.toLocaleString('ko-KR')}</div>`;
+      if(memo.text)inner+=`<div class="cal-memo">${escapeHtml(memo.text)}</div>`;
+    }
     html+=`<div class="cal-cell${isToday?' today':''}" onclick="openMemo('${dateStr}')">
       <div class="cal-day ${dayCls}">${d}</div>
-      ${memo?`<div class="cal-dot"></div><div class="cal-memo">${escapeHtml(memo)}</div>`:''}
+      ${inner}
     </div>`;
   }
   grid.innerHTML=html;
+}
+
+// 메모를 항상 {amt, text} 형태로 반환 (옛날 문자열 메모 호환)
+function getMemo(dateStr){
+  const m=S.memos[dateStr];
+  if(!m)return null;
+  if(typeof m==='string')return {amt:0, text:m};
+  return {amt:m.amt||0, text:m.text||''};
 }
 
 function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
@@ -733,17 +752,20 @@ function openMemo(dateStr){
   memoDate=dateStr;
   const d=new Date(dateStr);
   document.getElementById('memoModalTitle').textContent=d.toLocaleDateString('ko-KR',{month:'long',day:'numeric',weekday:'short'})+' 메모';
-  document.getElementById('memoInput').value=S.memos[dateStr]||'';
+  const m=getMemo(dateStr);
+  document.getElementById('memoAmt').value=(m&&m.amt>0)?m.amt.toLocaleString('ko-KR'):'';
+  document.getElementById('memoInput').value=(m&&m.text)?m.text:'';
   document.getElementById('memoModal').classList.remove('hidden');
 }
 function closeMemo(){document.getElementById('memoModal').classList.add('hidden');memoDate=null;}
 function saveMemo(){
   if(!memoDate)return;
-  const val=document.getElementById('memoInput').value.trim();
-  if(val)S.memos[memoDate]=val;
+  const amt=parseInt((document.getElementById('memoAmt').value||'').replace(/[^0-9]/g,''))||0;
+  const text=document.getElementById('memoInput').value.trim();
+  if(amt>0||text)S.memos[memoDate]={amt,text};
   else delete S.memos[memoDate];
   save();renderCalendar();closeMemo();
-  showToast(val?'메모가 저장됐어요 ✓':'메모가 삭제됐어요');
+  showToast((amt>0||text)?'메모가 저장됐어요 ✓':'메모가 삭제됐어요');
 }
 
 // ═══ 고정지출 ═══
@@ -946,8 +968,12 @@ function buildCtx(){
   const eff=effectiveBudget();const fx=totFixed();
   const wInfo=getWeekInfo();const ws=getWeeklySpent();const wSpentVal=ws?ws.spent:0;
   const fixedList=(S.fixed||[]).map(f=>`${f.name} ${won(f.amount)}${f.paid?'(빠짐 '+f.paidDate+')':''}`).join(', ')||'없음';
-  // 최근 메모 5개
-  const memoList=Object.entries(S.memos||{}).sort((a,b)=>b[0].localeCompare(a[0])).slice(0,5).map(([d,m])=>`${d}: ${m}`).join(' / ')||'없음';
+  // 최근 메모 7개 (금액+내용)
+  const memoList=Object.entries(S.memos||{}).sort((a,b)=>b[0].localeCompare(a[0])).slice(0,7).map(([d,m])=>{
+    const mm=(typeof m==='string')?{amt:0,text:m}:m;
+    const amtPart=mm.amt>0?won(mm.amt)+' ':'';
+    return `${d}: ${amtPart}${mm.text||''}`.trim();
+  }).join(' / ')||'없음';
   return`[재무 현황]
 - 예산기간: ${S.budgetStart}~${S.budgetEnd}(총${total}일,경과${elapsed}일,남은${remaining}일)
 - 월예산: ${won(S.budget)} / 고정지출 ${won(fx)} 제외 → 사용가능 ${won(eff)}
