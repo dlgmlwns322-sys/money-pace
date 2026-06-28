@@ -451,14 +451,31 @@ async function handleCap(ev){
         body:JSON.stringify({requests:[{image:{content:b64},features:[{type:'TEXT_DETECTION',maxResults:1}]}]})
       });
       const data=await res.json();
+      // API가 오류를 반환한 경우 화면에 표시
+      if(data.error){
+        document.getElementById('ocrLoad').classList.add('hidden');
+        document.getElementById('ocrRes').innerHTML='<div style="background:var(--red-light);color:var(--red);padding:12px;border-radius:8px;font-size:12px;line-height:1.5;word-break:break-all">⚠️ Vision API 오류:<br>'+(data.error.message||JSON.stringify(data.error))+'</div>';
+        showManual();
+        return;
+      }
       const text=data.responses?.[0]?.fullTextAnnotation?.text||'';
+      if(!text){
+        document.getElementById('ocrLoad').classList.add('hidden');
+        document.getElementById('ocrRes').innerHTML='<div style="background:var(--orange-light);color:var(--orange);padding:12px;border-radius:8px;font-size:12px">글자를 인식하지 못했어요. 직접 입력해주세요.</div>';
+        showManual();
+        return;
+      }
       const bals=parseText(text);
       S.captures.unshift({id:Date.now().toString(),date:toStr(),time:new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}),thumb:dataUrl,balances:{...bals}});
       if(S.captures.length>30)S.captures=S.captures.slice(0,30);
       save();
       document.getElementById('ocrLoad').classList.add('hidden');
       showOCRRes(bals);document.getElementById('applyBtn').classList.remove('hidden');
-    }catch(err){document.getElementById('ocrLoad').classList.add('hidden');showManual();showToast('인식 실패. 직접 입력해주세요.');}
+    }catch(err){
+      document.getElementById('ocrLoad').classList.add('hidden');
+      document.getElementById('ocrRes').innerHTML='<div style="background:var(--red-light);color:var(--red);padding:12px;border-radius:8px;font-size:12px;word-break:break-all">⚠️ 오류: '+err.message+'</div>';
+      showManual();
+    }
   };
   reader.readAsDataURL(file);
 }
