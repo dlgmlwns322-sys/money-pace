@@ -437,51 +437,45 @@ function delExp(id){
 
 async function handleCap(ev){
   const file=ev.target.files[0];
-  const dbg=document.getElementById('ocrRes');
-  if(!file){if(dbg)dbg.innerHTML='<div style="color:var(--red)">파일을 못 읽었어요</div>';return;}
+  if(!file){alert('파일 선택 안 됨');return;}
+  alert('1단계: 파일 선택됨 ('+file.name+')\nVision키 길이: '+(S.visionKey?S.visionKey.length:'비어있음'));
   const reader=new FileReader();
-  reader.onerror=()=>{if(dbg)dbg.innerHTML='<div style="color:var(--red)">이미지 읽기 실패</div>';};
+  reader.onerror=()=>alert('이미지 읽기 실패');
   reader.onload=async(e)=>{
     const dataUrl=e.target.result;
     document.getElementById('ocrLoad').classList.remove('hidden');
-    dbg.innerHTML='<div style="color:var(--text2);font-size:12px">① 이미지 읽기 완료, API 호출 중...</div>';
+    document.getElementById('ocrRes').innerHTML='';
     document.getElementById('applyBtn').classList.add('hidden');
-    if(!S.visionKey){document.getElementById('ocrLoad').classList.add('hidden');dbg.innerHTML='<div style="background:var(--orange-light);color:var(--orange);padding:12px;border-radius:8px;font-size:12px">⚠️ Vision API 키가 비어있어요. 설정에서 키를 저장했는지 확인해주세요.</div>';showManual();return;}
+    if(!S.visionKey){
+      document.getElementById('ocrLoad').classList.add('hidden');
+      alert('2단계: Vision 키가 비어있어 직접입력으로 전환');
+      showManual();return;
+    }
     try{
       const b64=dataUrl.split(',')[1];
+      alert('2단계: API 호출 시작 (이미지 크기 '+Math.round(b64.length/1024)+'KB)');
       const res=await fetch(`https://vision.googleapis.com/v1/images:annotate?key=${S.visionKey}`,{
         method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({requests:[{image:{content:b64},features:[{type:'TEXT_DETECTION',maxResults:1}]}]})
       });
       const data=await res.json();
-      // API가 오류를 반환한 경우 화면에 표시
+      document.getElementById('ocrLoad').classList.add('hidden');
       if(data.error){
-        document.getElementById('ocrLoad').classList.add('hidden');
-        document.getElementById('ocrRes').innerHTML='<div style="background:var(--red-light);color:var(--red);padding:12px;border-radius:8px;font-size:12px;line-height:1.5;word-break:break-all">⚠️ Vision API 오류:<br>'+(data.error.message||JSON.stringify(data.error))+'</div>';
-        showManual();
-        return;
+        alert('3단계: API 오류!\n'+(data.error.message||JSON.stringify(data.error)));
+        showManual();return;
       }
       const text=data.responses?.[0]?.fullTextAnnotation?.text||'';
-      if(!text){
-        document.getElementById('ocrLoad').classList.add('hidden');
-        document.getElementById('ocrRes').innerHTML='<div style="background:var(--orange-light);color:var(--orange);padding:12px;border-radius:8px;font-size:12px">글자를 인식하지 못했어요. 직접 입력해주세요.</div>';
-        showManual();
-        return;
-      }
+      alert('3단계: 인식 성공!\n읽은 텍스트:\n'+(text||'(빈 텍스트)'));
+      if(!text){showManual();return;}
       const bals=parseText(text);
+      alert('4단계: 숫자 추출 결과\n카카오:'+bals.kakao+'\n국민:'+bals.kb+'\n신한:'+bals.shinhan);
       S.captures.unshift({id:Date.now().toString(),date:toStr(),time:new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}),thumb:dataUrl,balances:{...bals}});
       if(S.captures.length>30)S.captures=S.captures.slice(0,30);
       save();
-      document.getElementById('ocrLoad').classList.add('hidden');
       showOCRRes(bals);document.getElementById('applyBtn').classList.remove('hidden');
-      // 디버그: 인식된 원문 텍스트를 보여줌
-      const dbgBox=document.createElement('div');
-      dbgBox.style.cssText='margin-top:10px;background:var(--bg);padding:10px;border-radius:8px;font-size:10px;color:var(--text3);white-space:pre-wrap;max-height:120px;overflow:auto';
-      dbgBox.textContent='[인식된 텍스트]\n'+text;
-      document.getElementById('ocrRes').appendChild(dbgBox);
     }catch(err){
       document.getElementById('ocrLoad').classList.add('hidden');
-      document.getElementById('ocrRes').innerHTML='<div style="background:var(--red-light);color:var(--red);padding:12px;border-radius:8px;font-size:12px;word-break:break-all">⚠️ 오류: '+err.message+'</div>';
+      alert('오류 발생: '+err.message);
       showManual();
     }
   };
