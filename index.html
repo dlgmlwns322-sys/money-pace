@@ -437,10 +437,9 @@ function delExp(id){
 
 async function handleCap(ev){
   const file=ev.target.files[0];
-  if(!file){alert('파일 선택 안 됨');return;}
-  alert('1단계: 파일 선택됨 ('+file.name+')\nVision키 길이: '+(S.visionKey?S.visionKey.length:'비어있음'));
+  if(!file)return;
   const reader=new FileReader();
-  reader.onerror=()=>alert('이미지 읽기 실패');
+  reader.onerror=()=>{document.getElementById('ocrLoad').classList.add('hidden');document.getElementById('ocrRes').innerHTML='<div style="color:var(--red);font-size:12px">이미지를 읽지 못했어요</div>';};
   reader.onload=async(e)=>{
     const dataUrl=e.target.result;
     document.getElementById('ocrLoad').classList.remove('hidden');
@@ -448,12 +447,11 @@ async function handleCap(ev){
     document.getElementById('applyBtn').classList.add('hidden');
     if(!S.visionKey){
       document.getElementById('ocrLoad').classList.add('hidden');
-      alert('2단계: Vision 키가 비어있어 직접입력으로 전환');
+      document.getElementById('ocrRes').innerHTML='<div style="background:var(--orange-light);color:var(--orange);padding:12px;border-radius:8px;font-size:12px">설정에서 Google Vision API 키를 저장해주세요</div>';
       showManual();return;
     }
     try{
       const b64=dataUrl.split(',')[1];
-      alert('2단계: API 호출 시작 (이미지 크기 '+Math.round(b64.length/1024)+'KB)');
       const res=await fetch(`https://vision.googleapis.com/v1/images:annotate?key=${S.visionKey}`,{
         method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({requests:[{image:{content:b64},features:[{type:'TEXT_DETECTION',maxResults:1}]}]})
@@ -461,47 +459,106 @@ async function handleCap(ev){
       const data=await res.json();
       document.getElementById('ocrLoad').classList.add('hidden');
       if(data.error){
-        alert('3단계: API 오류!\n'+(data.error.message||JSON.stringify(data.error)));
+        document.getElementById('ocrRes').innerHTML='<div style="background:var(--red-light);color:var(--red);padding:12px;border-radius:8px;font-size:12px;word-break:break-all">⚠️ '+(data.error.message||JSON.stringify(data.error))+'</div>';
         showManual();return;
       }
       const text=data.responses?.[0]?.fullTextAnnotation?.text||'';
-      alert('3단계: 인식 성공!\n읽은 텍스트:\n'+(text||'(빈 텍스트)'));
-      if(!text){showManual();return;}
+      if(!text){
+        document.getElementById('ocrRes').innerHTML='<div style="background:var(--orange-light);color:var(--orange);padding:12px;border-radius:8px;font-size:12px">글자를 인식하지 못했어요. 직접 입력해주세요.</div>';
+        showManual();return;
+      }
       const bals=parseText(text);
-      alert('4단계: 숫자 추출 결과\n카카오:'+bals.kakao+'\n국민:'+bals.kb+'\n신한:'+bals.shinhan);
       S.captures.unshift({id:Date.now().toString(),date:toStr(),time:new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}),thumb:dataUrl,balances:{...bals}});
       if(S.captures.length>30)S.captures=S.captures.slice(0,30);
       save();
       showOCRRes(bals);document.getElementById('applyBtn').classList.remove('hidden');
     }catch(err){
       document.getElementById('ocrLoad').classList.add('hidden');
-      alert('오류 발생: '+err.message);
+      document.getElementById('ocrRes').innerHTML='<div style="background:var(--red-light);color:var(--red);padding:12px;border-radius:8px;font-size:12px;word-break:break-all">⚠️ 오류: '+err.message+'</div>';
       showManual();
     }
   };
   reader.readAsDataURL(file);
 }
 
-function parseText(text){
-  const amounts=[];const pat=/(\d{1,3}(?:,\d{3})+|\d{4,})/g;
-  for(const line of text.split('\n')){
-    for(const m of [...line.matchAll(pat)]){const n=parseInt(m[1].replace(/,/g,''));if(n>=1000&&n<1000000000)amounts.push(n);}
-  }
-  const u=[...new Set(amounts)].sort((a,b)=>b-a);
-  return{kakao:u[0]||0,kb:u[1]||0,shinhan:u[2]||0};
+// 각 계좌 이름과 매칭되는 키워드 (토스 화면에 표시되는 계좌 별칭)
+const ACCOUNT_KEYWORDS={
+  kakao:['입출금통장','입출금'],          // 카카오 = 입출금통장
+  kb:['KB','국민','나라사랑','우대통장'],   // 국민은행
+  shinhan:['한달살이','신한']             // 신한은행
+};
+
+function parseAmount(str){
+  const n=parseInt(str.replace(/,/g,''));
+  return (n>=100&&n<1000000000)?n:null;
 }
 
+function parseText(text){
+  const lines=text.split('\n').map(l=>l.trim()).filter(l=>l);
+  const amtPat=/(\d{1,3}(?:,\d{3})+|\d{4,})\s*원?/;
+  const result={kakao:0,kb:0,shinhan:0};
+  const usedLines=new Set();
+
+  // 1차: 계좌 이름이 있는 줄을 찾고, 그 줄 또는 바로 위/아래 줄에서 금액을 찾음
+  for(const [bankId,keywords] of Object.entries(ACCOUNT_KEYWORDS)){
+    for(let i=0;i<lines.length;i++){
+      if(keywords.some(k=>lines[i].includes(k))){
+        // 같은 줄, 위 줄, 아래 줄 순서로 금액 탐색 (토스는 보통 금액이 이름 위에 있음)
+        const candidates=[lines[i],lines[i-1],lines[i+1],lines[i-2]];
+        for(let ci=0;ci<candidates.length;ci++){
+          const c=candidates[ci];
+          if(!c)continue;
+          const m=c.match(amtPat);
+          if(m){
+            const amt=parseAmount(m[1]);
+            // 같은 금액 줄이 다른 계좌에 중복 사용되지 않도록
+            const lineKey=(i+ci)+'_'+m[1];
+            if(amt&&!usedLines.has(lineKey)){
+              result[bankId]=amt;
+              usedLines.add(lineKey);
+              break;
+            }
+          }
+        }
+        if(result[bankId])break;
+      }
+    }
+  }
+
+  // 2차: 이름 매칭으로 못 찾은 계좌가 있으면, 가장 큰 미사용 금액으로 채움 (백업)
+  const missing=Object.keys(result).filter(k=>!result[k]);
+  if(missing.length){
+    const allAmts=[];
+    for(const line of lines){
+      const matches=[...line.matchAll(/(\d{1,3}(?:,\d{3})+|\d{4,})/g)];
+      for(const m of matches){const a=parseAmount(m[1]);if(a)allAmts.push(a);}
+    }
+    const used=new Set(Object.values(result).filter(v=>v));
+    const leftover=[...new Set(allAmts)].filter(a=>!used.has(a)).sort((a,b)=>b-a);
+    missing.forEach((k,idx)=>{result[k]=leftover[idx]||0;});
+  }
+
+  return result;
+}
+
+function fmtComma(n){return (parseInt(n)||0).toLocaleString('ko-KR');}
+function onOcrInput(el){
+  const raw=el.value.replace(/[^0-9]/g,'');
+  el.dataset.raw=raw;
+  el.value=raw?parseInt(raw).toLocaleString('ko-KR'):'';
+}
 function showOCRRes(v){
   const banks=[{id:'kakao',n:'카카오뱅크',c:'#FFEB00'},{id:'kb',n:'국민은행',c:'#FFB800'},{id:'shinhan',n:'신한은행',c:'#A0BEFF'}];
-  document.getElementById('ocrRes').innerHTML=`<div style="font-size:12px;color:var(--text2);margin-bottom:8px">인식된 잔액이에요. 틀렸으면 수정해주세요.</div>`+banks.map(b=>`<div class="ocr-row"><div class="ocr-bank"><div style="width:7px;height:7px;border-radius:50%;background:${b.c}"></div>${b.n}</div><input class="ocr-inp" type="number" id="ocr-${b.id}" value="${v[b.id]}" inputmode="numeric"/></div>`).join('');
+  document.getElementById('ocrRes').innerHTML=`<div style="font-size:12px;color:var(--text2);margin-bottom:8px">인식된 잔액이에요. 틀렸으면 수정해주세요.</div>`+banks.map(b=>`<div class="ocr-row"><div class="ocr-bank"><div style="width:7px;height:7px;border-radius:50%;background:${b.c}"></div>${b.n}</div><input class="ocr-inp" type="text" inputmode="numeric" id="ocr-${b.id}" data-raw="${v[b.id]}" value="${fmtComma(v[b.id])}" oninput="onOcrInput(this)"/></div>`).join('');
 }
 function showManual(){
   const banks=[{id:'kakao',n:'카카오뱅크',c:'#FFEB00'},{id:'kb',n:'국민은행',c:'#FFB800'},{id:'shinhan',n:'신한은행',c:'#A0BEFF'}];
-  document.getElementById('ocrRes').innerHTML=`<div style="font-size:12px;color:var(--text2);margin-bottom:8px">잔액을 직접 입력해주세요</div>`+banks.map(b=>`<div class="ocr-row"><div class="ocr-bank"><div style="width:7px;height:7px;border-radius:50%;background:${b.c}"></div>${b.n}</div><input class="ocr-inp" type="number" id="ocr-${b.id}" value="0" inputmode="numeric"/></div>`).join('');
+  document.getElementById('ocrRes').innerHTML=`<div style="font-size:12px;color:var(--text2);margin-bottom:8px">잔액을 직접 입력해주세요</div>`+banks.map(b=>`<div class="ocr-row"><div class="ocr-bank"><div style="width:7px;height:7px;border-radius:50%;background:${b.c}"></div>${b.n}</div><input class="ocr-inp" type="text" inputmode="numeric" id="ocr-${b.id}" data-raw="0" value="" placeholder="0" oninput="onOcrInput(this)"/></div>`).join('');
   document.getElementById('applyBtn').classList.remove('hidden');
 }
 function applyBal(){
-  S.balances={kakao:parseInt(document.getElementById('ocr-kakao')?.value||0)||0,kb:parseInt(document.getElementById('ocr-kb')?.value||0)||0,shinhan:parseInt(document.getElementById('ocr-shinhan')?.value||0)||0};
+  const getRaw=id=>{const el=document.getElementById(id);if(!el)return 0;return parseInt((el.dataset.raw||el.value||'0').replace(/[^0-9]/g,''))||0;};
+  S.balances={kakao:getRaw('ocr-kakao'),kb:getRaw('ocr-kb'),shinhan:getRaw('ocr-shinhan')};
   save();render();showToast('잔액이 반영됐어요 ✓');showTab('home');
 }
 
