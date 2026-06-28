@@ -507,12 +507,17 @@ async function sendChat(){
   inp.value='';appendChat('user',msg);chatHist.push({role:'user',content:msg});
   const el=appendChat('ai','...');
   try{
+    const sysPrompt='당신은 개인 재무 관리 AI예요. 친근하고 실용적으로 짧게 답해주세요.\n\n'+buildCtx();
     const geminiMessages=chatHist.map(m=>({
       role:m.role==='assistant'?'model':'user',
       parts:[{text:m.content}]
     }));
+    // 마지막 사용자 메시지에 최신 재무 현황 컨텍스트를 붙임
+    const lastIdx=geminiMessages.length-1;
+    if(lastIdx>=0&&geminiMessages[lastIdx].role==='user'){
+      geminiMessages[lastIdx].parts[0].text=sysPrompt+'\n\n[질문] '+geminiMessages[lastIdx].parts[0].text;
+    }
     const body={
-      system_instruction:{parts:[{text:'당신은 개인 재무 관리 AI예요. 친근하고 실용적으로 짧게 답해주세요.\n\n'+buildCtx()}]},
       contents:geminiMessages,
       generationConfig:{maxOutputTokens:800}
     };
