@@ -497,46 +497,37 @@ function parseText(text){
   const lines=text.split('\n').map(l=>l.trim()).filter(l=>l);
   const amtPat=/(\d{1,3}(?:,\d{3})+|\d{4,})\s*원?/;
   const result={kakao:0,kb:0,shinhan:0};
-  const usedLines=new Set();
+  // 계좌가 아닌 금액이 들어있는 줄(쓴 돈, 포인트 등)은 제외
+  const EXCLUDE=['쓴 돈','쓴돈','포인트','지원금','신용','대출','보험','적립','이번 달','이번달'];
+  const isExcluded=(line)=>EXCLUDE.some(w=>line.includes(w));
 
-  // 1차: 계좌 이름이 있는 줄을 찾고, 그 줄 또는 바로 위/아래 줄에서 금액을 찾음
+  // 계좌 이름 줄을 찾고, 그 위/아래 줄에서 금액 추출 (제외 줄은 건너뜀)
   for(const [bankId,keywords] of Object.entries(ACCOUNT_KEYWORDS)){
-    for(let i=0;i<lines.length;i++){
-      if(keywords.some(k=>lines[i].includes(k))){
-        // 같은 줄, 위 줄, 아래 줄 순서로 금액 탐색 (토스는 보통 금액이 이름 위에 있음)
-        const candidates=[lines[i],lines[i-1],lines[i+1],lines[i-2]];
-        for(let ci=0;ci<candidates.length;ci++){
-          const c=candidates[ci];
-          if(!c)continue;
+    let found=false;
+    for(let i=0;i<lines.length&&!found;i++){
+      if(keywords.some(k=>lines[i].includes(k)) && !isExcluded(lines[i])){
+        // 토스는 보통 [금액] 다음줄에 [계좌이름] 구조 → 위 줄 우선
+        const order=[lines[i-1],lines[i],lines[i+1],lines[i-2],lines[i+2]];
+        for(const c of order){
+          if(!c||isExcluded(c))continue;
           const m=c.match(amtPat);
           if(m){
-            const amt=parseAmount(m[1]);
-            // 같은 금액 줄이 다른 계좌에 중복 사용되지 않도록
-            const lineKey=(i+ci)+'_'+m[1];
-            if(amt&&!usedLines.has(lineKey)){
-              result[bankId]=amt;
-              usedLines.add(lineKey);
-              break;
-            }
+            const n=parseInt(m[1].replace(/,/g,''));
+            if(n>=100&&n<100000000){result[bankId]=n;found=true;break;}
           }
         }
-        if(result[bankId])break;
       }
     }
   }
 
-  // 2차: 이름 매칭으로 못 찾은 계좌가 있으면, 가장 큰 미사용 금액으로 채움 (백업)
-  const missing=Object.keys(result).filter(k=>!result[k]);
-  if(missing.length){
-    const allAmts=[];
-    for(const line of lines){
-      const matches=[...line.matchAll(/(\d{1,3}(?:,\d{3})+|\d{4,})/g)];
-      for(const m of matches){const a=parseAmount(m[1]);if(a)allAmts.push(a);}
-    }
-    const used=new Set(Object.values(result).filter(v=>v));
-    const leftover=[...new Set(allAmts)].filter(a=>!used.has(a)).sort((a,b)=>b-a);
-    missing.forEach((k,idx)=>{result[k]=leftover[idx]||0;});
-  }
+  // 디버그용: 인식된 원문을 화면에 보여줌
+  setTimeout(()=>{
+    const box=document.createElement('div');
+    box.style.cssText='margin-top:10px;background:var(--bg);padding:10px;border-radius:8px;font-size:10px;color:var(--text3);white-space:pre-wrap;max-height:140px;overflow:auto;line-height:1.5';
+    box.textContent='[인식된 원문]\n'+text;
+    const res=document.getElementById('ocrRes');
+    if(res)res.appendChild(box);
+  },100);
 
   return result;
 }
