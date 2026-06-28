@@ -497,27 +497,38 @@ function parseText(text){
   const lines=text.split('\n').map(l=>l.trim()).filter(l=>l);
   const amtPat=/(\d{1,3}(?:,\d{3})+|\d{4,})\s*원?/;
   const result={kakao:0,kb:0,shinhan:0};
-  // 계좌가 아닌 금액이 들어있는 줄(쓴 돈, 포인트 등)은 제외
-  const EXCLUDE=['쓴 돈','쓴돈','포인트','지원금','신용','대출','보험','적립','이번 달','이번달'];
+  const EXCLUDE=['쓴 돈','쓴돈','포인트','지원금','신용','대출','보험','적립','이번 달','이번달','번'];
   const isExcluded=(line)=>EXCLUDE.some(w=>line.includes(w));
 
-  // 계좌 이름 줄을 찾고, 그 위/아래 줄에서 금액 추출 (제외 줄은 건너뜀)
+  // 1) 금액이 들어있는 줄들의 위치를 먼저 수집 (제외 줄 제거)
+  const amountLines=[]; // {idx, value}
+  lines.forEach((line,idx)=>{
+    if(isExcluded(line))return;
+    const m=line.match(amtPat);
+    if(m){
+      const n=parseInt(m[1].replace(/,/g,''));
+      if(n>=100&&n<100000000)amountLines.push({idx,value:n});
+    }
+  });
+
+  // 2) 각 계좌 이름 줄을 찾고, 그 줄에서 "가장 가까운" 금액 줄을 연결
+  const usedAmtIdx=new Set();
   for(const [bankId,keywords] of Object.entries(ACCOUNT_KEYWORDS)){
-    let found=false;
-    for(let i=0;i<lines.length&&!found;i++){
-      if(keywords.some(k=>lines[i].includes(k)) && !isExcluded(lines[i])){
-        // 토스는 보통 [금액] 다음줄에 [계좌이름] 구조 → 위 줄 우선
-        const order=[lines[i-1],lines[i],lines[i+1],lines[i-2],lines[i+2]];
-        for(const c of order){
-          if(!c||isExcluded(c))continue;
-          const m=c.match(amtPat);
-          if(m){
-            const n=parseInt(m[1].replace(/,/g,''));
-            if(n>=100&&n<100000000){result[bankId]=n;found=true;break;}
-          }
-        }
+    let nameIdx=-1;
+    for(let i=0;i<lines.length;i++){
+      if(keywords.some(k=>lines[i].includes(k)) && !isExcluded(lines[i]) && !amtPat.test(lines[i])){
+        nameIdx=i;break;
       }
     }
+    if(nameIdx<0)continue;
+    // 이름 줄과 가장 가까운(아직 안 쓴) 금액 줄 찾기
+    let best=null,bestDist=999;
+    for(const a of amountLines){
+      if(usedAmtIdx.has(a.idx))continue;
+      const dist=Math.abs(a.idx-nameIdx);
+      if(dist<bestDist){bestDist=dist;best=a;}
+    }
+    if(best){result[bankId]=best.value;usedAmtIdx.add(best.idx);}
   }
 
   // 디버그용: 인식된 원문을 화면에 보여줌
