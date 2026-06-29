@@ -106,6 +106,9 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 .cb.ai{background:var(--bg);color:var(--text);border-bottom-left-radius:4px;align-self:flex-start;}
 .cb.user{background:var(--blue);color:#fff;border-bottom-right-radius:4px;align-self:flex-end;}
 .cinp-wrap{display:flex;gap:7px;margin-top:10px;}
+.cmt-item{background:var(--bg);border-radius:var(--r-xs);padding:12px 14px;margin-bottom:10px;}
+.cmt-date{font-size:12px;font-weight:700;color:var(--blue);margin-bottom:6px;}
+.cmt-body{font-size:13px;color:var(--text);line-height:1.65;white-space:pre-wrap;}
 .cinp{flex:1;background:var(--bg);border:1.5px solid var(--border);border-radius:22px;padding:9px 15px;font-size:13px;outline:none;font-family:inherit;color:var(--text);}
 .cinp:focus{border-color:var(--blue);}
 .csend{width:38px;height:38px;border-radius:50%;background:var(--blue);border:none;color:#fff;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
@@ -365,6 +368,16 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
       <button class="csend" onclick="sendChat()">➤</button>
     </div>
   </div>
+
+  <!-- 일간 코멘트 -->
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div class="card-title" style="margin:0">📝 일간 코멘트</div>
+      <button class="btn btn-sm btn-primary" onclick="genTodayComment(true)" id="genCmtBtn">오늘 코멘트 생성</button>
+    </div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:12px">매일 앱을 열면 자동으로 그날 코멘트가 생성돼요 · 소진 현황 + 메모를 종합해 조언해드려요</div>
+    <div id="cmtList"><div style="text-align:center;color:var(--text3);padding:22px 0;font-size:13px">아직 코멘트가 없어요</div></div>
+  </div>
 </div>
 
 <!-- SETTINGS -->
@@ -439,7 +452,7 @@ const DEFICIT=[
   {max:999,txt:'지금 당장 줄여야 해요',em:'🚨',bg:'var(--red-light)',cl:'var(--red)'},
 ];
 
-function defState(){return{budget:700000,weeklyBudget:200000,budgetStart:'',budgetEnd:'',weekStartDay:1,alarmTime:'09:00',balances:{kakao:0,kb:0,shinhan:0},expenses:[],captures:[],memos:{},fixed:[],fixedMonth:'',lastPace:null,visionKey:'',claudeKey:'',supabaseUrl:'',supabaseKey:''};}
+function defState(){return{budget:700000,weeklyBudget:200000,budgetStart:'',budgetEnd:'',weekStartDay:1,alarmTime:'09:00',balances:{kakao:0,kb:0,shinhan:0},expenses:[],captures:[],memos:{},fixed:[],fixedMonth:'',comments:{},lastPace:null,visionKey:'',claudeKey:'',supabaseUrl:'',supabaseKey:''};}
 let S=(()=>{try{const r=localStorage.getItem('mp_v6');if(r)return{...defState(),...JSON.parse(r)};}catch(e){}return defState();})();
 
 // ── 저장: localStorage(즉시) + Supabase(백그라운드 백업) ──
@@ -774,7 +787,7 @@ function render(){
   document.getElementById('sClaude').value=S.claudeKey||'';
   const sbU=document.getElementById('sSbUrl'); if(sbU)sbU.value=S.supabaseUrl||'';
   const sbK=document.getElementById('sSbKey'); if(sbK)sbK.value=S.supabaseKey||'';
-  renderCaps();renderCalendar();renderFixed();updateNotif();
+  renderCaps();renderCalendar();renderFixed();renderComments();updateNotif();
 }
 
 // ═══ 달력 (지출 탭) ═══
@@ -1075,6 +1088,23 @@ function buildCtx(){
 - 총잔액: ${won(totBal())}, 어제지출: ${won(ydSpent())}`;
 }
 async function askAI(t){document.getElementById('chatInp').value=t;await sendChat();}
+
+// Gemini 호출 공용 함수 (단발성 프롬프트)
+async function callGemini(systemPrompt, userText){
+  if(!S.claudeKey)throw new Error('Gemini API 키가 없어요');
+  const body={
+    system_instruction:{parts:[{text:systemPrompt}]},
+    contents:[{role:'user',parts:[{text:userText}]}],
+    generationConfig:{maxOutputTokens:1500}
+  };
+  const res=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key='+S.claudeKey,{
+    method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)
+  });
+  if(!res.ok){const err=await res.text();throw new Error(err);}
+  const data=await res.json();
+  return data.candidates?.[0]?.content?.parts?.[0]?.text||'응답을 받지 못했어요.';
+}
+
 async function sendChat(){
   const inp=document.getElementById('chatInp');const msg=inp.value.trim();
   if(!msg)return;
@@ -1107,6 +1137,52 @@ async function sendChat(){
 function appendChat(role,text){
   const w=document.getElementById('chatWrap');const el=document.createElement('div');
   el.className='cb '+role;el.textContent=text;w.appendChild(el);w.scrollTop=w.scrollHeight;return el;
+}
+
+// ── 일간 코멘트 ──────────────────────────────
+// force=true면 오늘 코멘트가 있어도 다시 생성
+async function genTodayComment(force){
+  const today=toStr();
+  if(!S.comments)S.comments={};
+  if(S.comments[today]&&!force){renderComments();return;} // 이미 있으면 자동생성 스킵
+  if(!S.claudeKey){if(force)showToast('설정에서 Gemini API 키를 입력해주세요');return;}
+  // 데이터가 거의 없으면 생성 안 함 (잔액도 없을 때)
+  if(totBal()<=0&&!force)return;
+
+  const btn=document.getElementById('genCmtBtn');
+  if(btn){btn.textContent='생성 중...';btn.disabled=true;}
+  try{
+    const sys=`당신은 따뜻하고 현실적인 개인 재무 코치예요. 아래 사용자의 오늘 재무 현황과 메모를 종합해서, 오늘 하루에 대한 짧은 코멘트를 작성하세요.
+규칙:
+- 3~4문장으로 짧게
+- 현재 소진율/페이스가 좋은지 나쁜지 먼저 짚기
+- 메모에 특이사항(큰 지출 등)이 있으면 언급
+- 마지막에 앞으로 어떻게 하면 좋을지 구체적 조언 1가지
+- 친근한 반말체 살짝, 잔소리 느낌 없이 격려 위주
+- 이모지 1~2개 자연스럽게`;
+    const reply=await callGemini(sys, buildCtx());
+    S.comments[today]=reply;
+    save();renderComments();
+    if(force)showToast('오늘 코멘트가 생성됐어요 ✓');
+  }catch(e){
+    if(force)showToast('생성 실패: '+e.message.slice(0,40));
+  }
+  if(btn){btn.textContent='오늘 코멘트 생성';btn.disabled=false;}
+}
+
+function renderComments(){
+  const el=document.getElementById('cmtList');
+  if(!el)return;
+  const entries=Object.entries(S.comments||{}).sort((a,b)=>b[0].localeCompare(a[0]));
+  if(!entries.length){
+    el.innerHTML='<div style="text-align:center;color:var(--text3);padding:22px 0;font-size:13px">아직 코멘트가 없어요</div>';
+    return;
+  }
+  el.innerHTML=entries.map(([date,txt])=>{
+    const d=new Date(date);
+    const lbl=d.toLocaleDateString('ko-KR',{month:'long',day:'numeric',weekday:'short'});
+    return `<div class="cmt-item"><div class="cmt-date">${lbl}</div><div class="cmt-body">${escapeHtml(txt)}</div></div>`;
+  }).join('');
 }
 
 // 금액 입력칸 콤마 자동 포맷
@@ -1187,11 +1263,15 @@ function showToast(msg){const el=document.getElementById('toast');el.textContent
 render();
 if('Notification'in window&&Notification.permission==='granted')schedAlarm();
 
-// 앱 시작 시 클라우드에 더 최신 데이터가 있으면 불러오기
-(async function initCloudSync(){
+// 앱 시작 시: 클라우드 동기화 → 오늘 코멘트 자동 생성
+(async function initApp(){
   if(S.supabaseUrl&&S.supabaseKey){
     const ok=await loadFromCloud();
     if(ok)render();
+  }
+  // 오늘 코멘트가 없으면 자동 생성 (잔액 데이터 있고 Gemini 키 있을 때)
+  if(S.claudeKey && totBal()>0){
+    genTodayComment(false);
   }
 })();
 </script>
