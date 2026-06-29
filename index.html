@@ -169,7 +169,10 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 <div class="safe"></div>
 <div class="header">
   <div class="header-title">머니페이스 💸</div>
-  <div id="notifDot" style="font-size:11px;color:var(--text3)"></div>
+  <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">
+    <div id="notifDot" style="font-size:11px;color:var(--text3)"></div>
+    <div id="syncBadge" style="font-size:10px;color:var(--text3)"></div>
+  </div>
 </div>
 <div class="tabs">
   <button class="tab active" onclick="showTab('home')">홈</button>
@@ -386,6 +389,19 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
     <div class="sr"><div><div class="slbl">Gemini API 키</div><div class="sdesc">AI 분석 기능용 (무료)</div></div></div>
     <div style="padding:0 18px 14px;"><input type="password" class="sinp sinp-full" id="sClaude" placeholder="AIza..."/></div>
   </div>
+
+  <div class="sgt">클라우드 저장 (Supabase)</div>
+  <div class="sg">
+    <div class="sr"><div><div class="slbl">Supabase URL</div><div class="sdesc">데이터 영구 저장용</div></div></div>
+    <div style="padding:0 18px 14px;"><input type="text" class="sinp sinp-full" id="sSbUrl" placeholder="https://xxxx.supabase.co"/></div>
+    <div class="sr"><div><div class="slbl">anon 키</div><div class="sdesc">eyJ... 로 시작하는 키</div></div></div>
+    <div style="padding:0 18px 14px;"><input type="password" class="sinp sinp-full" id="sSbKey" placeholder="eyJ..."/></div>
+    <div class="sr">
+      <div><div class="slbl">클라우드에서 불러오기</div><div class="sdesc">다른 기기 데이터 가져오기</div></div>
+      <button class="btn btn-sm" onclick="manualLoad()" style="background:var(--bg);color:var(--text2)">불러오기</button>
+    </div>
+  </div>
+
   <div style="padding:0 0 8px;"><button class="btn btn-primary" onclick="saveSets()">저장하기</button></div>
   <div class="sgt">데이터</div>
   <div class="sg">
@@ -423,9 +439,80 @@ const DEFICIT=[
   {max:999,txt:'지금 당장 줄여야 해요',em:'🚨',bg:'var(--red-light)',cl:'var(--red)'},
 ];
 
-function defState(){return{budget:700000,weeklyBudget:200000,budgetStart:'',budgetEnd:'',weekStartDay:1,alarmTime:'09:00',balances:{kakao:0,kb:0,shinhan:0},expenses:[],captures:[],memos:{},fixed:[],fixedMonth:'',lastPace:null,visionKey:'',claudeKey:''};}
+function defState(){return{budget:700000,weeklyBudget:200000,budgetStart:'',budgetEnd:'',weekStartDay:1,alarmTime:'09:00',balances:{kakao:0,kb:0,shinhan:0},expenses:[],captures:[],memos:{},fixed:[],fixedMonth:'',lastPace:null,visionKey:'',claudeKey:'',supabaseUrl:'',supabaseKey:''};}
 let S=(()=>{try{const r=localStorage.getItem('mp_v6');if(r)return{...defState(),...JSON.parse(r)};}catch(e){}return defState();})();
-const save=()=>localStorage.setItem('mp_v6',JSON.stringify(S));
+
+// ── 저장: localStorage(즉시) + Supabase(백그라운드 백업) ──
+let syncTimer=null, syncing=false;
+function save(){
+  localStorage.setItem('mp_v6',JSON.stringify(S));
+  // Supabase 동기화는 0.8초 디바운스 (연속 저장 시 마지막 것만 업로드)
+  if(S.supabaseUrl&&S.supabaseKey){
+    if(syncTimer)clearTimeout(syncTimer);
+    syncTimer=setTimeout(syncToCloud,800);
+  }
+}
+
+const ROW_ID='my_money_data'; // 혼자 쓰는 단일 데이터 행
+
+async function syncToCloud(){
+  if(!S.supabaseUrl||!S.supabaseKey)return;
+  syncing=true; updateSyncBadge('saving');
+  try{
+    // upsert: 있으면 갱신, 없으면 생성
+    const res=await fetch(`${S.supabaseUrl}/rest/v1/app_data?on_conflict=id`,{
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'apikey':S.supabaseKey,
+        'Authorization':'Bearer '+S.supabaseKey,
+        'Prefer':'resolution=merge-duplicates'
+      },
+      body:JSON.stringify({id:ROW_ID, data:S, updated_at:new Date().toISOString()})
+    });
+    if(!res.ok){const t=await res.text();throw new Error(t);}
+    updateSyncBadge('saved');
+  }catch(e){
+    updateSyncBadge('error');
+    console.error('sync error',e);
+  }
+  syncing=false;
+}
+
+async function loadFromCloud(){
+  if(!S.supabaseUrl||!S.supabaseKey)return false;
+  updateSyncBadge('loading');
+  try{
+    const res=await fetch(`${S.supabaseUrl}/rest/v1/app_data?id=eq.${ROW_ID}&select=data`,{
+      headers:{'apikey':S.supabaseKey,'Authorization':'Bearer '+S.supabaseKey}
+    });
+    if(!res.ok){const t=await res.text();throw new Error(t);}
+    const rows=await res.json();
+    if(rows&&rows.length&&rows[0].data){
+      // 클라우드 데이터로 교체 (단, supabase 키 자체는 유지)
+      const cloud=rows[0].data;
+      const url=S.supabaseUrl, key=S.supabaseKey;
+      S={...defState(),...cloud,supabaseUrl:url,supabaseKey:key};
+      localStorage.setItem('mp_v6',JSON.stringify(S));
+      updateSyncBadge('saved');
+      return true;
+    }
+    updateSyncBadge('saved');
+    return false;
+  }catch(e){
+    updateSyncBadge('error');
+    console.error('load error',e);
+    return false;
+  }
+}
+
+function updateSyncBadge(status){
+  const el=document.getElementById('syncBadge');
+  if(!el)return;
+  const map={saving:'☁️ 저장 중...',saved:'☁️ 저장됨',loading:'☁️ 불러오는 중...',error:'⚠️ 동기화 실패',off:''};
+  el.textContent=map[status]||'';
+  el.style.color=status==='error'?'var(--red)':'var(--text3)';
+}
 const won=n=>Math.abs(Math.round(n)).toLocaleString('ko-KR')+'원';
 const toStr=()=>new Date().toISOString().slice(0,10);
 
@@ -685,6 +772,8 @@ function render(){
   document.getElementById('sAlarm').value=S.alarmTime||'09:00';
   document.getElementById('sVision').value=S.visionKey||'';
   document.getElementById('sClaude').value=S.claudeKey||'';
+  const sbU=document.getElementById('sSbUrl'); if(sbU)sbU.value=S.supabaseUrl||'';
+  const sbK=document.getElementById('sSbKey'); if(sbK)sbK.value=S.supabaseKey||'';
   renderCaps();renderCalendar();renderFixed();updateNotif();
 }
 
@@ -1034,8 +1123,27 @@ function saveSets(){
   S.weeklyBudget=parseMoney('sWeekly');
   S.budgetStart=document.getElementById('sStart').value;S.budgetEnd=document.getElementById('sEnd').value;
   S.alarmTime=document.getElementById('sAlarm').value;S.visionKey=document.getElementById('sVision').value.trim();S.claudeKey=document.getElementById('sClaude').value.trim();
+  const sbU=document.getElementById('sSbUrl').value.trim().replace(/\/+$/,''); // 끝 슬래시 제거
+  const sbK=document.getElementById('sSbKey').value.trim();
+  const sbChanged=(sbU!==S.supabaseUrl)||(sbK!==S.supabaseKey);
+  S.supabaseUrl=sbU; S.supabaseKey=sbK;
   save();render();schedAlarm();showToast('저장됐어요 ✓');
+  // 처음 연결했으면 바로 업로드 시도
+  if(sbChanged&&sbU&&sbK)syncToCloud();
 }
+
+// 클라우드에서 수동으로 불러오기 (다른 기기 데이터 가져올 때)
+async function manualLoad(){
+  const sbU=document.getElementById('sSbUrl').value.trim().replace(/\/+$/,'');
+  const sbK=document.getElementById('sSbKey').value.trim();
+  if(!sbU||!sbK){showToast('먼저 Supabase URL과 키를 입력해주세요');return;}
+  S.supabaseUrl=sbU; S.supabaseKey=sbK; save();
+  if(!confirm('클라우드 데이터로 덮어쓸까요? 현재 기기의 데이터는 사라질 수 있어요.'))return;
+  const ok=await loadFromCloud();
+  if(ok){render();showToast('클라우드에서 불러왔어요 ✓');}
+  else showToast('클라우드에 저장된 데이터가 없어요');
+}
+
 function resetData(){if(!confirm('이번 달 지출 내역을 모두 삭제할까요?'))return;S.expenses=[];S.lastPace=null;save();render();showToast('초기화됐어요');}
 
 let aTimer=null;
@@ -1078,6 +1186,14 @@ function showToast(msg){const el=document.getElementById('toast');el.textContent
 
 render();
 if('Notification'in window&&Notification.permission==='granted')schedAlarm();
+
+// 앱 시작 시 클라우드에 더 최신 데이터가 있으면 불러오기
+(async function initCloudSync(){
+  if(S.supabaseUrl&&S.supabaseKey){
+    const ok=await loadFromCloud();
+    if(ok)render();
+  }
+})();
 </script>
 </body>
 </html>
