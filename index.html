@@ -75,11 +75,30 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 .ocr-row{display:flex;align-items:center;justify-content:space-between;background:var(--bg);border-radius:var(--r-xs);padding:11px 13px;margin-bottom:7px;}
 .ocr-bank{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--text2);}
 .ocr-inp{background:transparent;border:none;color:var(--text);font-size:15px;font-weight:800;width:140px;text-align:right;outline:none;font-family:inherit;}
+.masked{-webkit-text-security:disc;}
+.eye-btn{position:absolute;right:24px;top:50%;transform:translateY(-50%);background:transparent;border:none;font-size:15px;cursor:pointer;opacity:0.55;padding:4px;}
 .cap-item{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--border);}
 .cap-item:last-child{border-bottom:none;}
 .cap-thumb{width:48px;height:48px;border-radius:var(--r-xs);object-fit:cover;background:var(--bg);}
 .cap-date{font-size:13px;font-weight:700;}
 .cap-amts{font-size:11px;color:var(--text2);margin-top:2px;}
+.cap-month{border-bottom:1px solid var(--border);}
+.cap-month:last-child{border-bottom:none;}
+.cap-mhead{display:flex;justify-content:space-between;align-items:center;padding:14px 2px;cursor:pointer;font-weight:800;font-size:15px;}
+.cap-mcount{font-size:12px;color:var(--text2);font-weight:600;}
+.cap-mbody{padding:0 0 6px 4px;}
+.cap-day{margin-bottom:4px;}
+.cap-dhead{display:flex;justify-content:space-between;align-items:center;padding:9px 2px;cursor:pointer;font-size:13px;font-weight:700;color:var(--text2);}
+.cap-dcount{font-size:11px;color:var(--text3);font-weight:600;}
+.cap-dbody{flex-wrap:wrap;gap:8px;padding:4px 0 12px;}
+.cap-cell{position:relative;width:72px;}
+.cap-cell img{width:72px;height:72px;object-fit:cover;border-radius:8px;background:var(--bg);cursor:pointer;display:block;}
+.cap-cell-t{font-size:10px;color:var(--text3);text-align:center;margin-top:3px;}
+.cap-del{position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;background:rgba(0,0,0,0.55);color:#fff;border:none;font-size:13px;line-height:1;cursor:pointer;padding:0;}
+.lightbox{position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:999;display:flex;align-items:center;justify-content:center;padding:20px;}
+.lb-inner{max-width:100%;max-height:100%;text-align:center;}
+.lb-inner img{max-width:100%;max-height:80vh;border-radius:10px;}
+.lb-info{color:#fff;font-size:12px;margin-top:12px;line-height:1.5;}
 .amt-wrap{display:flex;align-items:center;background:var(--bg);border-radius:var(--r-sm);padding:13px 15px;gap:6px;margin-bottom:11px;}
 .amt-pfx{font-size:20px;font-weight:900;color:var(--text3);}
 .amt-inp{background:transparent;border:none;color:var(--text);font-size:24px;font-weight:900;flex:1;outline:none;font-family:inherit;}
@@ -164,6 +183,8 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 .fx-info{flex:1;}
 .fx-name{font-size:14px;font-weight:700;}
 .fx-meta{font-size:11px;color:var(--text3);margin-top:2px;}
+.fx-date{color:var(--blue);cursor:pointer;}
+.fx-pencil{font-size:10px;opacity:0.8;}
 .fx-amt{font-size:14px;font-weight:800;color:var(--text);}
 .fx-add-row{display:flex;gap:8px;margin-bottom:10px;}
 .fx-inp{background:var(--bg);border:1.5px solid var(--border);border-radius:var(--r-xs);padding:10px 12px;font-size:13px;font-family:inherit;color:var(--text);outline:none;}
@@ -299,7 +320,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
     <div class="modal-title" id="memoModalTitle">메모</div>
     <div style="display:flex;align-items:center;background:var(--bg);border-radius:var(--r-xs);padding:11px 13px;gap:6px;margin-bottom:10px;">
       <span style="font-size:17px;font-weight:900;color:var(--text3)">₩</span>
-      <input type="text" id="memoAmt" inputmode="numeric" placeholder="금액 (선택)" oninput="onMoneyInput(this)" style="background:transparent;border:none;outline:none;font-size:18px;font-weight:800;flex:1;font-family:inherit;color:var(--text)"/>
+      <input type="text" id="memoAmt" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" inputmode="numeric" placeholder="금액 (선택)" oninput="onMoneyInput(this)" style="background:transparent;border:none;outline:none;font-size:18px;font-weight:800;flex:1;font-family:inherit;color:var(--text)"/>
     </div>
     <textarea class="modal-ta" id="memoInput" placeholder="이 날의 메모를 남겨보세요"></textarea>
     <div class="modal-btns">
@@ -333,8 +354,8 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
   <div class="card">
     <div class="card-title">고정지출 추가</div>
     <div class="fx-add-row">
-      <input class="fx-inp" type="text" id="fxName" placeholder="카드/항목명 (예: 넷플릭스)" style="flex:2"/>
-      <input class="fx-inp" type="number" id="fxAmt" placeholder="금액" inputmode="numeric" style="flex:1"/>
+      <input class="fx-inp" type="text" id="fxName" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="카드/항목명 (예: 넷플릭스)" style="flex:2"/>
+      <input class="fx-inp" type="text" id="fxAmt" placeholder="금액" inputmode="numeric" oninput="onMoneyInput(this)" autocomplete="off" autocorrect="off" autocapitalize="off" style="flex:1"/>
     </div>
     <button class="btn btn-primary" onclick="addFixed()">추가하기</button>
   </div>
@@ -366,7 +387,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
       <div class="cb ai">안녕하세요! 지출 관련해서 궁금한 거 뭐든 물어보세요 😊</div>
     </div>
     <div class="cinp-wrap">
-      <input class="cinp" type="text" id="chatInp" placeholder="질문해보세요..." onkeydown="if(event.key==='Enter')sendChat()"/>
+      <input class="cinp" type="text" id="chatInp" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="질문해보세요..." onkeydown="if(event.key==='Enter')sendChat()"/>
       <button class="csend" onclick="sendChat()">➤</button>
     </div>
   </div>
@@ -386,8 +407,8 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 <div id="tab-settings" class="sec hidden">
   <div class="sgt">예산 설정</div>
   <div class="sg">
-    <div class="sr"><div><div class="slbl">월 예산</div><div class="sdesc">한 달 총 예산</div></div><input type="text" class="sinp" id="sBudget" placeholder="700,000" inputmode="numeric" oninput="onMoneyInput(this)"/></div>
-    <div class="sr"><div><div class="slbl">주간 예산</div><div class="sdesc">일주일 쓸 금액 (월~일)</div></div><input type="text" class="sinp" id="sWeekly" placeholder="200,000" inputmode="numeric" oninput="onMoneyInput(this)"/></div>
+    <div class="sr"><div><div class="slbl">월 예산</div><div class="sdesc">한 달 총 예산</div></div><input type="text" class="sinp" id="sBudget" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="700,000" inputmode="numeric" oninput="onMoneyInput(this)"/></div>
+    <div class="sr"><div><div class="slbl">주간 예산</div><div class="sdesc">일주일 쓸 금액 (월~일)</div></div><input type="text" class="sinp" id="sWeekly" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="200,000" inputmode="numeric" oninput="onMoneyInput(this)"/></div>
     <div class="sr"><div><div class="slbl">예산 시작일</div><div class="sdesc">월급 받는 날</div></div><input type="date" class="sinp" id="sStart"/></div>
     <div class="sr"><div><div class="slbl">예산 종료일</div><div class="sdesc">다음 월급 전날</div></div><input type="date" class="sinp" id="sEnd"/></div>
   </div>
@@ -400,17 +421,17 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
   <div class="sgt">API 설정</div>
   <div class="sg">
     <div class="sr"><div><div class="slbl">Google Vision API 키</div><div class="sdesc">이미지 잔액 인식용</div></div></div>
-    <div style="padding:0 18px 14px;"><input type="text" class="sinp sinp-full" id="sVision" placeholder="AIza..."/></div>
+    <div style="padding:0 18px 14px;position:relative;"><input type="text" class="sinp sinp-full masked" id="sVision" placeholder="AIza..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore data-form-type="other"/><button type="button" class="eye-btn" onclick="toggleEye('sVision',this)">👁</button></div>
     <div class="sr"><div><div class="slbl">Gemini API 키</div><div class="sdesc">AI 분석 기능용 (무료)</div></div></div>
-    <div style="padding:0 18px 14px;"><input type="password" class="sinp sinp-full" id="sClaude" placeholder="AIza..."/></div>
+    <div style="padding:0 18px 14px;position:relative;"><input type="text" class="sinp sinp-full masked" id="sClaude" placeholder="AIza..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore data-form-type="other"/><button type="button" class="eye-btn" onclick="toggleEye('sClaude',this)">👁</button></div>
   </div>
 
   <div class="sgt">클라우드 저장 (Supabase)</div>
   <div class="sg">
     <div class="sr"><div><div class="slbl">Supabase URL</div><div class="sdesc">데이터 영구 저장용</div></div></div>
-    <div style="padding:0 18px 14px;"><input type="text" class="sinp sinp-full" id="sSbUrl" placeholder="https://xxxx.supabase.co"/></div>
+    <div style="padding:0 18px 14px;"><input type="text" class="sinp sinp-full" id="sSbUrl" placeholder="https://xxxx.supabase.co" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/></div>
     <div class="sr"><div><div class="slbl">anon 키</div><div class="sdesc">eyJ... 로 시작하는 키</div></div></div>
-    <div style="padding:0 18px 14px;"><input type="password" class="sinp sinp-full" id="sSbKey" placeholder="eyJ..."/></div>
+    <div style="padding:0 18px 14px;position:relative;"><input type="text" class="sinp sinp-full masked" id="sSbKey" placeholder="eyJ..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore data-form-type="other"/><button type="button" class="eye-btn" onclick="toggleEye('sSbKey',this)">👁</button></div>
     <div class="sr">
       <div><div class="slbl">클라우드에서 불러오기</div><div class="sdesc">다른 기기 데이터 가져오기</div></div>
       <button class="btn btn-sm" onclick="manualLoad()" style="background:var(--bg);color:var(--text2)">불러오기</button>
@@ -682,7 +703,8 @@ function render(){
   if(S.budgetStart&&S.budgetEnd){
     const diff=spent-shouldSpend;
     const status=diff<=0?`<b style="color:var(--green)">${won(Math.abs(diff))} 여유</b>`:`<b style="color:var(--red)">${won(diff)} 초과</b>`;
-    document.getElementById('mBaseline').innerHTML=`${mTotal}일 중 ${mElapsed}일 경과 · 지금쯤 <b>${won(shouldSpend)}</b> 써야 정상 (${status})`;
+    const shouldRemain=Math.max(0,eff-shouldSpend);
+    document.getElementById('mBaseline').innerHTML=`${mTotal}일 중 ${mElapsed}일 경과 · 지금쯤 <b>${won(shouldSpend)}</b> 써야 정상 (${status})<br>📍 지금쯤 <b>${won(shouldRemain)}</b> 남아있어야 정상 (현재 ${won(Math.max(0,remain))})`;
   } else {
     document.getElementById('mBaseline').innerHTML='설정에서 예산 기간을 입력하면 기준선이 표시돼요';
   }
@@ -751,7 +773,8 @@ function render(){
   if(wBudget>0&&ws){
     const wdiff=wSpentVal-wShould;
     const wstat=wdiff<=0?`<b style="color:var(--green)">${won(Math.abs(wdiff))} 여유</b>`:`<b style="color:var(--red)">${won(wdiff)} 초과</b>`;
-    document.getElementById('wBaseline').innerHTML=`이번 주 ${wInfo.elapsed}일째 · 지금쯤 <b>${won(wShould)}</b> 써야 정상 (${wstat})`;
+    const wShouldRemain=Math.max(0,wBudget-wShould);
+    document.getElementById('wBaseline').innerHTML=`이번 주 ${wInfo.elapsed}일째 · 지금쯤 <b>${won(wShould)}</b> 써야 정상 (${wstat})<br>📍 지금쯤 <b>${won(wShouldRemain)}</b> 남아있어야 정상 (현재 ${won(Math.max(0,wRemain))})`;
   } else if(wBudget<=0){
     document.getElementById('wBaseline').innerHTML='설정에서 주간 예산을 입력해주세요';
   } else {
@@ -887,7 +910,7 @@ function checkMonthReset(){
 
 function addFixed(){
   const name=document.getElementById('fxName').value.trim();
-  const amt=parseInt(document.getElementById('fxAmt').value);
+  const amt=parseInt(document.getElementById('fxAmt').value.replace(/[^0-9]/g,''));
   if(!name){showToast('항목명을 입력해주세요');return;}
   if(!amt||amt<=0){showToast('금액을 입력해주세요');return;}
   S.fixed.push({id:Date.now().toString(),name,amount:amt,paid:false,paidDate:''});
@@ -901,6 +924,29 @@ function toggleFixed(id){
   f.paid=!f.paid;
   f.paidDate=f.paid?toStr():'';
   save();renderFixed();render();
+}
+
+// 체크된 고정지출의 빠져나간 날짜 수정 (연필 클릭 → 달력)
+function editFixedDate(id){
+  const f=S.fixed.find(x=>x.id===id);
+  if(!f||!f.paid)return;
+  const inp=document.createElement('input');
+  inp.type='date';
+  inp.value=f.paidDate||toStr();
+  inp.max=toStr();
+  inp.style.cssText='position:fixed;left:50%;top:50%;opacity:0;width:1px;height:1px;pointer-events:none;';
+  document.body.appendChild(inp);
+  let done=false;
+  const cleanup=()=>{if(!done){done=true;if(inp.parentNode)inp.parentNode.removeChild(inp);}};
+  inp.addEventListener('change',()=>{
+    if(inp.value){f.paidDate=inp.value;save();renderFixed();render();showToast('빠져나간 날짜를 수정했어요 ✓');}
+    cleanup();
+  });
+  inp.addEventListener('blur',()=>setTimeout(cleanup,250));
+  setTimeout(()=>{
+    if(inp.showPicker){try{inp.showPicker();return;}catch(e){}}
+    inp.focus();inp.click();
+  },0);
 }
 
 function delFixed(id){
@@ -924,7 +970,7 @@ function renderFixed(){
       <div class="fx-check${f.paid?' on':''}" onclick="toggleFixed('${f.id}')">${f.paid?'✓':''}</div>
       <div class="fx-info">
         <div class="fx-name">${escapeHtml(f.name)}</div>
-        <div class="fx-meta">${f.paid&&f.paidDate?`✅ ${f.paidDate.slice(5).replace('-','/')} 빠져나감`:'아직 안 빠져나감'}</div>
+        <div class="fx-meta">${f.paid&&f.paidDate?`✅ <span class="fx-date" onclick="editFixedDate('${f.id}')">${f.paidDate.slice(5).replace('-','/')} 빠져나감 <span class="fx-pencil">✏️</span></span>`:'아직 안 빠져나감'}</div>
       </div>
       <div style="display:flex;align-items:center;gap:8px">
         <div class="fx-amt">${won(f.amount)}</div>
@@ -972,8 +1018,9 @@ async function handleCap(ev){
         showManual();return;
       }
       const bals=parseText(text);
-      S.captures.unshift({id:Date.now().toString(),date:toStr(),time:new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}),thumb:dataUrl,balances:{...bals}});
-      if(S.captures.length>30)S.captures=S.captures.slice(0,30);
+      const thumb=await makeThumb(dataUrl);
+      S.captures.unshift({id:Date.now().toString(),date:toStr(),time:new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}),thumb,balances:{...bals}});
+      pruneCaptures();
       save();
       showOCRRes(bals);document.getElementById('applyBtn').classList.remove('hidden');
     }catch(err){
@@ -1004,8 +1051,9 @@ async function autoProcessSharedImage(dataUrl){
     if(!text)throw new Error('글자 인식 실패');
     const bals=parseText(text);
     // 캡처 기록 저장
-    S.captures.unshift({id:Date.now().toString(),date:toStr(),time:new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}),thumb:dataUrl,balances:{...bals}});
-    if(S.captures.length>30)S.captures=S.captures.slice(0,30);
+    const thumb=await makeThumb(dataUrl);
+    S.captures.unshift({id:Date.now().toString(),date:toStr(),time:new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}),thumb,balances:{...bals}});
+    pruneCaptures();
     // 완전 자동: 바로 잔액 반영
     S.balances={kakao:bals.kakao||0,kb:bals.kb||0,shinhan:bals.shinhan||0};
     save();render();
@@ -1122,11 +1170,11 @@ function onOcrInput(el){
 }
 function showOCRRes(v){
   const banks=[{id:'kakao',n:'카카오뱅크',c:'#FFEB00'},{id:'kb',n:'국민은행',c:'#FFB800'},{id:'shinhan',n:'신한은행',c:'#A0BEFF'}];
-  document.getElementById('ocrRes').innerHTML=`<div style="font-size:12px;color:var(--text2);margin-bottom:8px">인식된 잔액이에요. 틀렸으면 수정해주세요.</div>`+banks.map(b=>`<div class="ocr-row"><div class="ocr-bank"><div style="width:7px;height:7px;border-radius:50%;background:${b.c}"></div>${b.n}</div><input class="ocr-inp" type="text" inputmode="numeric" id="ocr-${b.id}" data-raw="${v[b.id]}" value="${fmtComma(v[b.id])}" oninput="onOcrInput(this)"/></div>`).join('');
+  document.getElementById('ocrRes').innerHTML=`<div style="font-size:12px;color:var(--text2);margin-bottom:8px">인식된 잔액이에요. 틀렸으면 수정해주세요.</div>`+banks.map(b=>`<div class="ocr-row"><div class="ocr-bank"><div style="width:7px;height:7px;border-radius:50%;background:${b.c}"></div>${b.n}</div><input class="ocr-inp" type="text" inputmode="numeric" autocomplete="off" autocorrect="off" id="ocr-${b.id}" data-raw="${v[b.id]}" value="${fmtComma(v[b.id])}" oninput="onOcrInput(this)"/></div>`).join('');
 }
 function showManual(){
   const banks=[{id:'kakao',n:'카카오뱅크',c:'#FFEB00'},{id:'kb',n:'국민은행',c:'#FFB800'},{id:'shinhan',n:'신한은행',c:'#A0BEFF'}];
-  document.getElementById('ocrRes').innerHTML=`<div style="font-size:12px;color:var(--text2);margin-bottom:8px">잔액을 직접 입력해주세요</div>`+banks.map(b=>`<div class="ocr-row"><div class="ocr-bank"><div style="width:7px;height:7px;border-radius:50%;background:${b.c}"></div>${b.n}</div><input class="ocr-inp" type="text" inputmode="numeric" id="ocr-${b.id}" data-raw="0" value="" placeholder="0" oninput="onOcrInput(this)"/></div>`).join('');
+  document.getElementById('ocrRes').innerHTML=`<div style="font-size:12px;color:var(--text2);margin-bottom:8px">잔액을 직접 입력해주세요</div>`+banks.map(b=>`<div class="ocr-row"><div class="ocr-bank"><div style="width:7px;height:7px;border-radius:50%;background:${b.c}"></div>${b.n}</div><input class="ocr-inp" type="text" inputmode="numeric" autocomplete="off" autocorrect="off" id="ocr-${b.id}" data-raw="0" value="" placeholder="0" oninput="onOcrInput(this)"/></div>`).join('');
   document.getElementById('applyBtn').classList.remove('hidden');
 }
 function applyBal(){
@@ -1135,10 +1183,74 @@ function applyBal(){
   save();render();showToast('잔액이 반영됐어요 ✓');showTab('home');
 }
 
+// 캡처 썸네일 축소 (원본 저장은 용량 폭증 → 가로 180px JPEG로)
+function makeThumb(dataUrl,maxW=180){
+  return new Promise(resolve=>{
+    const img=new Image();
+    img.onload=()=>{
+      try{
+        const scale=Math.min(1,maxW/img.width);
+        const w=Math.max(1,Math.round(img.width*scale)),h=Math.max(1,Math.round(img.height*scale));
+        const cv=document.createElement('canvas');cv.width=w;cv.height=h;
+        cv.getContext('2d').drawImage(img,0,0,w,h);
+        resolve(cv.toDataURL('image/jpeg',0.6));
+      }catch(e){resolve(dataUrl);}
+    };
+    img.onerror=()=>resolve(dataUrl);
+    img.src=dataUrl;
+  });
+}
+// 3개월보다 오래된 캡처는 정리 (+ 안전 상한)
+function pruneCaptures(){
+  const cut=new Date();cut.setMonth(cut.getMonth()-3);
+  const cutStr=cut.toISOString().slice(0,10);
+  S.captures=(S.captures||[]).filter(c=>c.date>=cutStr);
+  if(S.captures.length>200)S.captures=S.captures.slice(0,200);
+}
+
+const WD=['일','월','화','수','목','금','토'];
+let capOpen={}; // 펼침 상태 (저장 안 함)
+function toggleCapMonth(k){capOpen[k]=!capOpen[k];renderCaps();}
+
 function renderCaps(){
   const el=document.getElementById('capList');
+  if(!el)return;
   if(!S.captures.length){el.innerHTML='<div style="text-align:center;color:var(--text3);padding:22px 0;font-size:13px">아직 캡처 기록이 없어요</div>';return;}
-  el.innerHTML=S.captures.map(c=>`<div class="cap-item"><img class="cap-thumb" src="${c.thumb}"/><div style="flex:1"><div class="cap-date">${c.date} ${c.time||''}</div><div class="cap-amts">카카오 ${won(c.balances.kakao)} · 국민 ${won(c.balances.kb)} · 신한 ${won(c.balances.shinhan)}</div></div><button onclick="delCap('${c.id}')" style="background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:18px">×</button></div>`).join('');
+  // 월별 묶기
+  const byMonth={};
+  S.captures.forEach(c=>{const m=(c.date||'').slice(0,7);(byMonth[m]=byMonth[m]||[]).push(c);});
+  const months=Object.keys(byMonth).sort((a,b)=>b.localeCompare(a));
+  // 첫 렌더면 최신 달은 펼쳐두기
+  if(!Object.keys(capOpen).length&&months[0])capOpen[months[0]]=true;
+  el.innerHTML=months.map(m=>{
+    const caps=byMonth[m];
+    const [y,mo]=m.split('-');
+    const mOpen=!!capOpen[m];
+    const byDate={};
+    caps.forEach(c=>{(byDate[c.date]=byDate[c.date]||[]).push(c);});
+    const dates=Object.keys(byDate).sort((a,b)=>b.localeCompare(a));
+    const body=dates.map(d=>{
+      const dOpen=!!capOpen[d];
+      const wd=WD[new Date(d).getDay()];
+      const cells=byDate[d].map(c=>`<div class="cap-cell"><img src="${c.thumb}" onclick="lightbox('${c.id}')"/><div class="cap-cell-t">${c.time||''}</div><button class="cap-del" onclick="event.stopPropagation();delCap('${c.id}')">×</button></div>`).join('');
+      return `<div class="cap-day">
+        <div class="cap-dhead" onclick="toggleCapMonth('${d}')"><span>${parseInt(d.slice(5,7))}/${parseInt(d.slice(8,10))} (${wd})</span><span class="cap-dcount">${byDate[d].length}장 ${dOpen?'▾':'▸'}</span></div>
+        <div class="cap-dbody" style="display:${dOpen?'flex':'none'}">${cells}</div>
+      </div>`;
+    }).join('');
+    return `<div class="cap-month">
+      <div class="cap-mhead" onclick="toggleCapMonth('${m}')"><span>${parseInt(y)}년 ${parseInt(mo)}월</span><span class="cap-mcount">${caps.length}장 ${mOpen?'▾':'▸'}</span></div>
+      <div class="cap-mbody" style="display:${mOpen?'block':'none'}">${body}</div>
+    </div>`;
+  }).join('');
+}
+function lightbox(id){
+  const c=S.captures.find(x=>x.id===id);if(!c)return;
+  const d=document.createElement('div');
+  d.className='lightbox';
+  d.onclick=()=>d.remove();
+  d.innerHTML=`<div class="lb-inner"><img src="${c.thumb}"/><div class="lb-info">${c.date} ${c.time||''} · 카카오 ${won(c.balances.kakao)} · 국민 ${won(c.balances.kb)} · 신한 ${won(c.balances.shinhan)}</div></div>`;
+  document.body.appendChild(d);
 }
 function delCap(id){S.captures=S.captures.filter(c=>c.id!==id);save();renderCaps();}
 
@@ -1168,6 +1280,15 @@ function buildCtx(){
 async function askAI(t){document.getElementById('chatInp').value=t;await sendChat();}
 
 // Gemini 호출 공용 함수 (단발성 프롬프트)
+// Gemini 에러를 사람이 읽을 수 있는 메시지로
+function geminiErr(status,raw){
+  if(status===429)return '무료 사용 한도를 잠깐 넘었어요. 1~2분 뒤 다시 시도해주세요 🙏';
+  if(status===400&&/API[_ ]?key|key not valid/i.test(raw))return 'API 키가 올바르지 않아요. 설정을 확인해주세요';
+  if(status===403)return 'API 키 권한 문제예요. 설정에서 키를 다시 확인해주세요';
+  if(status>=500)return '구글 서버가 잠시 불안정해요. 잠시 후 다시 시도해주세요';
+  return `오류(${status}): `+(raw||'').slice(0,80);
+}
+
 async function callGemini(systemPrompt, userText){
   if(!S.claudeKey)throw new Error('Gemini API 키가 없어요');
   const body={
@@ -1175,12 +1296,14 @@ async function callGemini(systemPrompt, userText){
     contents:[{role:'user',parts:[{text:userText}]}],
     generationConfig:{maxOutputTokens:1500}
   };
-  const res=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key='+S.claudeKey,{
-    method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)
-  });
-  if(!res.ok){const err=await res.text();throw new Error(err);}
-  const data=await res.json();
-  return data.candidates?.[0]?.content?.parts?.[0]?.text||'응답을 받지 못했어요.';
+  const url='https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key='+S.claudeKey;
+  for(let attempt=0;attempt<2;attempt++){
+    const res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(res.ok){const data=await res.json();return data.candidates?.[0]?.content?.parts?.[0]?.text||'응답을 받지 못했어요.';}
+    const raw=await res.text();
+    if(res.status===429&&attempt===0){await new Promise(r=>setTimeout(r,2500));continue;} // 한도 초과면 한 번 더
+    throw new Error(geminiErr(res.status,raw));
+  }
 }
 
 async function sendChat(){
@@ -1205,7 +1328,7 @@ async function sendChat(){
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify(body)
     });
-    if(!res.ok){const err=await res.text();throw new Error(err);}
+    if(!res.ok){const raw=await res.text();throw new Error(geminiErr(res.status,raw));}
     const data=await res.json();
     const reply=data.candidates?.[0]?.content?.parts?.[0]?.text||'응답을 받지 못했어요.';
     el.textContent=reply;chatHist.push({role:'assistant',content:reply});
@@ -1243,7 +1366,7 @@ async function genTodayComment(force){
     save();renderComments();
     if(force)showToast('오늘 코멘트가 생성됐어요 ✓');
   }catch(e){
-    if(force)showToast('생성 실패: '+e.message.slice(0,40));
+    if(force)showToast(e.message.slice(0,60));
   }
   if(btn){btn.textContent='오늘 코멘트 생성';btn.disabled=false;}
 }
@@ -1264,6 +1387,7 @@ function renderComments(){
 }
 
 // 금액 입력칸 콤마 자동 포맷
+function toggleEye(id,btn){const el=document.getElementById(id);el.classList.toggle("masked");btn.style.opacity=el.classList.contains("masked")?"0.55":"1";}
 function onMoneyInput(el){
   const raw=el.value.replace(/[^0-9]/g,'');
   el.value=raw?parseInt(raw).toLocaleString('ko-KR'):'';
