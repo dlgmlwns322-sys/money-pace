@@ -33,6 +33,25 @@ function daysBetween(a: string, b: string) {
   return Math.round((Date.UTC(by, bm - 1, bd) - Date.UTC(ay, am - 1, ad)) / 86400000);
 }
 
+// 월요일 시작 기준 이번 주의 시작일(YYYY-MM-DD)
+function weekStartOf(dateStr: string) {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay(); // 0=일,1=월...
+  const offsetToMon = dow === 0 ? 6 : dow - 1;
+  const wd = new Date(Date.UTC(y, m - 1, d));
+  wd.setUTCDate(wd.getUTCDate() - offsetToMon);
+  return wd.toISOString().slice(0, 10);
+}
+
+// 클라이언트 index.html의 getMemos()와 동일: 그 날의 메모를 항상 카드 배열로 반환 (옛날 형식 호환)
+function getMemos(S: any, dateStr: string): any[] {
+  const m = (S.memos || {})[dateStr];
+  if (!m) return [];
+  if (Array.isArray(m)) return m;
+  if (typeof m === "string") return m ? [{ id: "legacy", category: "", amt: 0, text: m }] : [];
+  return (m.amt > 0 || m.text) ? [{ id: "legacy", category: "", amt: m.amt || 0, text: m.text || "" }] : [];
+}
+
 // 클라이언트 index.html의 buildCtx()와 동일한 로직을 서버에서 재현
 function buildCtx(S: any, todayStr: string) {
   const fixedTot = (S.fixed || []).reduce((a: number, f: any) => a + (f.amount || 0), 0);
@@ -50,20 +69,23 @@ function buildCtx(S: any, todayStr: string) {
   const yd = new Date(`${todayStr}T00:00:00Z`);
   yd.setUTCDate(yd.getUTCDate() - 1);
   const ydStr = yd.toISOString().slice(0, 10);
-  const ydSpent = (S.expenses || []).filter((e: any) => e.date === ydStr)
-    .reduce((a: number, e: any) => a + (e.amount || 0), 0);
+  const ydSpent = getMemos(S, ydStr).reduce((a: number, c: any) => a + (c.amt || 0), 0);
 
   const fixedList = (S.fixed || []).map((f: any) =>
     `${f.name} ${won(f.amount)}${f.paid ? "(빠짐 " + f.paidDate + ")" : ""}`
   ).join(", ") || "없음";
 
-  const memoList = Object.entries(S.memos || {})
-    .sort((a: any, b: any) => b[0].localeCompare(a[0])).slice(0, 7)
-    .map(([d, m]: any) => {
-      const mm = typeof m === "string" ? { amt: 0, text: m } : m;
-      const amtPart = mm.amt > 0 ? won(mm.amt) + " " : "";
-      return `${d}: ${amtPart}${mm.text || ""}`.trim();
-    }).join(" / ") || "없음";
+  // 이번 주(월~오늘) 지출 메모 카드 전체 (카테고리+금액+내용)
+  const weekStartStr = weekStartOf(todayStr);
+  const weekCards = Object.entries(S.memos || {})
+    .filter(([d]) => d >= weekStartStr && d <= todayStr)
+    .flatMap(([d]) => getMemos(S, d).map((c: any) => ({ ...c, date: d })))
+    .sort((a: any, b: any) => b.date.localeCompare(a.date));
+  const memoList = weekCards.map((c: any) => {
+    const amtPart = c.amt > 0 ? won(c.amt) + " " : "";
+    const catPart = c.category ? "[" + c.category + "] " : "";
+    return `${c.date.slice(5)} ${catPart}${amtPart}${c.text || ""}`.trim();
+  }).join(" / ") || "없음";
 
   return `[재무 현황]
 - 예산기간: ${S.budgetStart}~${S.budgetEnd}(총${total}일,경과${elapsed}일,남은${remaining}일)
@@ -71,19 +93,25 @@ function buildCtx(S: any, todayStr: string) {
 - 이번달 지출: ${won(spent)} (소진율 ${Math.round(spent / Math.max(eff, 1) * 100)}%)
 - 남은예산: ${won(eff - spent)}, 오늘 쓸 수 있는 돈: ${won(Math.floor(Math.max(0, eff - spent) / remaining))}
 - 고정지출 목록: ${fixedList}
-- 최근 메모: ${memoList}
+- 이번 주 지출 메모: ${memoList}
 - 총잔액: ${won(tb)}, 어제지출: ${won(ydSpent)}`;
 }
 
 async function callGemini(ctx: string) {
-  const sys = `당신은 따뜻하고 현실적인 개인 재무 코치예요. 아래 사용자의 오늘 재무 현황과 메모를 종합해서, 오늘 하루에 대한 짧은 코멘트를 작성하세요.
+  const sys = `당신은 따뜻하고 현실적인 개인 재무 코치예요. 아래 사용자의 재무 현황과 메모를 종합해서, 오늘을 위한 코멘트를 작성하세요.
+
+아래 항목을 줄바꿈해서 순서대로 짚어주세요 (각 1~2문장, 너무 길게 늘이지 말 것):
+1. 이번 달 소진율과 페이스 (좋은지 나쁜지, 남은 예산 포함)
+2. 어제 얼마 썼는지
+3. 오늘 쓸 수 있는 금액
+4. 이번 주 주요 소비 (메모에 특이사항·큰 지출 있으면 구체적으로 언급, 특별한 거 없으면 이 줄은 생략)
+5. 마지막 줄: 앞으로 어떻게 쓰면 좋을지 짧고 구체적인 조언 1가지
+
 규칙:
-- 3~4문장으로 짧게
-- 현재 소진율/페이스가 좋은지 나쁜지 먼저 짚기
-- 메모에 특이사항(큰 지출 등)이 있으면 언급
-- 마지막에 앞으로 어떻게 하면 좋을지 구체적 조언 1가지
+- 마크다운 기호(*, # 등) 쓰지 말고 순수 텍스트 + 줄바꿈만 사용
+- 데이터에 없는 내용은 추측해서 만들지 말 것
 - 친근한 반말체 살짝, 잔소리 느낌 없이 격려 위주
-- 이모지 1~2개 자연스럽게`;
+- 이모지는 전체에서 2~3개 이내로 자연스럽게`;
 
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,

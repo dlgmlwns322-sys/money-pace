@@ -318,14 +318,16 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 <div id="memoModal" class="modal-bg hidden">
   <div class="modal">
     <div class="modal-title" id="memoModalTitle">메모</div>
-    <div style="display:flex;align-items:center;background:var(--bg);border-radius:var(--r-xs);padding:11px 13px;gap:6px;margin-bottom:10px;">
-      <span style="font-size:17px;font-weight:900;color:var(--text3)">₩</span>
-      <input type="text" id="memoAmt" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" inputmode="numeric" placeholder="금액 (선택)" oninput="onMoneyInput(this)" style="background:transparent;border:none;outline:none;font-size:18px;font-weight:800;flex:1;font-family:inherit;color:var(--text)"/>
+    <div id="memoCardList" style="display:flex;flex-direction:column;gap:7px;margin-bottom:12px;max-height:240px;overflow-y:auto;"></div>
+    <div style="display:flex;align-items:center;background:var(--bg);border-radius:var(--r-xs);padding:11px 13px;gap:8px;margin-bottom:10px;">
+      <select id="memoCat" style="background:transparent;border:none;outline:none;font-size:14px;font-weight:700;font-family:inherit;color:var(--text);flex:0 0 auto;"></select>
+      <span style="color:var(--text3)">·</span>
+      <input type="text" id="memoAmt" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" inputmode="numeric" placeholder="금액 (선택)" oninput="onMoneyInput(this)" style="background:transparent;border:none;outline:none;font-size:16px;font-weight:800;flex:1;min-width:0;font-family:inherit;color:var(--text)"/>
     </div>
-    <textarea class="modal-ta" id="memoInput" placeholder="이 날의 메모를 남겨보세요"></textarea>
+    <textarea class="modal-ta" id="memoInput" placeholder="메모 (선택)"></textarea>
     <div class="modal-btns">
-      <button class="btn btn-sm" onclick="closeMemo()" style="background:var(--bg);color:var(--text2);flex:1">취소</button>
-      <button class="btn btn-sm btn-primary" onclick="saveMemo()" style="flex:1">저장</button>
+      <button class="btn btn-sm" onclick="closeMemo()" style="background:var(--bg);color:var(--text2);flex:1">닫기</button>
+      <button class="btn btn-sm btn-primary" onclick="addMemoCard()" style="flex:1" id="memoSaveBtn">카드 추가</button>
     </div>
   </div>
 </div>
@@ -475,7 +477,7 @@ const DEFICIT=[
   {max:999,txt:'지금 당장 줄여야 해요',em:'🚨',bg:'var(--red-light)',cl:'var(--red)'},
 ];
 
-function defState(){return{budget:700000,weeklyBudget:200000,budgetStart:'',budgetEnd:'',weekStartDay:1,alarmTime:'09:00',balances:{kakao:0,kb:0,shinhan:0},expenses:[],captures:[],memos:{},fixed:[],fixedMonth:'',comments:{},lastPace:null,visionKey:'',claudeKey:'',supabaseUrl:'',supabaseKey:''};}
+function defState(){return{budget:700000,weeklyBudget:200000,budgetStart:'',budgetEnd:'',weekStartDay:1,alarmTime:'09:00',balances:{kakao:0,kb:0,shinhan:0},expenses:[],captures:[],memos:{},fixed:[],comments:{},lastPace:null,visionKey:'',claudeKey:'',supabaseUrl:'',supabaseKey:''};}
 let S=(()=>{try{const r=localStorage.getItem('mp_v6');if(r)return{...defState(),...JSON.parse(r)};}catch(e){}return defState();})();
 
 // ── 저장: localStorage(즉시) + Supabase(백그라운드 백업) ──
@@ -572,7 +574,7 @@ const totSpent=()=>{
   return Math.max(0, effectiveBudget() - tb);
 };
 const todaySpent=()=>S.expenses.filter(e=>e.date===toStr()).reduce((a,e)=>a+e.amount,0);
-const ydSpent=()=>{const d=new Date();d.setDate(d.getDate()-1);const yd=d.toISOString().slice(0,10);return S.expenses.filter(e=>e.date===yd).reduce((a,e)=>a+e.amount,0);};
+const ydSpent=()=>{const d=new Date();d.setDate(d.getDate()-1);const yd=d.toISOString().slice(0,10);return getMemos(yd).reduce((a,c)=>a+(c.amt||0),0);};
 const totBal=()=>Object.values(S.balances).reduce((a,b)=>a+b,0);
 
 // ── 주간 계산 ──────────────────────────────
@@ -845,15 +847,18 @@ function renderCalendar(){
   for(let i=0;i<firstDay;i++)html+='<div class="cal-cell empty"></div>';
   for(let d=1;d<=daysInMonth;d++){
     const dateStr=`${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-    const memo=getMemo(dateStr); // {amt, text} 또는 null
+    const cards=getMemos(dateStr); // 그 날의 메모 카드 배열
     const isToday=dateStr===todayS;
     const dow=new Date(calYear,calMonth,d).getDay();
     const dayCls=dow===0?'cal-sun':dow===6?'cal-sat':'';
     let inner='';
-    if(memo){
+    if(cards.length){
       inner+='<div class="cal-dot"></div>';
-      if(memo.amt>0)inner+=`<div class="cal-amt">${memo.amt.toLocaleString('ko-KR')}</div>`;
-      if(memo.text)inner+=`<div class="cal-memo">${escapeHtml(memo.text)}</div>`;
+      const totalAmt=cards.reduce((a,c)=>a+(c.amt||0),0);
+      if(totalAmt>0)inner+=`<div class="cal-amt">${totalAmt.toLocaleString('ko-KR')}</div>`;
+      const firstText=(cards.find(c=>c.text)||{}).text;
+      if(cards.length>1)inner+=`<div class="cal-memo">${cards.length}건${firstText?' · '+escapeHtml(firstText):''}</div>`;
+      else if(firstText)inner+=`<div class="cal-memo">${escapeHtml(firstText)}</div>`;
     }
     html+=`<div class="cal-cell${isToday?' today':''}" onclick="openMemo('${dateStr}')">
       <div class="cal-day ${dayCls}">${d}</div>
@@ -863,51 +868,104 @@ function renderCalendar(){
   grid.innerHTML=html;
 }
 
-// 메모를 항상 {amt, text} 형태로 반환 (옛날 문자열 메모 호환)
-function getMemo(dateStr){
+const MEMO_CATS=['식비','카페/간식','교통','옷','생활용품','데이트','취미/문화','기타'];
+
+// 그 날의 메모를 항상 카드 배열로 반환 (옛날 문자열/단일객체 메모도 1장짜리 카드로 변환)
+function getMemos(dateStr){
   const m=S.memos[dateStr];
-  if(!m)return null;
-  if(typeof m==='string')return {amt:0, text:m};
-  return {amt:m.amt||0, text:m.text||''};
+  if(!m)return [];
+  if(Array.isArray(m))return m;
+  if(typeof m==='string')return m?[{id:'legacy',category:'',amt:0,text:m}]:[];
+  return (m.amt>0||m.text)?[{id:'legacy',category:'',amt:m.amt||0,text:m.text||''}]:[];
 }
 
 function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 
-// ═══ 메모 모달 ═══
+// ═══ 메모 모달 (날짜 1개 = 카드 여러 장) ═══
 let memoDate=null;
+let memoEditId=null; // 수정 중인 카드 id (null이면 새 카드 추가 모드)
+
 function openMemo(dateStr){
   memoDate=dateStr;
   const d=new Date(dateStr);
   document.getElementById('memoModalTitle').textContent=d.toLocaleDateString('ko-KR',{month:'long',day:'numeric',weekday:'short'})+' 메모';
-  const m=getMemo(dateStr);
-  document.getElementById('memoAmt').value=(m&&m.amt>0)?m.amt.toLocaleString('ko-KR'):'';
-  document.getElementById('memoInput').value=(m&&m.text)?m.text:'';
+  const sel=document.getElementById('memoCat');
+  sel.innerHTML=MEMO_CATS.map(c=>`<option value="${c}">${c}</option>`).join('');
+  resetMemoForm();
+  renderMemoCards();
   document.getElementById('memoModal').classList.remove('hidden');
 }
-function closeMemo(){document.getElementById('memoModal').classList.add('hidden');memoDate=null;}
-function saveMemo(){
+function closeMemo(){document.getElementById('memoModal').classList.add('hidden');memoDate=null;memoEditId=null;}
+
+function resetMemoForm(){
+  document.getElementById('memoCat').value=MEMO_CATS[0];
+  document.getElementById('memoAmt').value='';
+  document.getElementById('memoInput').value='';
+  memoEditId=null;
+  const btn=document.getElementById('memoSaveBtn');
+  if(btn)btn.textContent='카드 추가';
+}
+
+function renderMemoCards(){
+  const el=document.getElementById('memoCardList');
+  if(!el)return;
+  const cards=getMemos(memoDate);
+  if(!cards.length){
+    el.innerHTML='<div style="text-align:center;color:var(--text3);padding:8px 0;font-size:12px">아직 입력한 카드가 없어요</div>';
+    return;
+  }
+  el.innerHTML=cards.map(c=>`
+    <div style="display:flex;align-items:center;gap:8px;background:var(--bg);border-radius:var(--r-xs);padding:9px 11px;">
+      <div style="flex:1;min-width:0;cursor:pointer;" onclick="editMemoCard('${c.id}')">
+        <div style="font-size:11px;color:var(--text3);font-weight:700;">${c.category||'기타'}${c.amt>0?' · '+c.amt.toLocaleString('ko-KR')+'원':''}</div>
+        ${c.text?`<div style="font-size:13px;color:var(--text);margin-top:2px;">${escapeHtml(c.text)}</div>`:''}
+      </div>
+      <button type="button" onclick="delMemoCard('${c.id}')" style="background:none;border:none;color:var(--text3);font-size:15px;line-height:1;cursor:pointer;padding:4px;">✕</button>
+    </div>
+  `).join('');
+}
+
+function addMemoCard(){
   if(!memoDate)return;
+  const category=document.getElementById('memoCat').value;
   const amt=parseInt((document.getElementById('memoAmt').value||'').replace(/[^0-9]/g,''))||0;
   const text=document.getElementById('memoInput').value.trim();
-  if(amt>0||text)S.memos[memoDate]={amt,text};
+  if(amt<=0&&!text){showToast('금액이나 메모를 입력해주세요');return;}
+  let cards=getMemos(memoDate);
+  if(memoEditId){
+    cards=cards.map(c=>c.id===memoEditId?{...c,category,amt,text}:c);
+  }else{
+    cards=[...cards,{id:Date.now().toString()+Math.random().toString(36).slice(2,6),category,amt,text}];
+  }
+  S.memos[memoDate]=cards;
+  const wasEdit=!!memoEditId;
+  save();renderCalendar();renderMemoCards();resetMemoForm();
+  showToast(wasEdit?'카드가 수정됐어요 ✓':'카드가 추가됐어요 ✓');
+}
+
+function editMemoCard(id){
+  const c=getMemos(memoDate).find(x=>x.id===id);
+  if(!c)return;
+  memoEditId=id;
+  document.getElementById('memoCat').value=c.category||MEMO_CATS[0];
+  document.getElementById('memoAmt').value=c.amt>0?c.amt.toLocaleString('ko-KR'):'';
+  document.getElementById('memoInput').value=c.text||'';
+  const btn=document.getElementById('memoSaveBtn');
+  if(btn)btn.textContent='수정 완료';
+}
+
+function delMemoCard(id){
+  const cards=getMemos(memoDate).filter(c=>c.id!==id);
+  if(cards.length)S.memos[memoDate]=cards;
   else delete S.memos[memoDate];
-  save();renderCalendar();closeMemo();
-  showToast((amt>0||text)?'메모가 저장됐어요 ✓':'메모가 삭제됐어요');
+  if(memoEditId===id)resetMemoForm();
+  save();renderCalendar();renderMemoCards();
+  showToast('카드가 삭제됐어요');
 }
 
 // ═══ 고정지출 ═══
-function curMonthKey(){const n=new Date();return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}`;}
-
-function checkMonthReset(){
-  // 달이 바뀌면 모든 체크 해제
-  const mk=curMonthKey();
-  if(S.fixedMonth!==mk){
-    S.fixedMonth=mk;
-    S.fixed.forEach(f=>{f.paid=false;f.paidDate='';});
-    save();
-  }
-}
-
+// 예산기간이 달력상 매월 1일과 무관하게 사용자가 설정한 시작일~종료일 기준이라
+// 달이 바뀐다고 자동으로 체크 해제하지 않는다. 해제는 사용자가 직접 토글.
 function addFixed(){
   const name=document.getElementById('fxName').value.trim();
   const amt=parseInt(document.getElementById('fxAmt').value.replace(/[^0-9]/g,''));
@@ -955,7 +1013,6 @@ function delFixed(id){
 }
 
 function renderFixed(){
-  checkMonthReset();
   const el=document.getElementById('fxList');
   const mLabel=document.getElementById('fxMonthLabel');
   if(mLabel){const n=new Date();mLabel.textContent=`${n.getMonth()+1}월`;}
@@ -1260,11 +1317,15 @@ function buildCtx(){
   const eff=effectiveBudget();const fx=totFixed();
   const wInfo=getWeekInfo();const ws=getWeeklySpent();const wSpentVal=ws?ws.spent:0;
   const fixedList=(S.fixed||[]).map(f=>`${f.name} ${won(f.amount)}${f.paid?'(빠짐 '+f.paidDate+')':''}`).join(', ')||'없음';
-  // 최근 메모 7개 (금액+내용)
-  const memoList=Object.entries(S.memos||{}).sort((a,b)=>b[0].localeCompare(a[0])).slice(0,7).map(([d,m])=>{
-    const mm=(typeof m==='string')?{amt:0,text:m}:m;
-    const amtPart=mm.amt>0?won(mm.amt)+' ':'';
-    return `${d}: ${amtPart}${mm.text||''}`.trim();
+  // 이번 주(월~오늘) 지출 메모 카드 전체 (카테고리+금액+내용)
+  const weekCards=Object.entries(S.memos||{})
+    .filter(([d])=>d>=wInfo.weekStartStr&&d<=toStr())
+    .flatMap(([d])=>getMemos(d).map(c=>({...c,date:d})))
+    .sort((a,b)=>b.date.localeCompare(a.date));
+  const memoList=weekCards.map(c=>{
+    const amtPart=c.amt>0?won(c.amt)+' ':'';
+    const catPart=c.category?'['+c.category+'] ':'';
+    return `${c.date.slice(5)} ${catPart}${amtPart}${c.text||''}`.trim();
   }).join(' / ')||'없음';
   return`[재무 현황]
 - 예산기간: ${S.budgetStart}~${S.budgetEnd}(총${total}일,경과${elapsed}일,남은${remaining}일)
@@ -1274,7 +1335,7 @@ function buildCtx(){
 - 지금쯤 정상 지출액: ${won(Math.round(eff*(elapsed/total)))} / 월 페이스: ${pace.item.txt}
 - 주간예산: ${won(S.weeklyBudget)}, 이번주 지출: ${won(wSpentVal)} (${wInfo.elapsed}/7일)
 - 고정지출 목록: ${fixedList}
-- 최근 메모: ${memoList}
+- 이번 주 지출 메모: ${memoList}
 - 총잔액: ${won(totBal())}, 어제지출: ${won(ydSpent())}`;
 }
 async function askAI(t){document.getElementById('chatInp').value=t;await sendChat();}
@@ -1353,14 +1414,20 @@ async function genTodayComment(force){
   const btn=document.getElementById('genCmtBtn');
   if(btn){btn.textContent='생성 중...';btn.disabled=true;}
   try{
-    const sys=`당신은 따뜻하고 현실적인 개인 재무 코치예요. 아래 사용자의 오늘 재무 현황과 메모를 종합해서, 오늘 하루에 대한 짧은 코멘트를 작성하세요.
+    const sys=`당신은 따뜻하고 현실적인 개인 재무 코치예요. 아래 사용자의 재무 현황과 메모를 종합해서, 오늘을 위한 코멘트를 작성하세요.
+
+아래 항목을 줄바꿈해서 순서대로 짚어주세요 (각 1~2문장, 너무 길게 늘이지 말 것):
+1. 이번 달 소진율과 페이스 (좋은지 나쁜지, 남은 예산 포함)
+2. 어제 얼마 썼는지
+3. 오늘 쓸 수 있는 금액
+4. 이번 주 주요 소비 (메모에 특이사항·큰 지출 있으면 구체적으로 언급, 특별한 거 없으면 이 줄은 생략)
+5. 마지막 줄: 앞으로 어떻게 쓰면 좋을지 짧고 구체적인 조언 1가지
+
 규칙:
-- 3~4문장으로 짧게
-- 현재 소진율/페이스가 좋은지 나쁜지 먼저 짚기
-- 메모에 특이사항(큰 지출 등)이 있으면 언급
-- 마지막에 앞으로 어떻게 하면 좋을지 구체적 조언 1가지
+- 마크다운 기호(*, # 등) 쓰지 말고 순수 텍스트 + 줄바꿈만 사용
+- 데이터에 없는 내용은 추측해서 만들지 말 것
 - 친근한 반말체 살짝, 잔소리 느낌 없이 격려 위주
-- 이모지 1~2개 자연스럽게`;
+- 이모지는 전체에서 2~3개 이내로 자연스럽게`;
     const reply=await callGemini(sys, buildCtx());
     S.comments[today]=reply;
     save();renderComments();
