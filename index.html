@@ -1382,6 +1382,18 @@ function buildReport(){
 
   const fixedLines=(S.fixed||[]).map(f=>`${f.name} ${won(f.amount)}${f.paid?' (빠짐 '+f.paidDate+')':' (미납)'}`).join('\n')||'없음';
 
+  // 일별 지출 추이 (지출 메모 달력 기준) — 이번 예산기간, 최대 31일 (0원 날 포함해 흐름 파악)
+  const[ty0,tm0,td0]=todayStr.split('-').map(Number);
+  const todayUTC=Date.UTC(ty0,tm0-1,td0);
+  const trendDays=[];
+  for(let i=30;i>=0;i--){
+    const ds2=new Date(todayUTC-i*86400000).toISOString().slice(0,10);
+    if(S.budgetStart&&ds2<S.budgetStart)continue;
+    const sum=getMemos(ds2).reduce((a,c)=>a+(c.amt||0),0);
+    trendDays.push(`${ds2.slice(5)} ${sum>0?won(sum):'0'}`);
+  }
+  const trendLine=trendDays.length?trendDays.join(' · '):'기록 없음';
+
   const lines=[];
   lines.push('[잔액]');
   lines.push(`총잔액: ${won(tb)}`);
@@ -1406,6 +1418,9 @@ function buildReport(){
   lines.push(`남은예산: ${wBudget>0?(wOver?won(Math.abs(wRemain))+' 초과':won(wRemain)):'—'}`);
   lines.push(`남은일수: ${wInfo.remaining}일`);
   if(wPace)lines.push(`주간 페이스: ${wPace.item.em} ${wPace.item.txt} (예상 ${won(Math.round(wPace.expected))} / 실제 ${won(wPace.spent)})`);
+  lines.push('');
+  lines.push('[일별 지출 추이] (메모 기준, 이번 예산기간)');
+  lines.push(trendLine);
   lines.push('');
   lines.push('[고정지출]');
   lines.push(fixedLines);
@@ -1492,15 +1507,15 @@ async function genTodayComment(force){
   if(btn){btn.textContent='생성 중...';btn.disabled=true;}
   try{
     const report=buildReport();
-    const sys=`당신은 따뜻하고 현실적인 개인 재무 코치예요. 아래는 사용자의 오늘자 재무 리포트입니다 (이미 정리된 수치라 다시 나열할 필요 없음).
+    const sys=`당신은 따뜻하고 현실적인 개인 재무 코치예요. 아래는 사용자의 오늘자 재무 리포트입니다 (잔액, 오늘 쓸 수 있는 돈, 일별 지출 추이, 주간·월간 소진 현황과 남은예산, 고정지출, 지출 메모 포함).
 
-이 리포트 끝에 덧붙일 코멘트를 작성하세요.
+이 리포트 전체를 해석해서 끝에 덧붙일 코멘트를 작성하세요.
 규칙:
-- 숫자나 항목을 그대로 다시 나열하지 말 것 (필요하면 핵심만 짧게 언급)
-- 먼저 전체 페이스가 좋은지 나쁜지, 메모에 특이사항(큰 지출 등)이 있으면 1~2문장으로 짚어주기
-- 그다음 앞으로 어떻게 할지를 자세히 조언: 남은 기간 하루/주 단위로 얼마씩 쓰면 되는지, 어떤 지출을 주의할지 구체적인 실행 방안 제시
-- 마지막 줄은 반드시 '향후 어떻게 할지' 실천 계획으로 자세히 마무리
-- 전체 4~6문장
+- 숫자를 그대로 나열하지 말고 전체 흐름을 읽어 해석할 것: 일별 지출 추이가 늘고 있는지 들쭉날쭉한지, 주간·월간 페이스가 예산 대비 어떤지, 남은예산과 남은 기간으로 버틸 수 있는지
+- 지출 메모(달력)에 큰 지출이나 반복되는 패턴이 있으면 짚어주기
+- 그다음 '남은 기간을 버티려면 가장 중요한 게 무엇인지'를 우선순위로 제시: 하루/주 단위로 얼마 안에서 써야 하는지, 어떤 지출을 줄이거나 조심할지 구체적으로
+- 마지막 줄은 반드시 '향후 이렇게 하자'는 실천 계획으로 자세히 마무리
+- 전체 5~7문장
 - 마크다운 기호(*, # 등) 쓰지 말 것
 - 친근한 반말체 살짝, 잔소리 느낌 없이 격려 위주
 - 이모지 1~2개만`;
