@@ -221,12 +221,13 @@ function buildReport(S: any, todayStr: string) {
 async function callGemini(report: string) {
   const sys = `당신은 따뜻하고 현실적인 개인 재무 코치예요. 아래는 사용자의 오늘자 재무 리포트입니다 (이미 정리된 수치라 다시 나열할 필요 없음).
 
-이 리포트 끝에 덧붙일 짧은 코멘트만 작성하세요.
+이 리포트 끝에 덧붙일 코멘트를 작성하세요.
 규칙:
-- 숫자나 항목을 다시 나열하지 말 것
-- 전체 페이스가 좋은지 나쁜지, 메모에 특이사항(큰 지출 등)이 있으면 짚어주기
-- 마지막은 앞으로 어떻게 쓰면 좋을지 짧고 구체적인 조언 1가지로 마무리
-- 2~3문장으로 짧게
+- 숫자나 항목을 그대로 다시 나열하지 말 것 (필요하면 핵심만 짧게 언급)
+- 먼저 전체 페이스가 좋은지 나쁜지, 메모에 특이사항(큰 지출 등)이 있으면 1~2문장으로 짚어주기
+- 그다음 앞으로 어떻게 할지를 자세히 조언: 남은 기간 하루/주 단위로 얼마씩 쓰면 되는지, 어떤 지출을 주의할지 구체적인 실행 방안 제시
+- 마지막 줄은 반드시 '향후 어떻게 할지' 실천 계획으로 자세히 마무리
+- 전체 4~6문장
 - 마크다운 기호(*, # 등) 쓰지 말 것
 - 친근한 반말체 살짝, 잔소리 느낌 없이 격려 위주
 - 이모지 1~2개만`;
@@ -239,7 +240,7 @@ async function callGemini(report: string) {
       body: JSON.stringify({
         system_instruction: { parts: [{ text: sys }] },
         contents: [{ role: "user", parts: [{ text: report }] }],
-        generationConfig: { maxOutputTokens: 500 },
+        generationConfig: { maxOutputTokens: 800 },
       }),
     },
   );
