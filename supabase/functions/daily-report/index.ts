@@ -123,9 +123,12 @@ function calcPace(budget: number, spent: number, elapsed: number, total: number)
 // 홈 대시보드와 동일한 수치를 라벨:값 형태로 정리한 리포트 (AI 가공 없이 결정적으로 계산)
 function buildReport(S: any, todayStr: string) {
   const fixedTot = (S.fixed || []).reduce((a: number, f: any) => a + (f.amount || 0), 0);
+  // 미납(아직 안 빠져나간) 고정지출 = 잔액엔 남아있지만 곧 나갈 돈
+  const unpaidFixed = (S.fixed || []).filter((f: any) => !f.paid).reduce((a: number, f: any) => a + (f.amount || 0), 0);
   const eff = Math.max(0, (S.budget || 0) - fixedTot);
   const tb = totalBalance(S.balances || {});
-  const spent = tb > 0 ? Math.max(0, eff - tb) : 0;
+  const usable = Math.max(0, tb - unpaidFixed); // 실제 쓸 수 있는 잔액 = 총잔액 - 미납 고정지출
+  const spent = tb > 0 ? Math.max(0, eff - usable) : 0;
   const remain = eff - spent;
   const isOver = remain < 0;
 
