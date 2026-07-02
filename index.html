@@ -552,7 +552,8 @@ function updateSyncBadge(status){
   el.style.color=status==='error'?'var(--red)':'var(--text3)';
 }
 const won=n=>Math.abs(Math.round(n)).toLocaleString('ko-KR')+'원';
-const toStr=()=>new Date().toISOString().slice(0,10);
+// 한국시간(KST) 기준 오늘 날짜 YYYY-MM-DD. toISOString()은 UTC라 자정~오전9시에 전날로 밀리므로 사용 금지.
+const toStr=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Seoul'}).format(new Date());
 
 // 고정지출 합계 (체크 여부와 무관하게 등록된 모든 고정지출)
 const totFixed=()=>(S.fixed||[]).reduce((a,f)=>a+(f.amount||0),0);
@@ -565,7 +566,8 @@ const usableBal=()=>Math.max(0, totBal() - unpaidFixed());
 
 function getBD(){
   if(!S.budgetStart||!S.budgetEnd)return{total:30,elapsed:15,remaining:15};
-  const st=new Date(S.budgetStart),en=new Date(S.budgetEnd),td=new Date();td.setHours(0,0,0,0);
+  const st=new Date(S.budgetStart),en=new Date(S.budgetEnd);
+  const[ty,tm,tdd]=toStr().split('-').map(Number);const td=new Date(Date.UTC(ty,tm-1,tdd)); // KST 오늘(UTC 자정) 기준
   const total=Math.max(1,Math.round((en-st)/86400000)+1);
   const elapsed=Math.max(0,Math.min(total,Math.round((td-st)/86400000)+1));
   const remaining=Math.max(1,total-elapsed+1);
@@ -578,17 +580,18 @@ const totSpent=()=>{
   return Math.max(0, effectiveBudget() - usableBal());
 };
 const todaySpent=()=>S.expenses.filter(e=>e.date===toStr()).reduce((a,e)=>a+e.amount,0);
-const ydSpent=()=>{const d=new Date();d.setDate(d.getDate()-1);const yd=d.toISOString().slice(0,10);return getMemos(yd).reduce((a,c)=>a+(c.amt||0),0);};
+const ydSpent=()=>{const[y,m,d]=toStr().split('-').map(Number);const yd=new Date(Date.UTC(y,m-1,d-1)).toISOString().slice(0,10);return getMemos(yd).reduce((a,c)=>a+(c.amt||0),0);};
 const totBal=()=>Object.values(S.balances).reduce((a,b)=>a+b,0);
 
 // ── 주간 계산 ──────────────────────────────
 // 이번 주(월~일) 시작일과 경과/총 일수 구하기
 function getWeekInfo(){
-  const now=new Date(); now.setHours(0,0,0,0);
-  const dow=now.getDay(); // 0=일 1=월 ...
+  const[y,m,d]=toStr().split('-').map(Number);
+  const now=new Date(Date.UTC(y,m-1,d)); // KST 오늘(UTC 자정) 기준
+  const dow=now.getUTCDay(); // 0=일 1=월 ...
   // 월요일 시작 기준
   const offsetToMon=(dow===0)?6:(dow-1);
-  const weekStart=new Date(now); weekStart.setDate(now.getDate()-offsetToMon);
+  const weekStart=new Date(now); weekStart.setUTCDate(now.getUTCDate()-offsetToMon);
   const weekStartStr=weekStart.toISOString().slice(0,10);
   const elapsed=offsetToMon+1; // 오늘 포함 경과일 (1~7)
   const remaining=7-elapsed+1;
@@ -1422,7 +1425,7 @@ function buildReport(){
   lines.push('[일별 지출 추이] (메모 기준, 이번 예산기간)');
   lines.push(trendLine);
   lines.push('');
-  lines.push('[고정지출]');
+  lines.push("[고정지출] (미납분은 위 '남은예산'·'사용가능'에 이미 차감 반영됨. 남은예산에서 또 빼지 말 것)");
   lines.push(fixedLines);
   lines.push('');
   lines.push('[이번 주 지출 메모]');
@@ -1512,6 +1515,7 @@ async function genTodayComment(force){
 이 리포트 전체를 해석해서 끝에 덧붙일 코멘트를 작성하세요.
 규칙:
 - 리포트의 숫자를 표처럼 통째로 다시 나열하지는 말 것. 다만 조언에 필요한 핵심 수치(하루 쓸 수 있는 돈, 남은예산, 큰 지출액 등)는 구체적으로 콕 집어 언급해도 됨
+- 중요: '사용가능'과 '남은예산'은 미납 고정지출을 이미 차감한 실제 쓸 수 있는 금액이다. 미납 고정지출을 남은예산에서 다시 빼서 "예산이 더 줄어든다"고 말하지 말 것(이중 차감 금지). 고정지출 미납 표시는 참고용일 뿐 남은예산에 이미 반영돼 있다
 - 전체 흐름을 읽어 해석할 것: 일별 지출 추이가 늘고 있는지 들쭉날쭉한지, 주간·월간 페이스가 예산 대비 어떤지, 남은예산과 남은 기간으로 버틸 수 있는지
 - 지출 메모(달력)에 큰 지출이나 반복되는 패턴이 있으면 짚어주기
 - 그다음 '남은 기간을 버티려면 가장 중요한 게 무엇인지'를 우선순위로 제시: 하루/주 단위로 얼마 안에서 써야 하는지, 어떤 지출을 줄이거나 조심할지 구체적으로
