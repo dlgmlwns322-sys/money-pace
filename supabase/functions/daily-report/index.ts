@@ -68,12 +68,27 @@ function capturesByDate(S: any): Record<string, { date: string; time: string; to
   return byDate;
 }
 
-// 클라이언트 getDailySpent()와 동일: 최근 두 캡처 날짜의 잔액 차이
-function getDailySpent(S: any) {
-  const days = Object.values(capturesByDate(S)).sort((a: any, b: any) => b.date.localeCompare(a.date));
-  if (days.length < 2) return null;
-  const today: any = days[0], prev: any = days[1];
-  return { spent: prev.total - today.total, todayDate: today.date, prevDate: prev.date };
+// 클라이언트 getDailySpent()와 동일: '오늘'(todayStr, 실제 달력 기준)과 오늘 이전 가장 최근 날짜의 잔액 차이.
+// 오늘 캡처가 없으면 지출 0원으로 처리(전날 이전 캡처와 비교해 stale하게 보여주지 않음).
+function getDailySpent(S: any, todayStr: string) {
+  const byDate = capturesByDate(S);
+  const prevDate = Object.keys(byDate).filter((d) => d < todayStr).sort((a, b) => b.localeCompare(a))[0];
+  if (!prevDate) return null; // 오늘 이전 캡처가 아예 없으면 비교 불가
+  const prevTotal = byDate[prevDate].total;
+  const todayCap = byDate[todayStr];
+  if (!todayCap) return { spent: 0, todayDate: todayStr, prevDate, prevTotal, noCaptureToday: true };
+  return { spent: prevTotal - todayCap.total, todayDate: todayStr, prevDate, prevTotal, todayTotal: todayCap.total };
+}
+
+// 클라이언트 getTodayBudget()과 동일: 오늘 하루치 배정액(어제 마감 잔액 기준)에서 오늘 실제 지출을 바로 차감
+function getTodayBudget(S: any, todayStr: string, eff: number, unpaidFixed: number, remaining: number, totSpentNow: number) {
+  const ds = getDailySpent(S, todayStr);
+  const remainAtDayStart = (ds && ds.prevTotal != null)
+    ? Math.min(eff, Math.max(0, ds.prevTotal - unpaidFixed))
+    : (eff - totSpentNow);
+  const baseline = remaining > 0 ? Math.floor(Math.max(0, remainAtDayStart) / remaining) : 0;
+  const spentToday = (ds && !ds.noCaptureToday && ds.spent > 0) ? ds.spent : 0;
+  return { todayBudget: baseline - spentToday, ds };
 }
 
 // 클라이언트 getWeeklySpent()와 동일: 주 시작 시점 잔액 - 현재 잔액
@@ -138,10 +153,9 @@ function buildReport(S: any, todayStr: string) {
     elapsed = Math.max(0, Math.min(total, daysBetween(S.budgetStart, todayStr) + 1));
     remaining = Math.max(1, total - elapsed + 1);
   }
-  const daily = remaining > 0 ? Math.floor(Math.max(0, remain) / remaining) : 0;
   const realPct = Math.round(spent / Math.max(eff, 1) * 100);
   const pace = calcPace(eff, spent, elapsed, total);
-  const ds = getDailySpent(S);
+  const { todayBudget, ds } = getTodayBudget(S, todayStr, eff, unpaidFixed, remaining, spent);
 
   const yd = new Date(`${todayStr}T00:00:00Z`);
   yd.setUTCDate(yd.getUTCDate() - 1);
@@ -198,8 +212,10 @@ function buildReport(S: any, todayStr: string) {
   lines.push(balLines);
   lines.push("");
   lines.push("[오늘]");
-  lines.push(`오늘 쓸 수 있는 돈: ${isOver ? "예산 초과" : won(daily)}`);
-  if (ds) {
+  lines.push(`오늘 쓸 수 있는 돈: ${won(todayBudget)}`);
+  if (ds && ds.noCaptureToday) {
+    lines.push(`어제 대비 오늘 쓴 돈: 0원 (오늘 캡처 없음, 마지막 캡처 ${ds.prevDate.slice(5)})`);
+  } else if (ds) {
     lines.push(
       `어제 대비 오늘 쓴 돈: ${ds.spent >= 0 ? won(ds.spent) : "+" + won(Math.abs(ds.spent)) + " (입금/충전)"} (${ds.prevDate.slice(5)}→${ds.todayDate.slice(5)})`,
     );

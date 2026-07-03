@@ -624,27 +624,48 @@ function getWeeklySpent(){
   return {spent, startBal, curBal};
 }
 
-// 캡처 기록에서 날짜별 '가장 최근' 총잔액을 구해, 최근 두 날짜의 차이로 일일 지출 계산
+// 캡처 기록에서 '오늘'(실제 달력 기준)과 오늘 이전 가장 최근 날짜의 잔액 차이로 일일 지출 계산.
+// 오늘 캡처가 없어도 날짜는 항상 실제 오늘(toStr()) 기준이며, 00시가 지나면 자동으로 새 날짜로 전환되고
+// 그날 캡처가 없으면 지출 0원으로 처리한다(전날 이전 캡처와 비교해 stale하게 보여주지 않음).
 function getDailySpent(){
-  if(!S.captures||S.captures.length<2)return null;
-  // 각 캡처에 총잔액 추가
+  if(!S.captures||S.captures.length<1)return null;
+  const todayStr=toStr();
+  // 각 캡처에 총잔액 추가 후, 날짜별로 그룹화(같은 날이면 시간 최신 것만 남김)
   const withTotal=S.captures.map(c=>({
     date:c.date,
     time:c.time||'00:00',
     total:(c.balances.kakao||0)+(c.balances.kb||0)+(c.balances.shinhan||0)
   }));
-  // 날짜별로 그룹화 후, 같은 날이면 시간 최신 것만 남김
   const byDate={};
   withTotal.forEach(c=>{
     if(!byDate[c.date]||c.time>byDate[c.date].time)byDate[c.date]=c;
   });
-  // 날짜 내림차순 정렬 (최신 날짜가 앞)
-  const days=Object.values(byDate).sort((a,b)=>b.date.localeCompare(a.date));
-  if(days.length<2)return null;
-  const today=days[0], prev=days[1];
+  // 오늘보다 이전인 날짜 중 가장 최근 것 = 비교 기준일
+  const prevDate=Object.keys(byDate).filter(d=>d<todayStr).sort((a,b)=>b.localeCompare(a))[0];
+  if(!prevDate)return null; // 오늘 이전 캡처가 아예 없으면 비교 불가
+  const prevTotal=byDate[prevDate].total;
+  const todayCap=byDate[todayStr];
+  if(!todayCap){
+    // 오늘 캡처가 아직 없으면 지출 0원으로 표시
+    return {spent:0, todayDate:todayStr, prevDate, todayTotal:null, prevTotal, noCaptureToday:true};
+  }
   // 쓴 돈 = 전일 잔액 - 금일 잔액 (양수면 지출, 음수면 입금/충전)
-  const spent=prev.total - today.total;
-  return {spent, todayDate:today.date, prevDate:prev.date, todayTotal:today.total, prevTotal:prev.total};
+  const spent=prevTotal - todayCap.total;
+  return {spent, todayDate:todayStr, prevDate, todayTotal:todayCap.total, prevTotal};
+}
+
+// 오늘 쓸 수 있는 돈 = 오늘 하루치 배정액(어제 마감 잔액 기준 남은예산÷남은일수) - 오늘 실제 지출.
+// 남은 날짜 전체에 오늘 지출을 나눠 스며들게 하지 않고, 오늘 배정액에서 바로 차감해 마이너스도 그대로 보여준다.
+function getTodayBudget(){
+  const eff=effectiveBudget();
+  const{remaining:dl}=getBD();
+  const ds=getDailySpent();
+  const remainAtDayStart=(ds&&ds.prevTotal!=null)
+    ?Math.min(eff, Math.max(0, ds.prevTotal-unpaidFixed()))
+    :(eff-totSpent());
+  const baseline=dl>0?Math.floor(Math.max(0,remainAtDayStart)/dl):0;
+  const spentToday=(ds&&!ds.noCaptureToday&&ds.spent>0)?ds.spent:0;
+  return baseline-spentToday;
 }
 
 // 범용 페이스 계산: 예산, 쓴돈, 경과/총일수를 받아 5단계 판정
@@ -677,21 +698,21 @@ function render(){
   const isOver=remain<0;
   const overAmt=isOver?Math.abs(remain):0;
   const{remaining:dl,elapsed:mElapsed,total:mTotal}=getBD();
-  const daily=dl>0?Math.floor(Math.max(0,remain)/dl):0;
   const realPct=Math.round(spent/Math.max(eff,1)*100);
   const ringPctVal=Math.min(100,realPct);
   // 오늘까지 원래 썼어야 할 금액 (기준선)
   const shouldSpend=Math.round(eff*(mElapsed/mTotal));
 
-  // 오늘 쓸 수 있는 돈
-  if(isOver){
-    document.getElementById('dailyBudget').textContent='예산 초과';
-    document.getElementById('dailyBudget').style.color='var(--red)';
-  } else {
-    document.getElementById('dailyBudget').textContent=eff>0?won(daily):'—';
-    document.getElementById('dailyBudget').style.color='var(--blue)';
-  }
-  document.getElementById('dailySub').textContent=S.budgetStart&&S.budgetEnd?(isOver?`예산보다 ${won(overAmt)} 더 썼어요`:`남은 예산 ${won(remain)} ÷ ${dl}일`):'설정에서 예산 기간을 입력해주세요';
+  // 오늘 쓸 수 있는 돈 (오늘 배정액에서 오늘 지출을 바로 차감, 초과 시 마이너스로 표시)
+  const todayBudget=getTodayBudget();
+  const tbOver=todayBudget<0;
+  document.getElementById('dailyBudget').textContent=eff>0?(tbOver?'-':'')+won(todayBudget):'—';
+  document.getElementById('dailyBudget').style.color=tbOver?'var(--red)':'var(--blue)';
+  const dsForSub=getDailySpent();
+  const spentTodayForSub=(dsForSub&&!dsForSub.noCaptureToday&&dsForSub.spent>0)?dsForSub.spent:0;
+  document.getElementById('dailySub').textContent=S.budgetStart&&S.budgetEnd
+    ?(spentTodayForSub>0?`오늘 배정액에서 ${won(spentTodayForSub)} 사용${tbOver?` (${won(Math.abs(todayBudget))} 초과)`:''}`:`남은 예산 ${won(remain)} ÷ ${dl}일`)
+    :'설정에서 예산 기간을 입력해주세요';
 
   // 월간 소진율 링
   document.getElementById('ringPct').textContent=realPct+'%';
@@ -718,11 +739,15 @@ function render(){
     document.getElementById('mBaseline').innerHTML='설정에서 예산 기간을 입력하면 기준선이 표시돼요';
   }
 
-  // 어제 대비 오늘 쓴 돈
+  // 어제 대비 오늘 쓴 돈 (날짜는 항상 실제 오늘 기준, 00시 지나면 자동 전환)
   const ds=getDailySpent();
   const tsEl=document.getElementById('todaySpent');
   const tsSub=document.getElementById('todaySpentSub');
-  if(ds){
+  if(ds&&ds.noCaptureToday){
+    tsEl.textContent=won(0);
+    tsEl.style.color='var(--text3)';
+    tsSub.textContent=`오늘(${ds.todayDate.slice(5)}) 캡처가 아직 없어서 지출 0원으로 표시 중 (마지막 캡처 ${ds.prevDate.slice(5)}, 잔액 ${won(ds.prevTotal)})`;
+  } else if(ds){
     if(ds.spent>=0){
       tsEl.textContent=won(ds.spent);
       tsEl.style.color='var(--red)';
@@ -1338,7 +1363,7 @@ function buildCtx(){
 - 예산기간: ${S.budgetStart}~${S.budgetEnd}(총${total}일,경과${elapsed}일,남은${remaining}일)
 - 월예산: ${won(S.budget)} / 고정지출 ${won(fx)} 제외 → 사용가능 ${won(eff)}
 - 이번달 지출: ${won(spent)} (소진율 ${Math.round(spent/Math.max(eff,1)*100)}%)
-- 남은예산: ${won(eff-spent)}, 오늘 쓸 수 있는 돈: ${won(Math.floor(Math.max(0,eff-spent)/remaining))}
+- 남은예산: ${won(eff-spent)}, 오늘 쓸 수 있는 돈: ${(()=>{const tb=getTodayBudget();return tb<0?'-'+won(tb):won(tb);})()}
 - 지금쯤 정상 지출액: ${won(Math.round(eff*(elapsed/total)))} / 월 페이스: ${pace.item.txt}
 - 주간예산: ${won(S.weeklyBudget)}, 이번주 지출: ${won(wSpentVal)} (${wInfo.elapsed}/7일)
 - 고정지출 목록: ${fixedList}
@@ -1356,7 +1381,7 @@ function buildReport(){
   const remain=eff-spent;
   const isOver=remain<0;
   const{total:mTotal,elapsed:mElapsed,remaining:mRemainDays}=getBD();
-  const daily=mRemainDays>0?Math.floor(Math.max(0,remain)/mRemainDays):0;
+  const todayBudget=getTodayBudget();
   const realPct=Math.round(spent/Math.max(eff,1)*100);
   const pace=getPace();
   const ds=getDailySpent();
@@ -1403,8 +1428,9 @@ function buildReport(){
   lines.push(balLines);
   lines.push('');
   lines.push('[오늘]');
-  lines.push(`오늘 쓸 수 있는 돈: ${isOver?'예산 초과':won(daily)}`);
-  if(ds)lines.push(`어제 대비 오늘 쓴 돈: ${ds.spent>=0?won(ds.spent):'+'+won(Math.abs(ds.spent))+' (입금/충전)'} (${ds.prevDate.slice(5)}→${ds.todayDate.slice(5)})`);
+  lines.push(`오늘 쓸 수 있는 돈: ${todayBudget<0?'-'+won(todayBudget):won(todayBudget)}`);
+  if(ds&&ds.noCaptureToday)lines.push(`어제 대비 오늘 쓴 돈: 0원 (오늘 캡처 없음, 마지막 캡처 ${ds.prevDate.slice(5)})`);
+  else if(ds)lines.push(`어제 대비 오늘 쓴 돈: ${ds.spent>=0?won(ds.spent):'+'+won(Math.abs(ds.spent))+' (입금/충전)'} (${ds.prevDate.slice(5)}→${ds.todayDate.slice(5)})`);
   lines.push(`어제 지출(메모 기준): ${won(ydSpent())}`);
   lines.push('');
   lines.push(`[월간 소진 현황] (${mElapsed}/${mTotal}일 경과)`);
@@ -1602,8 +1628,9 @@ function updateNotif(){
   document.getElementById('notifDot').textContent=p==='granted'?'🔔 '+S.alarmTime:'🔕';
 }
 function buildNotifBody(){
-  const spent=totSpent();const eff=effectiveBudget();const{remaining}=getBD();const daily=remaining>0?Math.floor(Math.max(0,eff-spent)/remaining):0;const pace=getPace();
-  return`💰 총잔액: ${won(totBal())}\n📅 어제지출: ${won(ydSpent())}\n📊 소진율: ${Math.round(spent/Math.max(eff,1)*100)}%\n📆 오늘예산: ${won(daily)}\n${pace.item.em} ${pace.item.txt}`;
+  const spent=totSpent();const eff=effectiveBudget();const pace=getPace();
+  const tb=getTodayBudget();const dailyTxt=tb<0?'-'+won(tb):won(tb);
+  return`💰 총잔액: ${won(totBal())}\n📅 어제지출: ${won(ydSpent())}\n📊 소진율: ${Math.round(spent/Math.max(eff,1)*100)}%\n📆 오늘예산: ${dailyTxt}\n${pace.item.em} ${pace.item.txt}`;
 }
 function sendNotif(){if(Notification.permission!=='granted')return;new Notification('머니페이스 일일 리포트 💸',{body:buildNotifBody(),tag:'daily-report',renotify:true});}
 function testNotif(){if(Notification.permission!=='granted'){showToast('먼저 알림을 허용해주세요');return;}sendNotif();showToast('테스트 알림 보냈어요!');}
