@@ -710,8 +710,9 @@ function render(){
   document.getElementById('dailyBudget').style.color=tbOver?'var(--red)':'var(--blue)';
   const dsForSub=getDailySpent();
   const spentTodayForSub=(dsForSub&&!dsForSub.noCaptureToday&&dsForSub.spent>0)?dsForSub.spent:0;
+  const todayBaseline=todayBudget+spentTodayForSub; // 오늘 배정액(차감 전 기준선) = 오늘 쓸 수 있는 돈 + 오늘 사용액
   document.getElementById('dailySub').textContent=S.budgetStart&&S.budgetEnd
-    ?(spentTodayForSub>0?`오늘 배정액에서 ${won(spentTodayForSub)} 사용${tbOver?` (${won(Math.abs(todayBudget))} 초과)`:''}`:`남은 예산 ${won(remain)} ÷ ${dl}일`)
+    ?(`오늘 배정액 ${won(todayBaseline)}(총 남은예산 ${won(remain)} ÷ 남은일수 ${dl}일)에서 ${won(spentTodayForSub)} 사용${tbOver?` (${won(Math.abs(todayBudget))} 초과)`:''}`)
     :'설정에서 예산 기간을 입력해주세요';
 
   // 월간 소진율 링
