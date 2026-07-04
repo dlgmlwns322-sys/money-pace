@@ -68,6 +68,14 @@ function capturesByDate(S: any): Record<string, { date: string; time: string; to
   return byDate;
 }
 
+// 기간(from~to, 포함) 중 실제로 빠져나간(paid) 고정지출 합계.
+// 고정지출은 unpaidFixed로 이미 예산에서 선차감돼 있으므로, 실제 빠져나간 날의 잔액 감소분에서
+// 이 금액을 다시 빼줘야 일별/주간 "쓴 돈"에 이중으로 잡히지 않는다.
+function fixedPaidInRange(S: any, from: string, to: string) {
+  return (S.fixed || []).filter((f: any) => f.paid && f.paidDate && f.paidDate >= from && f.paidDate <= to)
+    .reduce((a: number, f: any) => a + (f.amount || 0), 0);
+}
+
 // 클라이언트 getDailySpent()와 동일: '오늘'(todayStr, 실제 달력 기준)과 오늘 이전 가장 최근 날짜의 잔액 차이.
 // 오늘 캡처가 없으면 지출 0원으로 처리(전날 이전 캡처와 비교해 stale하게 보여주지 않음).
 function getDailySpent(S: any, todayStr: string) {
@@ -77,7 +85,8 @@ function getDailySpent(S: any, todayStr: string) {
   const prevTotal = byDate[prevDate].total;
   const todayCap = byDate[todayStr];
   if (!todayCap) return { spent: 0, todayDate: todayStr, prevDate, prevTotal, noCaptureToday: true };
-  return { spent: prevTotal - todayCap.total, todayDate: todayStr, prevDate, prevTotal, todayTotal: todayCap.total };
+  const spent = prevTotal - todayCap.total - fixedPaidInRange(S, todayStr, todayStr);
+  return { spent, todayDate: todayStr, prevDate, prevTotal, todayTotal: todayCap.total };
 }
 
 // 클라이언트 getTodayBudget()과 동일: 오늘 하루치 배정액(어제 마감 잔액 기준)에서 오늘 실제 지출을 바로 차감
@@ -92,7 +101,7 @@ function getTodayBudget(S: any, todayStr: string, eff: number, unpaidFixed: numb
 }
 
 // 클라이언트 getWeeklySpent()와 동일: 주 시작 시점 잔액 - 현재 잔액
-function getWeeklySpent(S: any, weekStartStr: string) {
+function getWeeklySpent(S: any, weekStartStr: string, todayStr: string) {
   const days = Object.values(capturesByDate(S)).sort((a: any, b: any) => a.date.localeCompare(b.date));
   if (days.length < 1) return null;
   let startBal: number | null = null, curBal: number | null = null;
@@ -106,7 +115,9 @@ function getWeeklySpent(S: any, weekStartStr: string) {
     startBal = inWeek[0].total;
     curBal = inWeek[inWeek.length - 1].total;
   }
-  return { spent: Math.max(0, (startBal as number) - (curBal as number)) };
+  // 이번 주 안에 실제로 빠져나간 고정지출은 잔액 감소분에서 제외 (이중차감 방지)
+  const fixedThisWeek = fixedPaidInRange(S, weekStartStr, todayStr);
+  return { spent: Math.max(0, (startBal as number) - (curBal as number) - fixedThisWeek) };
 }
 
 // 클라이언트 SURPLUS/DEFICIT 페이스 테이블과 동일
@@ -168,7 +179,7 @@ function buildReport(S: any, todayStr: string) {
   const wRemaining = 7 - wElapsed + 1;
 
   const wBudget = S.weeklyBudget || 0;
-  const ws = getWeeklySpent(S, weekStartStr);
+  const ws = getWeeklySpent(S, weekStartStr, todayStr);
   const wSpentVal = ws ? ws.spent : 0;
   const wRemain = wBudget - wSpentVal;
   const wOver = wRemain < 0;

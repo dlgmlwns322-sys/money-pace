@@ -561,6 +561,10 @@ const totFixed=()=>(S.fixed||[]).reduce((a,f)=>a+(f.amount||0),0);
 const effectiveBudget=()=>Math.max(0, S.budget - totFixed());
 // 미납(아직 안 빠져나간) 고정지출 = 잔액엔 남아있지만 곧 나갈 돈
 const unpaidFixed=()=>(S.fixed||[]).filter(f=>!f.paid).reduce((a,f)=>a+(f.amount||0),0);
+// 기간(from~to, 포함) 중 실제로 빠져나간(paid) 고정지출 합계.
+// 고정지출은 unpaidFixed()로 이미 예산에서 선차감돼 있으므로, 실제 빠져나간 날의 잔액 감소분에서
+// 이 금액을 다시 빼줘야 일별/주간 "쓴 돈"에 이중으로 잡히지 않는다.
+const fixedPaidInRange=(from,to)=>(S.fixed||[]).filter(f=>f.paid&&f.paidDate&&f.paidDate>=from&&f.paidDate<=to).reduce((a,f)=>a+(f.amount||0),0);
 // 실제 쓸 수 있는 잔액 = 총잔액 - 미납 고정지출
 const usableBal=()=>Math.max(0, totBal() - unpaidFixed());
 
@@ -620,7 +624,9 @@ function getWeeklySpent(){
     startBal=inWeek[0].total;
     curBal=inWeek[inWeek.length-1].total;
   }
-  const spent=Math.max(0, startBal-curBal);
+  // 이번 주 안에 실제로 빠져나간 고정지출은 잔액 감소분에서 제외 (이중차감 방지)
+  const fixedThisWeek=fixedPaidInRange(weekStartStr, toStr());
+  const spent=Math.max(0, startBal-curBal-fixedThisWeek);
   return {spent, startBal, curBal};
 }
 
@@ -650,7 +656,8 @@ function getDailySpent(){
     return {spent:0, todayDate:todayStr, prevDate, todayTotal:null, prevTotal, noCaptureToday:true};
   }
   // 쓴 돈 = 전일 잔액 - 금일 잔액 (양수면 지출, 음수면 입금/충전)
-  const spent=prevTotal - todayCap.total;
+  // 오늘 실제로 빠져나간 고정지출은 제외 (이미 예산에서 선차감돼 있어 이중차감 방지)
+  const spent=prevTotal - todayCap.total - fixedPaidInRange(todayStr, todayStr);
   return {spent, todayDate:todayStr, prevDate, todayTotal:todayCap.total, prevTotal};
 }
 
