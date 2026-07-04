@@ -386,10 +386,10 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
       <button class="csug" onclick="askAI('절약 팁 알려줘')">절약 팁</button>
     </div>
     <div class="chat-wrap" id="chatWrap">
-      <div class="cb ai">안녕하세요! 지출 관련해서 궁금한 거 뭐든 물어보세요 😊</div>
+      <div class="cb ai">안녕하세요! 궁금한 거 물어보거나, "오늘 점심 8천원 커피 4500원"처럼 쓴 돈을 말해주면 달력에 바로 기록해드려요 😊</div>
     </div>
     <div class="cinp-wrap">
-      <input class="cinp" type="text" id="chatInp" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="질문해보세요..." onkeydown="if(event.key==='Enter')sendChat()"/>
+      <input class="cinp" type="text" id="chatInp" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="질문하거나 오늘 쓴 돈을 말해주세요..." onkeydown="if(event.key==='Enter')sendChat()"/>
       <button class="csend" onclick="sendChat()">➤</button>
     </div>
   </div>
@@ -1498,6 +1498,8 @@ async function callGemini(systemPrompt, userText){
   }
 }
 
+// 채팅 메시지가 지출 기록인지 질문/잡담인지 Gemini가 구분해서, 기록이면 JSON으로 카테고리·금액을
+// 뽑아 달력에 바로 저장하고, 아니면 평소처럼 대화로 답한다.
 async function sendChat(){
   const inp=document.getElementById('chatInp');const msg=inp.value.trim();
   if(!msg)return;
@@ -1505,7 +1507,27 @@ async function sendChat(){
   inp.value='';appendChat('user',msg);chatHist.push({role:'user',content:msg});
   const el=appendChat('ai','...');
   try{
-    const sysPrompt='당신은 개인 재무 관리 AI예요. 친근하고 실용적으로 짧게 답해주세요.\n\n'+buildCtx();
+    const todayStr=toStr();
+    const sysPrompt=`당신은 개인 재무 관리 AI예요. 사용자 메시지가 "오늘/특정일에 뭘 썼는지 기록하는 말"인지 "질문·잡담"인지 구분하세요.
+
+[규칙]
+- 지출 기록으로 보이면(예: "오늘 점심 8천원, 커피 4500원", "택시비 만이천원 씀") type을 "log"로 하고, entries에 지출 하나당 카드 하나씩: category(${MEMO_CATS.join(', ')} 중 하나, 애매하면 "기타"), amt(숫자만), text(무엇을 샀는지 짧게), date(YYYY-MM-DD, 언급 없으면 오늘 ${todayStr}, "어제"면 하루 전 날짜)
+- 금액이나 대상이 불분명해서 기록하기 애매하면 type을 "chat"으로 하고 reply에서 되물어보기
+- 질문/잡담이면 type을 "chat"으로, reply에 아래 재무 현황을 참고해 답변
+- reply는 항상 친근한 반말체로 1~4문장. type이 log면 reply는 "○○ 기록했어요 ✓" 같은 짧은 확인 문구
+
+${buildCtx()}`;
+    const schema={
+      type:'object',
+      properties:{
+        type:{type:'string',enum:['log','chat']},
+        entries:{type:'array',items:{type:'object',properties:{
+          category:{type:'string'},amt:{type:'number'},text:{type:'string'},date:{type:'string'}
+        },required:['category','amt']}},
+        reply:{type:'string'}
+      },
+      required:['type','reply']
+    };
     const geminiMessages=chatHist.map(m=>({
       role:m.role==='assistant'?'model':'user',
       parts:[{text:m.content}]
@@ -1513,7 +1535,7 @@ async function sendChat(){
     const body={
       system_instruction:{parts:[{text:sysPrompt}]},
       contents:geminiMessages,
-      generationConfig:{maxOutputTokens:1500}
+      generationConfig:{maxOutputTokens:1500,responseMimeType:'application/json',responseSchema:schema,thinkingConfig:{thinkingBudget:0}}
     };
     const res=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key='+S.claudeKey,{
       method:'POST',
@@ -1522,8 +1544,27 @@ async function sendChat(){
     });
     if(!res.ok){const raw=await res.text();throw new Error(geminiErr(res.status,raw));}
     const data=await res.json();
-    const reply=data.candidates?.[0]?.content?.parts?.[0]?.text||'응답을 받지 못했어요.';
-    el.textContent=reply;chatHist.push({role:'assistant',content:reply});
+    const raw=data.candidates?.[0]?.content?.parts?.[0]?.text;
+    let result;
+    try{result=JSON.parse(raw);}catch(e){result=null;}
+    if(!result||!result.reply){
+      el.textContent='응답을 받지 못했어요.';return;
+    }
+    if(result.type==='log'&&Array.isArray(result.entries)&&result.entries.length){
+      for(const e of result.entries){
+        const d=(e.date&&/^\d{4}-\d{2}-\d{2}$/.test(e.date))?e.date:todayStr;
+        const cards=getMemos(d);
+        cards.push({
+          id:Date.now().toString()+Math.random().toString(36).slice(2,6),
+          category:MEMO_CATS.includes(e.category)?e.category:'기타',
+          amt:parseInt(e.amt)||0,
+          text:e.text||''
+        });
+        S.memos[d]=cards;
+      }
+      save();renderCalendar();render();
+    }
+    el.textContent=result.reply;chatHist.push({role:'assistant',content:result.reply});
     if(chatHist.length>20)chatHist=chatHist.slice(-20);
   }catch(e){el.textContent='오류: '+e.message;}
 }
