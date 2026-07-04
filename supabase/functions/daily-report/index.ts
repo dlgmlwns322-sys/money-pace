@@ -56,14 +56,27 @@ function totalBalance(bal: any) {
   return (bal.kakao || 0) + (bal.kb || 0) + (bal.shinhan || 0);
 }
 
+// "오전/오후 h:mm" 문자열을 자정 기준 분(0~1439)으로 변환. 문자열 그대로 비교하면
+// "오후 12:32"가 "오후 11:00"보다 커져서(문자 '2'>'1') 실제로는 더 이른 정오가 늦은 11시로 오인되는 버그가 있어
+// 같은 날 캡처 중 진짜 최신을 고르려면 반드시 이 숫자로 비교해야 한다.
+function timeToMinutes(t: string): number {
+  const m = /^(오전|오후)\s*(\d{1,2}):(\d{2})/.exec(t || "");
+  if (!m) return 0;
+  let h = parseInt(m[2], 10);
+  const isPM = m[1] === "오후";
+  if (isPM && h !== 12) h += 12;
+  if (!isPM && h === 12) h = 0;
+  return h * 60 + parseInt(m[3], 10);
+}
+
 // 캡처 기록을 날짜별 '그날 가장 최근' 총잔액으로 압축
-function capturesByDate(S: any): Record<string, { date: string; time: string; total: number }> {
+function capturesByDate(S: any): Record<string, { date: string; minutes: number; total: number }> {
   const withTotal = (S.captures || []).map((c: any) => ({
-    date: c.date, time: c.time || "00:00", total: totalBalance(c.balances || {}),
+    date: c.date, minutes: timeToMinutes(c.time), total: totalBalance(c.balances || {}),
   }));
   const byDate: Record<string, any> = {};
   for (const c of withTotal) {
-    if (!byDate[c.date] || c.time > byDate[c.date].time) byDate[c.date] = c;
+    if (!byDate[c.date] || c.minutes > byDate[c.date].minutes) byDate[c.date] = c;
   }
   return byDate;
 }

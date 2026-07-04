@@ -554,6 +554,18 @@ function updateSyncBadge(status){
 const won=n=>Math.abs(Math.round(n)).toLocaleString('ko-KR')+'원';
 // 한국시간(KST) 기준 오늘 날짜 YYYY-MM-DD. toISOString()은 UTC라 자정~오전9시에 전날로 밀리므로 사용 금지.
 const toStr=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Seoul'}).format(new Date());
+// "오전/오후 h:mm" 문자열을 자정 기준 분(0~1439)으로 변환. 문자열 그대로 비교하면
+// "오후 12:32"가 "오후 11:00"보다 커져서(문자 '2'>'1') 실제로는 더 이른 정오가 늦은 11시로 오인되는 버그가 있어
+// 같은 날 캡처 중 진짜 최신을 고르려면 반드시 이 숫자로 비교해야 한다.
+function timeToMinutes(t){
+  const m=/^(오전|오후)\s*(\d{1,2}):(\d{2})/.exec(t||'');
+  if(!m)return 0;
+  let h=parseInt(m[2],10);
+  const isPM=m[1]==='오후';
+  if(isPM&&h!==12)h+=12;
+  if(!isPM&&h===12)h=0;
+  return h*60+parseInt(m[3],10);
+}
 
 // 고정지출 합계 (체크 여부와 무관하게 등록된 모든 고정지출)
 const totFixed=()=>(S.fixed||[]).reduce((a,f)=>a+(f.amount||0),0);
@@ -607,9 +619,9 @@ function getWeeklySpent(){
   if(!S.captures||S.captures.length<1)return null;
   const {weekStartStr}=getWeekInfo();
   // 캡처별 총잔액 + 날짜별 최신만
-  const withTotal=S.captures.map(c=>({date:c.date,time:c.time||'00:00',total:(c.balances.kakao||0)+(c.balances.kb||0)+(c.balances.shinhan||0)}));
+  const withTotal=S.captures.map(c=>({date:c.date,minutes:timeToMinutes(c.time),total:(c.balances.kakao||0)+(c.balances.kb||0)+(c.balances.shinhan||0)}));
   const byDate={};
-  withTotal.forEach(c=>{if(!byDate[c.date]||c.time>byDate[c.date].time)byDate[c.date]=c;});
+  withTotal.forEach(c=>{if(!byDate[c.date]||c.minutes>byDate[c.date].minutes)byDate[c.date]=c;});
   const days=Object.values(byDate).sort((a,b)=>a.date.localeCompare(b.date)); // 오름차순
   // 주 시작일 이전(또는 같은날)의 가장 마지막 잔액 = 주 시작 기준 잔액
   let startBal=null, curBal=null;
@@ -641,12 +653,12 @@ function getDailySpent(){
   // 각 캡처에 총잔액 추가 후, 날짜별로 그룹화(같은 날이면 시간 최신 것만 남김)
   const withTotal=S.captures.map(c=>({
     date:c.date,
-    time:c.time||'00:00',
+    minutes:timeToMinutes(c.time),
     total:(c.balances.kakao||0)+(c.balances.kb||0)+(c.balances.shinhan||0)
   }));
   const byDate={};
   withTotal.forEach(c=>{
-    if(!byDate[c.date]||c.time>byDate[c.date].time)byDate[c.date]=c;
+    if(!byDate[c.date]||c.minutes>byDate[c.date].minutes)byDate[c.date]=c;
   });
   // 오늘보다 이전인 날짜 중 가장 최근 것 = 비교 기준일
   const prevDate=Object.keys(byDate).filter(d=>d<todayStr).sort((a,b)=>b.localeCompare(a))[0];
