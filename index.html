@@ -1513,10 +1513,11 @@ async function sendChat(){
 
 [규칙]
 - 지출 기록으로 보이면(예: "오늘 점심 8천원, 커피 4500원", "택시비 만이천원 씀") type을 "log"로 하고, entries에 지출 하나당 카드 하나씩: category(${MEMO_CATS.join(', ')} 중 하나, 애매하면 "기타"), amt(숫자만), text(무엇을 샀는지 짧게), date(YYYY-MM-DD, 언급 없으면 오늘 ${todayStr}, "어제"면 하루 전 날짜)
-- 주간 한도/주간 예산을 바꿔달라는 말이면 type을 "setting"으로, setting.action은 "set_weekly_budget", setting.weeklyBudget에 숫자
-- 고정지출을 추가해달라면 setting.action "add_fixed", setting.fixedName(항목명), setting.fixedAmount(숫자)
-- 기존 고정지출 금액을 바꿔달라면 setting.action "edit_fixed", setting.fixedName은 아래 기존 고정지출 목록(${fixedNames}) 중 정확히 일치하는 이름으로, setting.fixedAmount에 새 금액
-- 기존 고정지출을 삭제/없애달라면 setting.action "delete_fixed", setting.fixedName은 위 기존 목록 중 정확히 일치하는 이름으로
+- 주간 한도/주간 예산을 바꿔달라는 말이면 type "setting", setting={"action":"set_weekly_budget","weeklyBudget":숫자} — 이 액션일 땐 fixedName/fixedAmount는 절대 채우지 말 것
+- 고정지출을 추가해달라면 type "setting", setting={"action":"add_fixed","fixedName":항목명,"fixedAmount":숫자} — 이 액션일 땐 weeklyBudget은 절대 채우지 말 것. 금액은 반드시 fixedAmount에만 넣기
+- 기존 고정지출 금액을 바꿔달라면 type "setting", setting={"action":"edit_fixed","fixedName":아래 기존 고정지출 목록(${fixedNames}) 중 정확히 일치하는 이름,"fixedAmount":새 금액} — weeklyBudget은 채우지 말 것
+- 기존 고정지출을 삭제/없애달라면 type "setting", setting={"action":"delete_fixed","fixedName":위 기존 목록 중 정확히 일치하는 이름} (fixedAmount/weeklyBudget 불필요)
+- 즉 setting 안에는 action에 해당하는 필드만 채우고 나머지 숫자 필드는 비워둘 것 — 절대 금액을 엉뚱한 필드(weeklyBudget ↔ fixedAmount)에 넣지 말 것
 - 어떤 항목을 말하는지 기존 목록에서 특정할 수 없으면 type을 "chat"으로 하고 reply에서 어떤 항목인지 되물어보기
 - 금액이나 대상이 불분명해서 기록/변경하기 애매하면 type을 "chat"으로 하고 reply에서 되물어보기
 - 질문/잡담이면 type을 "chat"으로, reply에 아래 재무 현황을 참고해 답변
@@ -1578,13 +1579,15 @@ ${buildCtx()}`;
     }else if(result.type==='setting'&&result.setting){
       const st=result.setting;
       S.fixed=S.fixed||[];
+      // 모델이 가끔 금액을 엉뚱한 필드(weeklyBudget↔fixedAmount)에 넣는 경우 대비한 폴백
+      const fixedAmt=st.fixedAmount>0?st.fixedAmount:(st.weeklyBudget>0?st.weeklyBudget:0);
       if(st.action==='set_weekly_budget'&&st.weeklyBudget>0){
         S.weeklyBudget=parseInt(st.weeklyBudget)||S.weeklyBudget;
-      }else if(st.action==='add_fixed'&&st.fixedName&&st.fixedAmount>0){
-        S.fixed.push({id:Date.now().toString(),name:st.fixedName,amount:parseInt(st.fixedAmount)||0,paid:false,paidDate:''});
+      }else if(st.action==='add_fixed'&&st.fixedName&&fixedAmt>0){
+        S.fixed.push({id:Date.now().toString(),name:st.fixedName,amount:parseInt(fixedAmt)||0,paid:false,paidDate:''});
       }else if(st.action==='edit_fixed'&&st.fixedName){
         const f=S.fixed.find(x=>x.name===st.fixedName);
-        if(f&&st.fixedAmount>0)f.amount=parseInt(st.fixedAmount)||f.amount;
+        if(f&&fixedAmt>0)f.amount=parseInt(fixedAmt)||f.amount;
       }else if(st.action==='delete_fixed'&&st.fixedName){
         S.fixed=S.fixed.filter(x=>x.name!==st.fixedName);
       }
