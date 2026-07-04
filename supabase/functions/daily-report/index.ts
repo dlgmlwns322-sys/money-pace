@@ -115,9 +115,11 @@ function getWeeklySpent(S: any, weekStartStr: string, todayStr: string) {
     startBal = inWeek[0].total;
     curBal = inWeek[inWeek.length - 1].total;
   }
-  // 이번 주 안에 실제로 빠져나간 고정지출은 잔액 감소분에서 제외 (이중차감 방지)
-  const fixedThisWeek = fixedPaidInRange(S, weekStartStr, todayStr);
-  return { spent: Math.max(0, (startBal as number) - (curBal as number) - fixedThisWeek) };
+  // 오늘 막 체크한 고정지출만 잔액 감소분에서 제외 (이중차감 방지).
+  // 주 시작~오늘 전체 범위로 빼면 월초에 몰아서 체크한 큰 고정지출(저축·관리비 등)까지
+  // 이번주 지출에서 사라져 0원으로 과다 차감되므로, 오늘 하루치만 제외한다.
+  const fixedToday = fixedPaidInRange(S, todayStr, todayStr);
+  return { spent: Math.max(0, (startBal as number) - (curBal as number) - fixedToday) };
 }
 
 // 클라이언트 SURPLUS/DEFICIT 페이스 테이블과 동일
