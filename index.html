@@ -1508,22 +1508,34 @@ async function sendChat(){
   const el=appendChat('ai','...');
   try{
     const todayStr=toStr();
-    const sysPrompt=`당신은 개인 재무 관리 AI예요. 사용자 메시지가 "오늘/특정일에 뭘 썼는지 기록하는 말"인지 "질문·잡담"인지 구분하세요.
+    const fixedNames=(S.fixed||[]).map(f=>f.name).join(', ')||'없음';
+    const sysPrompt=`당신은 개인 재무 관리 AI예요. 사용자 메시지를 "지출 기록"/"설정 변경"/"질문·잡담" 중 하나로 구분하세요.
 
 [규칙]
 - 지출 기록으로 보이면(예: "오늘 점심 8천원, 커피 4500원", "택시비 만이천원 씀") type을 "log"로 하고, entries에 지출 하나당 카드 하나씩: category(${MEMO_CATS.join(', ')} 중 하나, 애매하면 "기타"), amt(숫자만), text(무엇을 샀는지 짧게), date(YYYY-MM-DD, 언급 없으면 오늘 ${todayStr}, "어제"면 하루 전 날짜)
-- 금액이나 대상이 불분명해서 기록하기 애매하면 type을 "chat"으로 하고 reply에서 되물어보기
+- 주간 한도/주간 예산을 바꿔달라는 말이면 type을 "setting"으로, setting.action은 "set_weekly_budget", setting.weeklyBudget에 숫자
+- 고정지출을 추가해달라면 setting.action "add_fixed", setting.fixedName(항목명), setting.fixedAmount(숫자)
+- 기존 고정지출 금액을 바꿔달라면 setting.action "edit_fixed", setting.fixedName은 아래 기존 고정지출 목록(${fixedNames}) 중 정확히 일치하는 이름으로, setting.fixedAmount에 새 금액
+- 기존 고정지출을 삭제/없애달라면 setting.action "delete_fixed", setting.fixedName은 위 기존 목록 중 정확히 일치하는 이름으로
+- 어떤 항목을 말하는지 기존 목록에서 특정할 수 없으면 type을 "chat"으로 하고 reply에서 어떤 항목인지 되물어보기
+- 금액이나 대상이 불분명해서 기록/변경하기 애매하면 type을 "chat"으로 하고 reply에서 되물어보기
 - 질문/잡담이면 type을 "chat"으로, reply에 아래 재무 현황을 참고해 답변
-- reply는 항상 친근한 반말체로 1~4문장. type이 log면 reply는 "○○ 기록했어요 ✓" 같은 짧은 확인 문구
+- reply는 항상 친근한 반말체로 1~4문장. type이 log/setting이면 reply는 "○○ 기록했어요 ✓" / "주간 한도 OO원으로 바꿨어요 ✓" 같은 짧은 확인 문구
 
 ${buildCtx()}`;
     const schema={
       type:'object',
       properties:{
-        type:{type:'string',enum:['log','chat']},
+        type:{type:'string',enum:['log','setting','chat']},
         entries:{type:'array',items:{type:'object',properties:{
           category:{type:'string'},amt:{type:'number'},text:{type:'string'},date:{type:'string'}
         },required:['category','amt']}},
+        setting:{type:'object',properties:{
+          action:{type:'string',enum:['set_weekly_budget','add_fixed','edit_fixed','delete_fixed']},
+          weeklyBudget:{type:'number'},
+          fixedName:{type:'string'},
+          fixedAmount:{type:'number'}
+        }},
         reply:{type:'string'}
       },
       required:['type','reply']
@@ -1563,6 +1575,20 @@ ${buildCtx()}`;
         S.memos[d]=cards;
       }
       save();renderCalendar();render();
+    }else if(result.type==='setting'&&result.setting){
+      const st=result.setting;
+      S.fixed=S.fixed||[];
+      if(st.action==='set_weekly_budget'&&st.weeklyBudget>0){
+        S.weeklyBudget=parseInt(st.weeklyBudget)||S.weeklyBudget;
+      }else if(st.action==='add_fixed'&&st.fixedName&&st.fixedAmount>0){
+        S.fixed.push({id:Date.now().toString(),name:st.fixedName,amount:parseInt(st.fixedAmount)||0,paid:false,paidDate:''});
+      }else if(st.action==='edit_fixed'&&st.fixedName){
+        const f=S.fixed.find(x=>x.name===st.fixedName);
+        if(f&&st.fixedAmount>0)f.amount=parseInt(st.fixedAmount)||f.amount;
+      }else if(st.action==='delete_fixed'&&st.fixedName){
+        S.fixed=S.fixed.filter(x=>x.name!==st.fixedName);
+      }
+      save();renderFixed();render();
     }
     el.textContent=result.reply;chatHist.push({role:'assistant',content:result.reply});
     if(chatHist.length>20)chatHist=chatHist.slice(-20);
