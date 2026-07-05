@@ -84,8 +84,10 @@ function capturesByDate(S: any): Record<string, { date: string; minutes: number;
 // 기간(from~to, 포함) 중 실제로 빠져나간(paid) 고정지출 합계.
 // 고정지출은 unpaidFixed로 이미 예산에서 선차감돼 있으므로, 실제 빠져나간 날의 잔액 감소분에서
 // 이 금액을 다시 빼줘야 일별/주간 "쓴 돈"에 이중으로 잡히지 않는다.
+// affectsBalance:false인 항목(예: 추적 안 하는 별도 저축통장으로 빠지는 저축)은 애초에 카카오/국민/신한
+// 잔액 diff에 안 잡히므로 여기서도 빼면 안 됨 — 명시적으로 false가 아닌 한(기본값 true) 포함.
 function fixedPaidInRange(S: any, from: string, to: string) {
-  return (S.fixed || []).filter((f: any) => f.paid && f.paidDate && f.paidDate >= from && f.paidDate <= to)
+  return (S.fixed || []).filter((f: any) => f.paid && f.paidDate && f.paidDate >= from && f.paidDate <= to && f.affectsBalance !== false)
     .reduce((a: number, f: any) => a + (f.amount || 0), 0);
 }
 
@@ -128,11 +130,10 @@ function getWeeklySpent(S: any, weekStartStr: string, todayStr: string) {
     startBal = inWeek[0].total;
     curBal = inWeek[inWeek.length - 1].total;
   }
-  // 오늘 막 체크한 고정지출만 잔액 감소분에서 제외 (이중차감 방지).
-  // 주 시작~오늘 전체 범위로 빼면 월초에 몰아서 체크한 큰 고정지출(저축·관리비 등)까지
-  // 이번주 지출에서 사라져 0원으로 과다 차감되므로, 오늘 하루치만 제외한다.
-  const fixedToday = fixedPaidInRange(S, todayStr, todayStr);
-  return { spent: Math.max(0, (startBal as number) - (curBal as number) - fixedToday) };
+  // 이번 주 안에 실제로 빠져나간(=affectsBalance:false가 아닌) 고정지출은 잔액 감소분에서 제외.
+  // "오늘 체크한 것만" 빼면 다음날부터 그 금액이 다시 이번주 지출로 새는 버그가 있어 전체 주 범위로 뺀다.
+  const fixedThisWeek = fixedPaidInRange(S, weekStartStr, todayStr);
+  return { spent: Math.max(0, (startBal as number) - (curBal as number) - fixedThisWeek) };
 }
 
 // 클라이언트 SURPLUS/DEFICIT 페이스 테이블과 동일
