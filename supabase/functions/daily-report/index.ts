@@ -165,16 +165,17 @@ function buildSimpleSummary(S: any, todayStr: string) {
   const wSpentVal = ws ? ws.spent : 0;
   const wPct = Math.round(wSpentVal / Math.max(wBudget, 1) * 100);
 
-  const unpaidNames = (S.fixed || []).filter((f: any) => !f.paid).map((f: any) => f.name);
-  const recommendedWeekly = remain > 0 ? Math.round(remain / remaining * 7) : 0;
+  const unpaidList = (S.fixed || []).filter((f: any) => !f.paid).map((f: any) => `${f.name} ${won(f.amount)}`);
+  const recommendedDaily = remain > 0 ? Math.round(remain / remaining) : 0;
+  const recommendedWeekly = recommendedDaily * 7;
 
   const lines: string[] = [];
   lines.push(`월예산 ${won(eff)} 중 ${won(spent)} 사용 (${realPct}%)`);
   lines.push(wBudget > 0 ? `주예산 ${won(wBudget)} 중 ${won(wSpentVal)} 사용 (${wPct}%)` : `주예산 미설정`);
-  lines.push(unpaidNames.length ? `미납된 고정비는 ${unpaidNames.join(", ")}가 있어요` : `미납된 고정비 없음`);
+  lines.push(unpaidList.length ? `미납된 고정비는 ${unpaidList.join(", ")}이 있어요` : `미납된 고정비 없음`);
   lines.push(`어제 ${won(ydSpentVal)} 썼으니 오늘은 ${todayBudget < 0 ? "-" + won(Math.abs(todayBudget)) : won(todayBudget)} 써도 괜찮아요`);
   lines.push(remain > 0
-    ? `이 페이스면 앞으로 주에 ${won(recommendedWeekly)} 정도 써야 괜찮을 것 같아요`
+    ? `이 페이스면 주에 ${won(recommendedWeekly)} 일에 ${won(recommendedDaily)} 써야될 것 같아요`
     : `이미 이번 달 예산을 초과해서 지출을 최대한 줄이는 게 좋아요`);
 
   return lines.join("\n");
