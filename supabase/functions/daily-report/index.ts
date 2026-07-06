@@ -6,7 +6,6 @@ const ROW_ID = "my_money_data";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY")!;
 const TELEGRAM_BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN")!;
 const TELEGRAM_CHAT_ID = Deno.env.get("TELEGRAM_CHAT_ID")!;
 
@@ -136,43 +135,16 @@ function getWeeklySpent(S: any, weekStartStr: string, todayStr: string) {
   return { spent: Math.max(0, (startBal as number) - (curBal as number) - fixedThisWeek) };
 }
 
-// 클라이언트 SURPLUS/DEFICIT 페이스 테이블과 동일
-const SURPLUS = [
-  { max: 5, txt: "순항 중", em: "😊" },
-  { max: 10, txt: "알뜰하게 쓰는 중", em: "🙂" },
-  { max: 20, txt: "절약 잘 되고 있어요", em: "😄" },
-  { max: 35, txt: "완전 절약 모드", em: "🥳" },
-  { max: 999, txt: "거의 안 쓰고 있어요", em: "🤩" },
-];
-const DEFICIT = [
-  { max: 5, txt: "살짝 과했어요", em: "😅" },
-  { max: 10, txt: "조금 줄여볼까요", em: "😬" },
-  { max: 20, txt: "지출이 빠른 편이에요", em: "😰" },
-  { max: 35, txt: "이러다 바닥나요", em: "😱" },
-  { max: 999, txt: "지금 당장 줄여야 해요", em: "🚨" },
-];
-function calcPace(budget: number, spent: number, elapsed: number, total: number) {
-  const expected = budget * (elapsed / total);
-  const diff = spent - expected;
-  const pct = Math.abs(diff) / Math.max(budget, 1) * 100;
-  const isSurplus = diff <= 0;
-  const tbl = isSurplus ? SURPLUS : DEFICIT;
-  let item = tbl[tbl.length - 1];
-  for (const row of tbl) { if (pct <= row.max) { item = row; break; } }
-  return { item, expected, spent };
-}
-
-// 홈 대시보드와 동일한 수치를 라벨:값 형태로 정리한 리포트 (AI 가공 없이 결정적으로 계산)
-function buildReport(S: any, todayStr: string) {
+// 핵심 5줄만 남긴 심플 리포트 (AI 코멘트가 너무 길다는 피드백 반영 — 잔액 내역·일별추이·메모·페이스 라벨 등은 전부 제거)
+function buildSimpleSummary(S: any, todayStr: string) {
   const fixedTot = (S.fixed || []).reduce((a: number, f: any) => a + (f.amount || 0), 0);
-  // 미납(아직 안 빠져나간) 고정지출 = 잔액엔 남아있지만 곧 나갈 돈
   const unpaidFixed = (S.fixed || []).filter((f: any) => !f.paid).reduce((a: number, f: any) => a + (f.amount || 0), 0);
   const eff = Math.max(0, (S.budget || 0) - fixedTot);
   const tb = totalBalance(S.balances || {});
-  const usable = Math.max(0, tb - unpaidFixed); // 실제 쓸 수 있는 잔액 = 총잔액 - 미납 고정지출
+  const usable = Math.max(0, tb - unpaidFixed);
   const spent = tb > 0 ? Math.max(0, eff - usable) : 0;
   const remain = eff - spent;
-  const isOver = remain < 0;
+  const realPct = Math.round(spent / Math.max(eff, 1) * 100);
 
   let total = 30, elapsed = 15, remaining = 15;
   if (S.budgetStart && S.budgetEnd) {
@@ -180,9 +152,7 @@ function buildReport(S: any, todayStr: string) {
     elapsed = Math.max(0, Math.min(total, daysBetween(S.budgetStart, todayStr) + 1));
     remaining = Math.max(1, total - elapsed + 1);
   }
-  const realPct = Math.round(spent / Math.max(eff, 1) * 100);
-  const pace = calcPace(eff, spent, elapsed, total);
-  const { todayBudget, ds } = getTodayBudget(S, todayStr, eff, unpaidFixed, remaining, spent);
+  const { todayBudget } = getTodayBudget(S, todayStr, eff, unpaidFixed, remaining, spent);
 
   const yd = new Date(`${todayStr}T00:00:00Z`);
   yd.setUTCDate(yd.getUTCDate() - 1);
@@ -190,123 +160,24 @@ function buildReport(S: any, todayStr: string) {
   const ydSpentVal = getMemos(S, ydStr).reduce((a: number, c: any) => a + (c.amt || 0), 0);
 
   const weekStartStr = weekStartOf(todayStr);
-  const todayDow = new Date(`${todayStr}T00:00:00Z`).getUTCDay();
-  const wElapsed = todayDow === 0 ? 7 : todayDow;
-  const wRemaining = 7 - wElapsed + 1;
-
   const wBudget = S.weeklyBudget || 0;
   const ws = getWeeklySpent(S, weekStartStr, todayStr);
   const wSpentVal = ws ? ws.spent : 0;
-  const wRemain = wBudget - wSpentVal;
-  const wOver = wRemain < 0;
   const wPct = Math.round(wSpentVal / Math.max(wBudget, 1) * 100);
-  const wPace = (wBudget > 0 && ws) ? calcPace(wBudget, wSpentVal, wElapsed, 7) : null;
 
-  const balNames: Record<string, string> = { kakao: "카카오뱅크", kb: "국민은행", shinhan: "신한은행" };
-  const balLines = Object.keys(balNames).map((k) =>
-    (S.balances || {})[k] > 0 ? `${balNames[k]} ${won(S.balances[k])}` : null
-  ).filter(Boolean).join(" · ") || "없음";
-
-  const weekCards = Object.entries(S.memos || {})
-    .filter(([d]) => d >= weekStartStr && d <= todayStr)
-    .flatMap(([d]) => getMemos(S, d).map((c: any) => ({ ...c, date: d })))
-    .sort((a: any, b: any) => a.date.localeCompare(b.date));
-  const memoLines = weekCards.length ? weekCards.map((c: any) => {
-    const amtPart = c.amt > 0 ? won(c.amt) + " " : "";
-    const catPart = c.category ? "[" + c.category + "] " : "";
-    return `${c.date.slice(5)} ${catPart}${amtPart}${c.text || ""}`.trim();
-  }).join("\n") : "없음";
-
-  const fixedLines = (S.fixed || []).map((f: any) =>
-    `${f.name} ${won(f.amount)}${f.paid ? " (빠짐 " + f.paidDate + ")" : " (미납)"}`
-  ).join("\n") || "없음";
-
-  // 일별 지출 추이 (지출 메모 달력 기준) — 이번 예산기간, 최대 31일 (0원 날 포함해 흐름 파악)
-  const [ty0, tm0, td0] = todayStr.split("-").map(Number);
-  const todayUTC = Date.UTC(ty0, tm0 - 1, td0);
-  const trendDays: string[] = [];
-  for (let i = 30; i >= 0; i--) {
-    const ds2 = new Date(todayUTC - i * 86400000).toISOString().slice(0, 10);
-    if (S.budgetStart && ds2 < S.budgetStart) continue;
-    const sum = getMemos(S, ds2).reduce((a: number, c: any) => a + (c.amt || 0), 0);
-    trendDays.push(`${ds2.slice(5)} ${sum > 0 ? won(sum) : "0"}`);
-  }
-  const trendLine = trendDays.length ? trendDays.join(" · ") : "기록 없음";
+  const unpaidNames = (S.fixed || []).filter((f: any) => !f.paid).map((f: any) => f.name);
+  const recommendedWeekly = remain > 0 ? Math.round(remain / remaining * 7) : 0;
 
   const lines: string[] = [];
-  lines.push("[잔액]");
-  lines.push(`총잔액: ${won(tb)}`);
-  lines.push(balLines);
-  lines.push("");
-  lines.push("[오늘]");
-  lines.push(`오늘 쓸 수 있는 돈: ${won(todayBudget)}`);
-  if (ds && ds.noCaptureToday) {
-    lines.push(`어제 대비 오늘 쓴 돈: 0원 (오늘 캡처 없음, 마지막 캡처 ${ds.prevDate.slice(5)})`);
-  } else if (ds) {
-    lines.push(
-      `어제 대비 오늘 쓴 돈: ${ds.spent >= 0 ? won(ds.spent) : "+" + won(Math.abs(ds.spent)) + " (입금/충전)"} (${ds.prevDate.slice(5)}→${ds.todayDate.slice(5)})`,
-    );
-  }
-  lines.push(`어제 지출(메모 기준): ${won(ydSpentVal)}`);
-  lines.push("");
-  lines.push(`[월간 소진 현황] (${elapsed}/${total}일 경과)`);
-  lines.push(`월예산: ${won(S.budget)}`);
-  lines.push(`고정지출: -${won(fixedTot)}`);
-  lines.push(`사용가능: ${won(eff)}`);
-  lines.push(`사용: ${won(spent)} (${realPct}%)`);
-  lines.push(`남은예산: ${isOver ? won(Math.abs(remain)) + " 초과" : won(remain)}`);
-  lines.push(`월간 페이스: ${pace.item.em} ${pace.item.txt} (예상 ${won(Math.round(pace.expected))} / 실제 ${won(pace.spent)})`);
-  lines.push("");
-  lines.push(`[주간 소진 현황] (${wElapsed}/7일 경과)`);
-  lines.push(`주간예산: ${wBudget > 0 ? won(wBudget) : "미설정"}`);
-  lines.push(`사용: ${ws ? won(wSpentVal) + " (" + wPct + "%)" : "—"}`);
-  lines.push(`남은예산: ${wBudget > 0 ? (wOver ? won(Math.abs(wRemain)) + " 초과" : won(wRemain)) : "—"}`);
-  lines.push(`남은일수: ${wRemaining}일`);
-  if (wPace) lines.push(`주간 페이스: ${wPace.item.em} ${wPace.item.txt} (예상 ${won(Math.round(wPace.expected))} / 실제 ${won(wPace.spent)})`);
-  lines.push("");
-  lines.push("[일별 지출 추이] (메모 기준, 이번 예산기간)");
-  lines.push(trendLine);
-  lines.push("");
-  lines.push("[고정지출] (미납분은 위 '남은예산'·'사용가능'에 이미 차감 반영됨. 남은예산에서 또 빼지 말 것)");
-  lines.push(fixedLines);
-  lines.push("");
-  lines.push("[이번 주 지출 메모]");
-  lines.push(memoLines);
+  lines.push(`월예산 ${won(eff)} 중 ${won(spent)} 사용 (${realPct}%)`);
+  lines.push(wBudget > 0 ? `주예산 ${won(wBudget)} 중 ${won(wSpentVal)} 사용 (${wPct}%)` : `주예산 미설정`);
+  lines.push(unpaidNames.length ? `미납된 고정비는 ${unpaidNames.join(", ")}가 있어요` : `미납된 고정비 없음`);
+  lines.push(`어제 ${won(ydSpentVal)} 썼으니 오늘은 ${todayBudget < 0 ? "-" + won(Math.abs(todayBudget)) : won(todayBudget)} 써도 괜찮아요`);
+  lines.push(remain > 0
+    ? `이 페이스면 앞으로 주에 ${won(recommendedWeekly)} 정도 써야 괜찮을 것 같아요`
+    : `이미 이번 달 예산을 초과해서 지출을 최대한 줄이는 게 좋아요`);
 
   return lines.join("\n");
-}
-
-async function callGemini(report: string) {
-  const sys = `당신은 따뜻하고 현실적인 개인 재무 코치예요. 아래는 사용자의 오늘자 재무 리포트입니다 (잔액, 오늘 쓸 수 있는 돈, 일별 지출 추이, 주간·월간 소진 현황과 남은예산, 고정지출, 지출 메모 포함).
-
-이 리포트 전체를 해석해서 끝에 덧붙일 코멘트를 작성하세요.
-규칙:
-- 리포트의 숫자를 표처럼 통째로 다시 나열하지는 말 것. 다만 조언에 필요한 핵심 수치(하루 쓸 수 있는 돈, 남은예산, 큰 지출액 등)는 구체적으로 콕 집어 언급해도 됨
-- 중요: '사용가능'과 '남은예산'은 미납 고정지출을 이미 차감한 실제 쓸 수 있는 금액이다. 미납 고정지출을 남은예산에서 다시 빼서 "예산이 더 줄어든다"고 말하지 말 것(이중 차감 금지). 고정지출 미납 표시는 참고용일 뿐 남은예산에 이미 반영돼 있다
-- 전체 흐름을 읽어 해석할 것: 일별 지출 추이가 늘고 있는지 들쭉날쭉한지, 주간·월간 페이스가 예산 대비 어떤지, 남은예산과 남은 기간으로 버틸 수 있는지
-- 지출 메모(달력)에 큰 지출이나 반복되는 패턴이 있으면 짚어주기
-- 그다음 '남은 기간을 버티려면 가장 중요한 게 무엇인지'를 우선순위로 제시: 하루/주 단위로 얼마 안에서 써야 하는지, 어떤 지출을 줄이거나 조심할지 구체적으로
-- 마지막 줄은 반드시 '향후 이렇게 하자'는 실천 계획으로 자세히 마무리
-- 전체 5~7문장
-- 마크다운 기호(*, # 등) 쓰지 말 것
-- 친근한 반말체 살짝, 잔소리 느낌 없이 격려 위주
-- 이모지 1~2개만`;
-
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        system_instruction: { parts: [{ text: sys }] },
-        contents: [{ role: "user", parts: [{ text: report }] }],
-        generationConfig: { maxOutputTokens: 2048, thinkingConfig: { thinkingBudget: 0 } },
-      }),
-    },
-  );
-  if (!res.ok) throw new Error(`Gemini 오류 ${res.status}: ${await res.text()}`);
-  const data = await res.json();
-  return data.candidates?.[0]?.content?.parts?.[0]?.text || "코멘트를 생성하지 못했어요.";
 }
 
 async function sendTelegram(text: string) {
@@ -337,9 +208,8 @@ Deno.serve(async () => {
   if (logErr) return new Response("already sent today", { status: 200 });
 
   try {
-    const report = buildReport(S, dateStr);
-    const aiComment = await callGemini(report);
-    await sendTelegram(`💸 머니페이스 일일 리포트 (${dateStr})\n\n${report}\n\n💬 ${aiComment}`);
+    const summary = buildSimpleSummary(S, dateStr);
+    await sendTelegram(`💸 머니페이스 일일 리포트 (${dateStr})\n\n${summary}`);
     return new Response("sent", { status: 200 });
   } catch (e) {
     // 실패하면 같은 날 재시도할 수 있게 로그 롤백

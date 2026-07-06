@@ -1397,94 +1397,6 @@ function buildCtx(){
 - 총잔액: ${won(totBal())}, 어제지출: ${won(ydSpent())}`;
 }
 
-// 홈 대시보드와 동일한 수치를 그대로 라벨:값 형태로 정리한 리포트 (AI 가공 없이 결정적으로 계산)
-function buildReport(){
-  const todayStr=toStr();
-  const tb=totBal();
-  const eff=effectiveBudget();
-  const fixedTot=totFixed();
-  const spent=totSpent();
-  const remain=eff-spent;
-  const isOver=remain<0;
-  const{total:mTotal,elapsed:mElapsed,remaining:mRemainDays}=getBD();
-  const todayBudget=getTodayBudget();
-  const realPct=Math.round(spent/Math.max(eff,1)*100);
-  const pace=getPace();
-  const ds=getDailySpent();
-
-  const wInfo=getWeekInfo();
-  const wBudget=S.weeklyBudget||0;
-  const ws=getWeeklySpent();
-  const wSpentVal=ws?ws.spent:0;
-  const wRemain=wBudget-wSpentVal;
-  const wOver=wRemain<0;
-  const wPct=Math.round(wSpentVal/Math.max(wBudget,1)*100);
-  const wPace=(wBudget>0&&ws)?calcPace(wBudget,wSpentVal,wInfo.elapsed,wInfo.total):null;
-
-  const balNames={kakao:'카카오뱅크',kb:'국민은행',shinhan:'신한은행'};
-  const balLines=Object.keys(balNames).map(k=>S.balances[k]>0?`${balNames[k]} ${won(S.balances[k])}`:null).filter(Boolean).join(' · ')||'없음';
-
-  const weekCards=Object.entries(S.memos||{})
-    .filter(([d])=>d>=wInfo.weekStartStr&&d<=todayStr)
-    .flatMap(([d])=>getMemos(d).map(c=>({...c,date:d})))
-    .sort((a,b)=>a.date.localeCompare(b.date));
-  const memoLines=weekCards.length?weekCards.map(c=>{
-    const amtPart=c.amt>0?won(c.amt)+' ':'';
-    const catPart=c.category?'['+c.category+'] ':'';
-    return `${c.date.slice(5)} ${catPart}${amtPart}${c.text||''}`.trim();
-  }).join('\n'):'없음';
-
-  const fixedLines=(S.fixed||[]).map(f=>`${f.name} ${won(f.amount)}${f.paid?' (빠짐 '+f.paidDate+')':' (미납)'}`).join('\n')||'없음';
-
-  // 일별 지출 추이 (지출 메모 달력 기준) — 이번 예산기간, 최대 31일 (0원 날 포함해 흐름 파악)
-  const[ty0,tm0,td0]=todayStr.split('-').map(Number);
-  const todayUTC=Date.UTC(ty0,tm0-1,td0);
-  const trendDays=[];
-  for(let i=30;i>=0;i--){
-    const ds2=new Date(todayUTC-i*86400000).toISOString().slice(0,10);
-    if(S.budgetStart&&ds2<S.budgetStart)continue;
-    const sum=getMemos(ds2).reduce((a,c)=>a+(c.amt||0),0);
-    trendDays.push(`${ds2.slice(5)} ${sum>0?won(sum):'0'}`);
-  }
-  const trendLine=trendDays.length?trendDays.join(' · '):'기록 없음';
-
-  const lines=[];
-  lines.push('[잔액]');
-  lines.push(`총잔액: ${won(tb)}`);
-  lines.push(balLines);
-  lines.push('');
-  lines.push('[오늘]');
-  lines.push(`오늘 쓸 수 있는 돈: ${todayBudget<0?'-'+won(todayBudget):won(todayBudget)}`);
-  if(ds&&ds.noCaptureToday)lines.push(`어제 대비 오늘 쓴 돈: 0원 (오늘 캡처 없음, 마지막 캡처 ${ds.prevDate.slice(5)})`);
-  else if(ds)lines.push(`어제 대비 오늘 쓴 돈: ${ds.spent>=0?won(ds.spent):'+'+won(Math.abs(ds.spent))+' (입금/충전)'} (${ds.prevDate.slice(5)}→${ds.todayDate.slice(5)})`);
-  lines.push(`어제 지출(메모 기준): ${won(ydSpent())}`);
-  lines.push('');
-  lines.push(`[월간 소진 현황] (${mElapsed}/${mTotal}일 경과)`);
-  lines.push(`월예산: ${won(S.budget)}`);
-  lines.push(`고정지출: -${won(fixedTot)}`);
-  lines.push(`사용가능: ${won(eff)}`);
-  lines.push(`사용: ${won(spent)} (${realPct}%)`);
-  lines.push(`남은예산: ${isOver?won(Math.abs(remain))+' 초과':won(remain)}`);
-  lines.push(`월간 페이스: ${pace.item.em} ${pace.item.txt} (예상 ${won(Math.round(pace.expected))} / 실제 ${won(pace.spent)})`);
-  lines.push('');
-  lines.push(`[주간 소진 현황] (${wInfo.elapsed}/7일 경과)`);
-  lines.push(`주간예산: ${wBudget>0?won(wBudget):'미설정'}`);
-  lines.push(`사용: ${ws?won(wSpentVal)+' ('+wPct+'%)':'—'}`);
-  lines.push(`남은예산: ${wBudget>0?(wOver?won(Math.abs(wRemain))+' 초과':won(wRemain)):'—'}`);
-  lines.push(`남은일수: ${wInfo.remaining}일`);
-  if(wPace)lines.push(`주간 페이스: ${wPace.item.em} ${wPace.item.txt} (예상 ${won(Math.round(wPace.expected))} / 실제 ${won(wPace.spent)})`);
-  lines.push('');
-  lines.push('[일별 지출 추이] (메모 기준, 이번 예산기간)');
-  lines.push(trendLine);
-  lines.push('');
-  lines.push("[고정지출] (미납분은 위 '남은예산'·'사용가능'에 이미 차감 반영됨. 남은예산에서 또 빼지 말 것)");
-  lines.push(fixedLines);
-  lines.push('');
-  lines.push('[이번 주 지출 메모]');
-  lines.push(memoLines);
-
-  return lines.join('\n');
-}
 async function askAI(t){document.getElementById('chatInp').value=t;await sendChat();}
 
 // Gemini 호출 공용 함수 (단발성 프롬프트)
@@ -1495,23 +1407,6 @@ function geminiErr(status,raw){
   if(status===403)return 'API 키 권한 문제예요. 설정에서 키를 다시 확인해주세요';
   if(status>=500)return '구글 서버가 잠시 불안정해요. 잠시 후 다시 시도해주세요';
   return `오류(${status}): `+(raw||'').slice(0,80);
-}
-
-async function callGemini(systemPrompt, userText){
-  if(!S.claudeKey)throw new Error('Gemini API 키가 없어요');
-  const body={
-    system_instruction:{parts:[{text:systemPrompt}]},
-    contents:[{role:'user',parts:[{text:userText}]}],
-    generationConfig:{maxOutputTokens:2048,thinkingConfig:{thinkingBudget:0}}
-  };
-  const url='https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key='+S.claudeKey;
-  for(let attempt=0;attempt<2;attempt++){
-    const res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-    if(res.ok){const data=await res.json();return data.candidates?.[0]?.content?.parts?.[0]?.text||'응답을 받지 못했어요.';}
-    const raw=await res.text();
-    if(res.status===429&&attempt===0){await new Promise(r=>setTimeout(r,2500));continue;} // 한도 초과면 한 번 더
-    throw new Error(geminiErr(res.status,raw));
-  }
 }
 
 // 채팅 메시지가 지출 기록인지 질문/잡담인지 Gemini가 구분해서, 기록이면 JSON으로 카테고리·금액을
@@ -1618,43 +1513,42 @@ function appendChat(role,text){
   el.className='cb '+role;el.textContent=text;w.appendChild(el);w.scrollTop=w.scrollHeight;return el;
 }
 
+// 핵심 5줄만 남긴 심플 요약 (AI 코멘트가 너무 길다는 피드백 반영 — 잔액 내역·일별추이·메모·페이스 라벨 등은 전부 제거, AI 호출도 안 함)
+function buildSimpleSummary(){
+  const eff=effectiveBudget();
+  const spent=totSpent();
+  const realPct=Math.round(spent/Math.max(eff,1)*100);
+  const{remaining}=getBD();
+  const todayBudget=getTodayBudget();
+  const wBudget=S.weeklyBudget||0;
+  const ws=getWeeklySpent();
+  const wSpentVal=ws?ws.spent:0;
+  const wPct=Math.round(wSpentVal/Math.max(wBudget,1)*100);
+  const unpaidNames=(S.fixed||[]).filter(f=>!f.paid).map(f=>f.name);
+  const remain=eff-spent;
+  const recommendedWeekly=remain>0?Math.round(remain/remaining*7):0;
+
+  const lines=[];
+  lines.push(`월예산 ${won(eff)} 중 ${won(spent)} 사용 (${realPct}%)`);
+  lines.push(wBudget>0?`주예산 ${won(wBudget)} 중 ${won(wSpentVal)} 사용 (${wPct}%)`:`주예산 미설정`);
+  lines.push(unpaidNames.length?`미납된 고정비는 ${unpaidNames.join(', ')}가 있어요`:`미납된 고정비 없음`);
+  lines.push(`어제 ${won(ydSpent())} 썼으니 오늘은 ${todayBudget<0?'-'+won(Math.abs(todayBudget)):won(todayBudget)} 써도 괜찮아요`);
+  lines.push(remain>0?`이 페이스면 앞으로 주에 ${won(recommendedWeekly)} 정도 써야 괜찮을 것 같아요`:`이미 이번 달 예산을 초과해서 지출을 최대한 줄이는 게 좋아요`);
+  return lines.join('\n');
+}
 // ── 일간 코멘트 ──────────────────────────────
 // force=true면 오늘 코멘트가 있어도 다시 생성
-async function genTodayComment(force){
+function genTodayComment(force){
   const today=toStr();
   if(!S.comments)S.comments={};
   if(S.comments[today]&&!force){renderComments();return;} // 이미 있으면 자동생성 스킵
-  if(!S.claudeKey){if(force)showToast('설정에서 Gemini API 키를 입력해주세요');return;}
   // 데이터가 거의 없으면 생성 안 함 (잔액도 없을 때)
   if(totBal()<=0&&!force)return;
 
-  const btn=document.getElementById('genCmtBtn');
-  if(btn){btn.textContent='생성 중...';btn.disabled=true;}
-  try{
-    const report=buildReport();
-    const sys=`당신은 따뜻하고 현실적인 개인 재무 코치예요. 아래는 사용자의 오늘자 재무 리포트입니다 (잔액, 오늘 쓸 수 있는 돈, 일별 지출 추이, 주간·월간 소진 현황과 남은예산, 고정지출, 지출 메모 포함).
-
-이 리포트 전체를 해석해서 끝에 덧붙일 코멘트를 작성하세요.
-규칙:
-- 리포트의 숫자를 표처럼 통째로 다시 나열하지는 말 것. 다만 조언에 필요한 핵심 수치(하루 쓸 수 있는 돈, 남은예산, 큰 지출액 등)는 구체적으로 콕 집어 언급해도 됨
-- 중요: '사용가능'과 '남은예산'은 미납 고정지출을 이미 차감한 실제 쓸 수 있는 금액이다. 미납 고정지출을 남은예산에서 다시 빼서 "예산이 더 줄어든다"고 말하지 말 것(이중 차감 금지). 고정지출 미납 표시는 참고용일 뿐 남은예산에 이미 반영돼 있다
-- 전체 흐름을 읽어 해석할 것: 일별 지출 추이가 늘고 있는지 들쭉날쭉한지, 주간·월간 페이스가 예산 대비 어떤지, 남은예산과 남은 기간으로 버틸 수 있는지
-- 지출 메모(달력)에 큰 지출이나 반복되는 패턴이 있으면 짚어주기
-- 그다음 '남은 기간을 버티려면 가장 중요한 게 무엇인지'를 우선순위로 제시: 하루/주 단위로 얼마 안에서 써야 하는지, 어떤 지출을 줄이거나 조심할지 구체적으로
-- 마지막 줄은 반드시 '향후 이렇게 하자'는 실천 계획으로 자세히 마무리
-- 전체 5~7문장
-- 마크다운 기호(*, # 등) 쓰지 말 것
-- 친근한 반말체 살짝, 잔소리 느낌 없이 격려 위주
-- 이모지 1~2개만`;
-    const aiComment=await callGemini(sys, report);
-    // 이전 코멘트는 남기지 않고 최신 1개만 유지 (누를 때마다 덮어쓰기)
-    S.comments={[today]:report+'\n\n💬 '+aiComment};
-    save();renderComments();
-    if(force)showToast('오늘 코멘트가 생성됐어요 ✓');
-  }catch(e){
-    if(force)showToast(e.message.slice(0,60));
-  }
-  if(btn){btn.textContent='오늘 코멘트 생성';btn.disabled=false;}
+  // 이전 코멘트는 남기지 않고 최신 1개만 유지 (누를 때마다 덮어쓰기)
+  S.comments={[today]:buildSimpleSummary()};
+  save();renderComments();
+  if(force)showToast('오늘 코멘트가 생성됐어요 ✓');
 }
 
 function renderComments(){
