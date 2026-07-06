@@ -625,10 +625,12 @@ function getWeeklySpent(){
   const byDate={};
   withTotal.forEach(c=>{if(!byDate[c.date]||c.minutes>byDate[c.date].minutes)byDate[c.date]=c;});
   const days=Object.values(byDate).sort((a,b)=>a.date.localeCompare(b.date)); // 오름차순
-  // 주 시작일 이전(또는 같은날)의 가장 마지막 잔액 = 주 시작 기준 잔액
+  // 주 시작일 이전(당일 제외)의 가장 마지막 잔액 = 주 시작 기준 잔액.
+  // <=로 당일까지 포함하면 월요일(주 시작일)에 캡처를 올린 날 startBal===curBal이 되어
+  // 그날 지출이 0으로 사라지는 버그가 있었음 → <로 당일 캡처는 제외.
   let startBal=null, curBal=null;
   for(const d of days){
-    if(d.date<=weekStartStr) startBal=d.total; // 주 시작 시점 잔액 (그 이전 마지막 캡처)
+    if(d.date<weekStartStr) startBal=d.total; // 주 시작 시점 잔액 (그 이전 마지막 캡처)
     curBal=d.total; // 가장 최신
   }
   // 주 시작 이전 캡처가 없으면, 주 안에서 가장 이른 캡처를 시작으로

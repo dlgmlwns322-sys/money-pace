@@ -121,7 +121,7 @@ function getWeeklySpent(S: any, weekStartStr: string, todayStr: string) {
   if (days.length < 1) return null;
   let startBal: number | null = null, curBal: number | null = null;
   for (const d of days as any[]) {
-    if (d.date <= weekStartStr) startBal = d.total;
+    if (d.date < weekStartStr) startBal = d.total;
     curBal = d.total;
   }
   if (startBal === null) {
