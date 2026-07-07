@@ -157,7 +157,11 @@ function buildSimpleSummary(S: any, todayStr: string) {
   const yd = new Date(`${todayStr}T00:00:00Z`);
   yd.setUTCDate(yd.getUTCDate() - 1);
   const ydStr = yd.toISOString().slice(0, 10);
-  const ydSpentVal = getMemos(S, ydStr).reduce((a: number, c: any) => a + (c.amt || 0), 0);
+  // 메모(직접 기록한 지출 카드) 합계는 사용자가 깜빡하고 안 적으면 실제로 썼어도 0으로 나옴 —
+  // 어제 날짜에 실제 잔액 캡처가 있으면 그 잔액 감소분(실제로 빠져나간 돈)을 우선 쓰고, 캡처가 없을 때만 메모 합계로 대체
+  const ydDailySpent = getDailySpent(S, ydStr);
+  const ydMemoSum = getMemos(S, ydStr).reduce((a: number, c: any) => a + (c.amt || 0), 0);
+  const ydSpentVal = (ydDailySpent && !ydDailySpent.noCaptureToday) ? ydDailySpent.spent : ydMemoSum;
 
   const weekStartStr = weekStartOf(todayStr);
   const wBudget = S.weeklyBudget || 0;

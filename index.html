@@ -651,9 +651,9 @@ function getWeeklySpent(){
 // 캡처 기록에서 '오늘'(실제 달력 기준)과 오늘 이전 가장 최근 날짜의 잔액 차이로 일일 지출 계산.
 // 오늘 캡처가 없어도 날짜는 항상 실제 오늘(toStr()) 기준이며, 00시가 지나면 자동으로 새 날짜로 전환되고
 // 그날 캡처가 없으면 지출 0원으로 처리한다(전날 이전 캡처와 비교해 stale하게 보여주지 않음).
-function getDailySpent(){
+function getDailySpent(dateStr){
   if(!S.captures||S.captures.length<1)return null;
-  const todayStr=toStr();
+  const todayStr=dateStr||toStr();
   // 각 캡처에 총잔액 추가 후, 날짜별로 그룹화(같은 날이면 시간 최신 것만 남김)
   const withTotal=S.captures.map(c=>({
     date:c.date,
@@ -1529,11 +1529,18 @@ function buildSimpleSummary(){
   const recommendedDaily=remain>0?Math.round(remain/remaining):0;
   const recommendedWeekly=recommendedDaily*7;
 
+  // 메모(직접 기록한 지출 카드) 합계는 사용자가 깜빡하고 안 적으면 실제로 썼어도 0으로 나옴 —
+  // 어제 날짜에 실제 잔액 캡처가 있으면 그 잔액 감소분(실제로 빠져나간 돈)을 우선 쓰고, 캡처가 없을 때만 메모 합계로 대체
+  const[ty,tm,td]=toStr().split('-').map(Number);
+  const ydStr=new Date(Date.UTC(ty,tm-1,td-1)).toISOString().slice(0,10);
+  const ydDailySpent=getDailySpent(ydStr);
+  const ydActual=(ydDailySpent&&!ydDailySpent.noCaptureToday)?ydDailySpent.spent:ydSpent();
+
   const lines=[];
   lines.push(`월예산 ${won(eff)} 중 ${won(spent)} 사용 (${realPct}%)`);
   lines.push(wBudget>0?`주예산 ${won(wBudget)} 중 ${won(wSpentVal)} 사용 (${wPct}%)`:`주예산 미설정`);
   lines.push(unpaidList.length?`미납된 고정비는 ${unpaidList.join(', ')}이 있어요`:`미납된 고정비 없음`);
-  lines.push(`어제 ${won(ydSpent())} 썼으니 오늘은 ${todayBudget<0?'-'+won(Math.abs(todayBudget)):won(todayBudget)} 써도 괜찮아요`);
+  lines.push(`어제 ${won(ydActual)} 썼으니 오늘은 ${todayBudget<0?'-'+won(Math.abs(todayBudget)):won(todayBudget)} 써도 괜찮아요`);
   lines.push(remain>0?`이 페이스면 주에 ${won(recommendedWeekly)} 일에 ${won(recommendedDaily)} 써야될 것 같아요`:`이미 이번 달 예산을 초과해서 지출을 최대한 줄이는 게 좋아요`);
   return lines.join('\n');
 }
