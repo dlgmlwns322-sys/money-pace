@@ -257,8 +257,8 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 </defs></svg>
 </div>
 <div class="safe"></div>
-<div class="header">
-  <div class="header-title">머니페이스 💸</div>
+<div class="header hidden" id="appHeader">
+  <div class="header-title" id="headerTitle"></div>
   <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">
     <div id="notifDot" style="font-size:11px;color:var(--text3)"></div>
     <div id="syncBadge" style="font-size:10px;color:var(--text3)"></div>
@@ -1047,6 +1047,7 @@ function renderHeroSeg(){
 }
 
 // ═══ 주간 소진 추이 막대 (이번 주 월~일, 메모 카드 금액 합계 기준) ═══
+let weekBarsData=[],weekBarActiveIdx=-1;
 function renderWeekBars(){
   const wrap=document.getElementById('wk2Bars');
   if(!wrap)return;
@@ -1060,17 +1061,30 @@ function renderWeekBars(){
     const amt=getMemos(ds).reduce((a,c)=>a+(c.amt||0),0);
     return{ds,label,amt,isToday:ds===todayS};
   });
+  weekBarsData=days;
   const maxAmt=Math.max(1,...days.map(d=>d.amt));
   const weekTotal=days.reduce((a,d)=>a+d.amt,0);
   const wBudget=S.weeklyBudget||0;
   const rangeEl=document.getElementById('wk2Range');
   if(rangeEl)rangeEl.textContent=`${weekTotal.toLocaleString('ko-KR')} / ${wBudget.toLocaleString('ko-KR')}원`;
-  wrap.innerHTML=days.map(d=>{
+  wrap.innerHTML=days.map((d,i)=>{
     const h=d.amt>0?Math.max(16,Math.round((d.amt/maxAmt)*62)):16;
     const barColor=d.isToday?'var(--ind)':(d.amt>0?'var(--bar-n)':'var(--bar-l)');
-    const tip=d.isToday&&d.amt>0?`<div class="wk2-tip num">${won(d.amt)}</div>`:'';
-    return`<div class="wk2-bar-col">${tip}<div class="wk2-bar" style="height:${h}px;background:${barColor};"></div><span class="wk2-bar-lbl${d.isToday?' hi':''}">${d.label}</span></div>`;
+    return`<div class="wk2-bar-col" onclick="showWeekBarInfo(${i})"><div class="wk2-tip num hidden" id="wk2Tip${i}"></div><div class="wk2-bar" style="height:${h}px;background:${barColor};"></div><span class="wk2-bar-lbl${d.isToday?' hi':''}">${d.label}</span></div>`;
   }).join('');
+  const defaultIdx=days.findIndex(d=>d.isToday);
+  showWeekBarInfo(defaultIdx>=0?defaultIdx:days.length-1);
+}
+function showWeekBarInfo(idx){
+  const d=weekBarsData[idx];
+  if(!d)return;
+  weekBarActiveIdx=idx;
+  weekBarsData.forEach((_,i)=>{
+    const tip=document.getElementById(`wk2Tip${i}`);
+    if(!tip)return;
+    tip.classList.toggle('hidden',i!==idx||weekBarsData[i].amt<=0);
+    if(i===idx&&weekBarsData[i].amt>0)tip.textContent=won(weekBarsData[i].amt);
+  });
 }
 
 // ═══ 달력 (지출 탭) ═══
@@ -1838,12 +1852,16 @@ function schedAlarm(){
 }
 
 const TABS=['home','add','capture','fixed','ai','settings'];
+// 홈은 디자인상 최상단에 타이틀 없이 바로 히어로 카드로 시작 — 나머지 탭만 화면명을 상단에 표시
+const TAB_TITLES={home:'',add:'지출',capture:'잔액',fixed:'고정지출',ai:'AI',settings:'설정'};
 function showTab(name){
   TABS.forEach(t=>{
     document.getElementById('tab-'+t).classList.toggle('hidden',t!==name);
     const n=document.getElementById('nav-'+t);if(n)n.classList.toggle('active',t===name);
   });
   document.querySelectorAll('.tab').forEach((b,i)=>b.classList.toggle('active',TABS[i]===name));
+  document.getElementById('appHeader').classList.toggle('hidden',name==='home');
+  document.getElementById('headerTitle').textContent=TAB_TITLES[name]||'';
 }
 
 let tTimer;
