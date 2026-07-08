@@ -14,7 +14,7 @@ if('serviceWorker' in navigator){
   navigator.serviceWorker.register('/money-pace/sw.js',{scope:'/money-pace/'}).catch(e=>console.log('SW 등록 실패',e));
 }
 </script>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Noto+Sans+KR:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
 :root{
@@ -26,7 +26,14 @@ if('serviceWorker' in navigator){
   --orange:#FF7D00;--orange-light:#FFF3E8;
   --shadow:0 2px 8px rgba(26,26,26,0.08);
   --r:16px;--r-sm:12px;--r-xs:8px;
+  /* 리디자인(인디고 시스템) 토큰 — 홈 화면부터 순차 적용 */
+  --ind:#4F46E5;--ind2:#4E52E6;--ind3:#7B58F2;
+  --ink-s:#16162E;--ink-m:#6B6D8C;--ink-w:#8A8CA8;--ink-w2:#A6A8C6;
+  --danger2:#F0475B;--sub-bg:#F5F6FC;
+  --tile-shadow:0 8px 24px rgba(30,27,80,.06);
+  --bar-n:#DADBEF;--bar-l:#EBEBF5;
 }
+.num{font-family:'Manrope','Noto Sans KR',sans-serif;font-feature-settings:"tnum" 1;}
 body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-serif;min-height:100vh;max-width:430px;margin:0 auto;padding-bottom:80px;overflow-x:hidden;}
 .safe{height:44px;}
 .header{background:var(--white);padding:8px 20px 10px;display:flex;justify-content:space-between;align-items:center;}
@@ -189,6 +196,45 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 .fx-add-row{display:flex;gap:8px;margin-bottom:10px;}
 .fx-inp{background:var(--bg);border:1.5px solid var(--border);border-radius:var(--r-xs);padding:10px 12px;font-size:13px;font-family:inherit;color:var(--text);outline:none;}
 .fx-inp:focus{border-color:var(--blue);}
+/* ── 홈 리디자인 (플로팅 히어로 카드 · 세그먼트) ── */
+.hero2{background:linear-gradient(150deg,var(--ind2) 0%,var(--ind3) 100%);border-radius:30px;padding:20px 20px 22px;color:#fff;box-shadow:0 22px 44px rgba(74,66,220,.45);position:relative;overflow:hidden;margin-bottom:14px;}
+.hero2::after{content:'';position:absolute;right:-30px;top:-30px;width:130px;height:130px;border-radius:50%;background:rgba(255,255,255,.09);pointer-events:none;}
+.hero2-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.2);padding:5px 11px;border-radius:999px;font-size:12px;font-weight:700;position:relative;z-index:1;}
+.hero2-badge .dot{width:7px;height:7px;border-radius:50%;background:#fff;display:inline-block;}
+.hero2-row{display:flex;justify-content:space-between;align-items:center;margin-top:16px;position:relative;z-index:1;}
+.hero2-lbl{font-size:12px;opacity:.85;font-weight:600;}
+.hero2-amt{font-size:45px;font-weight:800;letter-spacing:-1.5px;line-height:1;margin-top:5px;}
+.ring2-w{position:relative;width:82px;height:82px;flex-shrink:0;}
+.ring2-w svg{transform:rotate(-90deg);}
+.ring2-w circle{transition:stroke-dashoffset 0.3s;}
+.ring2-c{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+.ring2-pct{font-size:18px;font-weight:800;}
+.ring2-sub{font-size:8px;opacity:.85;font-weight:700;}
+.seg2{display:flex;background:rgba(255,255,255,.15);border-radius:14px;padding:4px;margin-top:18px;position:relative;z-index:1;}
+.seg2-item{flex:1;text-align:center;padding:9px 0;color:rgba(255,255,255,.85);font-size:12px;font-weight:700;border-radius:11px;cursor:pointer;background:none;border:none;font-family:inherit;}
+.seg2-item.active{background:#fff;color:var(--ind);font-weight:800;}
+.mini3{display:flex;margin-top:14px;position:relative;z-index:1;}
+.mini3-item{flex:1;text-align:center;}
+.mini3-lbl{font-size:11px;opacity:.8;}
+.mini3-val{font-size:13px;font-weight:800;margin-top:3px;}
+.mini3-div{width:1px;background:rgba(255,255,255,.2);}
+.hero2-cap{font-size:10.5px;opacity:.78;margin-top:10px;position:relative;z-index:1;line-height:1.5;}
+.tile2-row{display:flex;gap:12px;margin-bottom:14px;}
+.tile2{flex:1;background:#fff;border-radius:20px;padding:15px;box-shadow:var(--tile-shadow);}
+.tile2-lbl{font-size:11px;color:var(--ink-w);font-weight:700;}
+.tile2-val{font-size:22px;font-weight:800;margin-top:5px;}
+.tile2-sub{font-size:10px;color:var(--ink-w2);margin-top:4px;}
+.wk2-card{background:#fff;border-radius:24px;padding:18px;margin-bottom:14px;box-shadow:var(--tile-shadow);}
+.wk2-hd{display:flex;justify-content:space-between;align-items:center;font-size:14px;font-weight:800;color:var(--ink-s);}
+.wk2-hd .num{font-size:12px;color:var(--ink-m);font-weight:700;}
+.wk2-bars{display:flex;align-items:flex-end;justify-content:space-between;gap:7px;height:78px;margin-top:16px;}
+.wk2-bar-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;position:relative;}
+.wk2-bar{width:60%;border-radius:5px;transition:height 0.25s;}
+.wk2-bar-lbl{font-size:10px;color:var(--ink-w2);}
+.wk2-bar-lbl.hi{color:var(--ind);font-weight:700;}
+.wk2-tip{position:absolute;top:-24px;background:var(--ink-s);color:#fff;font-size:10px;font-weight:700;padding:3px 7px;border-radius:6px;white-space:nowrap;}
+.cta2{width:100%;padding:15px;border:none;border-radius:999px;background:var(--ink-s);color:#fff;font-size:14px;font-weight:800;font-family:inherit;cursor:pointer;margin-bottom:6px;}
+.cta2:active{opacity:.85;}
 </style>
 </head>
 <body>
@@ -212,88 +258,127 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 <!-- HOME -->
 <div id="tab-home" class="sec">
   <div id="apiBanner" class="api-warn hidden">⚠️ 설정에서 Google Vision API 키를 입력해야 이미지 인식이 돼요</div>
-  <div class="hero">
-    <div class="hero-lbl">총 잔액</div>
-    <div class="hero-amt" id="heroTotal">—</div>
-    <div class="acc-row"><div class="acc-dot" style="background:#FFEB00"></div><div class="acc-name">카카오뱅크</div><div class="acc-val" id="bal-kakao">—</div></div>
-    <div class="acc-row"><div class="acc-dot" style="background:#FFB800"></div><div class="acc-name">국민은행</div><div class="acc-val" id="bal-kb">—</div></div>
-    <div class="acc-row"><div class="acc-dot" style="background:#A0BEFF"></div><div class="acc-name">신한은행</div><div class="acc-val" id="bal-shinhan">—</div></div>
-  </div>
-  <div class="card">
-    <div class="card-title">오늘 쓸 수 있는 돈</div>
-    <div class="daily-big" id="dailyBudget">—</div>
-    <div class="daily-sub" id="dailySub">설정에서 예산 기간을 입력해주세요</div>
-  </div>
-  <div class="card">
-    <div class="card-title">어제 대비 오늘 쓴 돈</div>
-    <div class="daily-big" id="todaySpent" style="color:var(--red)">—</div>
-    <div class="daily-sub" id="todaySpentSub">캡처를 이틀 이상 올리면 계산돼요</div>
-  </div>
 
-  <!-- 월간 소진 현황 -->
-  <div class="card">
-    <div class="card-title">📅 월간 소진 현황</div>
-    <div class="brow">
-      <div class="ring-w">
-        <svg width="78" height="78" viewBox="0 0 78 78">
-          <circle cx="39" cy="39" r="31" fill="none" stroke="#EEEEF2" stroke-width="8"/>
-          <circle cx="39" cy="39" r="31" fill="none" stroke="var(--blue)" stroke-width="8"
-            stroke-dasharray="195" stroke-dashoffset="195" id="ringCircle" stroke-linecap="round"/>
+  <!-- 플로팅 히어로 카드 (월간/주간/오늘 세그먼트 전환) -->
+  <div class="hero2">
+    <div class="hero2-badge" id="heroBadge"><span class="dot"></span><span id="heroBadgeText">순항 중</span></div>
+    <div class="hero2-row">
+      <div>
+        <div class="hero2-lbl" id="hero2Lbl">이번 달 남은 금액</div>
+        <div class="hero2-amt num" id="hero2Amt">—</div>
+      </div>
+      <div class="ring2-w">
+        <svg width="82" height="82" viewBox="0 0 82 82">
+          <circle cx="41" cy="41" r="32" fill="none" stroke="rgba(255,255,255,.25)" stroke-width="8"/>
+          <circle cx="41" cy="41" r="32" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round" stroke-dasharray="201" stroke-dashoffset="201" id="hero2Ring"/>
         </svg>
-        <div class="ring-c"><div class="ring-pct" id="ringPct">0%</div><div class="ring-sub">소진율</div></div>
-      </div>
-      <div class="binfo">
-        <div class="bitem"><span class="blbl">월 예산</span><span class="bval" id="bTotal">—</span></div>
-        <div class="bitem"><span class="blbl">고정지출</span><span class="bval" style="color:var(--orange)" id="bFixed">0원</span></div>
-        <div class="bitem"><span class="blbl">사용가능</span><span class="bval" style="color:var(--blue)" id="bEffective">—</span></div>
-        <div class="bitem"><span class="blbl">사용</span><span class="bval" style="color:var(--red)" id="bSpent">0원</span></div>
-        <div class="bitem"><span class="blbl">남은 예산</span><span class="bval" id="bRemain">—</span></div>
+        <div class="ring2-c"><div class="ring2-pct num" id="hero2Pct">0%</div><div class="ring2-sub">소진</div></div>
       </div>
     </div>
-    <div class="baseline-box" id="mBaseline"></div>
+    <div class="seg2" id="homeSeg">
+      <button type="button" class="seg2-item active" data-seg="month" onclick="setHomeSeg('month')">월간</button>
+      <button type="button" class="seg2-item" data-seg="week" onclick="setHomeSeg('week')">주간</button>
+      <button type="button" class="seg2-item" data-seg="today" onclick="setHomeSeg('today')">오늘</button>
+    </div>
+    <div class="mini3">
+      <div class="mini3-item"><div class="mini3-lbl">예산</div><div class="mini3-val num" id="mini1">—</div></div>
+      <div class="mini3-div"></div>
+      <div class="mini3-item"><div class="mini3-lbl">소진</div><div class="mini3-val num" id="mini2">—</div></div>
+      <div class="mini3-div"></div>
+      <div class="mini3-item"><div class="mini3-lbl">남은</div><div class="mini3-val num" id="mini3">—</div></div>
+    </div>
+    <div class="hero2-cap" id="hero2Cap"></div>
   </div>
 
-  <!-- 월간 페이스 -->
-  <div class="card">
-    <div class="card-title">📅 월간 페이스</div>
-    <div id="paceBadge" class="pace-badge" style="background:var(--blue-light);color:var(--blue)">
-      <span id="paceEmoji">😊</span><span id="paceText">순항 중</span>
+  <!-- 오늘/어제 2-업 타일 -->
+  <div class="tile2-row">
+    <div class="tile2">
+      <div class="tile2-lbl">오늘 쓸 수 있는 돈</div>
+      <div class="tile2-val num" id="dailyBudget" style="color:var(--ind)">—</div>
+      <div class="tile2-sub" id="dailySub">설정에서 예산 기간을 입력해주세요</div>
     </div>
-    <div class="pbars" id="paceBars"></div>
-    <div class="pcmt hidden" id="pcmt"></div>
-    <div class="pdtl" id="pdtl"></div>
+    <div class="tile2">
+      <div class="tile2-lbl">어제 대비 오늘</div>
+      <div class="tile2-val num" id="todaySpent" style="color:var(--danger2)">—</div>
+      <div class="tile2-sub" id="todaySpentSub">캡처를 이틀 이상 올리면 계산돼요</div>
+    </div>
   </div>
 
-  <!-- 주간 소진 현황 -->
-  <div class="card">
-    <div class="card-title">📆 주간 소진 현황</div>
-    <div class="brow">
-      <div class="ring-w">
-        <svg width="78" height="78" viewBox="0 0 78 78">
-          <circle cx="39" cy="39" r="31" fill="none" stroke="#EEEEF2" stroke-width="8"/>
-          <circle cx="39" cy="39" r="31" fill="none" stroke="var(--green)" stroke-width="8"
-            stroke-dasharray="195" stroke-dashoffset="195" id="wRingCircle" stroke-linecap="round"/>
-        </svg>
-        <div class="ring-c"><div class="ring-pct" id="wRingPct">0%</div><div class="ring-sub">소진율</div></div>
-      </div>
-      <div class="binfo">
-        <div class="bitem"><span class="blbl">주간 예산</span><span class="bval" id="wTotal">—</span></div>
-        <div class="bitem"><span class="blbl">사용</span><span class="bval" style="color:var(--red)" id="wSpent">0원</span></div>
-        <div class="bitem"><span class="blbl">남은 예산</span><span class="bval" id="wRemain">—</span></div>
-        <div class="bitem"><span class="blbl">남은 일수</span><span class="bval" id="wDays">—</span></div>
-      </div>
-    </div>
-    <div class="baseline-box" id="wBaseline"></div>
+  <!-- 주간 소진 추이 (실데이터 막대) -->
+  <div class="wk2-card">
+    <div class="wk2-hd"><div>주간 소진 추이</div><div class="num" id="wk2Range">0 / 0원</div></div>
+    <div class="wk2-bars" id="wk2Bars"></div>
   </div>
 
-  <!-- 주간 페이스 -->
-  <div class="card">
-    <div class="card-title">📆 주간 페이스</div>
-    <div id="wPaceBadge" class="pace-badge" style="background:var(--green-light);color:var(--green)">
-      <span id="wPaceEmoji">😊</span><span id="wPaceText">순항 중</span>
+  <button type="button" class="cta2" onclick="openMemo(toStr())">한 번에 지출 기록하기</button>
+
+  <!-- 기존 상세 카드 (숨김 유지 — render() 로직 그대로 재사용, 값 계산은 여기서 계속 일어남) -->
+  <div class="hidden">
+    <div class="hero">
+      <div class="hero-lbl">총 잔액</div>
+      <div class="hero-amt" id="heroTotal">—</div>
+      <div class="acc-row"><div class="acc-dot" style="background:#FFEB00"></div><div class="acc-name">카카오뱅크</div><div class="acc-val" id="bal-kakao">—</div></div>
+      <div class="acc-row"><div class="acc-dot" style="background:#FFB800"></div><div class="acc-name">국민은행</div><div class="acc-val" id="bal-kb">—</div></div>
+      <div class="acc-row"><div class="acc-dot" style="background:#A0BEFF"></div><div class="acc-name">신한은행</div><div class="acc-val" id="bal-shinhan">—</div></div>
     </div>
-    <div class="pbars" id="wPaceBars"></div>
-    <div class="pdtl" id="wPdtl"></div>
+    <div class="card">
+      <div class="card-title">📅 월간 소진 현황</div>
+      <div class="brow">
+        <div class="ring-w">
+          <svg width="78" height="78" viewBox="0 0 78 78">
+            <circle cx="39" cy="39" r="31" fill="none" stroke="#EEEEF2" stroke-width="8"/>
+            <circle cx="39" cy="39" r="31" fill="none" stroke="var(--blue)" stroke-width="8"
+              stroke-dasharray="195" stroke-dashoffset="195" id="ringCircle" stroke-linecap="round"/>
+          </svg>
+          <div class="ring-c"><div class="ring-pct" id="ringPct">0%</div><div class="ring-sub">소진율</div></div>
+        </div>
+        <div class="binfo">
+          <div class="bitem"><span class="blbl">월 예산</span><span class="bval" id="bTotal">—</span></div>
+          <div class="bitem"><span class="blbl">고정지출</span><span class="bval" style="color:var(--orange)" id="bFixed">0원</span></div>
+          <div class="bitem"><span class="blbl">사용가능</span><span class="bval" style="color:var(--blue)" id="bEffective">—</span></div>
+          <div class="bitem"><span class="blbl">사용</span><span class="bval" style="color:var(--red)" id="bSpent">0원</span></div>
+          <div class="bitem"><span class="blbl">남은 예산</span><span class="bval" id="bRemain">—</span></div>
+        </div>
+      </div>
+      <div class="baseline-box" id="mBaseline"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">📅 월간 페이스</div>
+      <div id="paceBadge" class="pace-badge" style="background:var(--blue-light);color:var(--blue)">
+        <span id="paceEmoji">😊</span><span id="paceText">순항 중</span>
+      </div>
+      <div class="pbars" id="paceBars"></div>
+      <div class="pcmt hidden" id="pcmt"></div>
+      <div class="pdtl" id="pdtl"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">📆 주간 소진 현황</div>
+      <div class="brow">
+        <div class="ring-w">
+          <svg width="78" height="78" viewBox="0 0 78 78">
+            <circle cx="39" cy="39" r="31" fill="none" stroke="#EEEEF2" stroke-width="8"/>
+            <circle cx="39" cy="39" r="31" fill="none" stroke="var(--green)" stroke-width="8"
+              stroke-dasharray="195" stroke-dashoffset="195" id="wRingCircle" stroke-linecap="round"/>
+          </svg>
+          <div class="ring-c"><div class="ring-pct" id="wRingPct">0%</div><div class="ring-sub">소진율</div></div>
+        </div>
+        <div class="binfo">
+          <div class="bitem"><span class="blbl">주간 예산</span><span class="bval" id="wTotal">—</span></div>
+          <div class="bitem"><span class="blbl">사용</span><span class="bval" style="color:var(--red)" id="wSpent">0원</span></div>
+          <div class="bitem"><span class="blbl">남은 예산</span><span class="bval" id="wRemain">—</span></div>
+          <div class="bitem"><span class="blbl">남은 일수</span><span class="bval" id="wDays">—</span></div>
+        </div>
+      </div>
+      <div class="baseline-box" id="wBaseline"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">📆 주간 페이스</div>
+      <div id="wPaceBadge" class="pace-badge" style="background:var(--green-light);color:var(--green)">
+        <span id="wPaceEmoji">😊</span><span id="wPaceText">순항 중</span>
+      </div>
+      <div class="pbars" id="wPaceBars"></div>
+      <div class="pdtl" id="wPdtl"></div>
+    </div>
   </div>
 </div>
 
@@ -873,6 +958,110 @@ function render(){
   const sbU=document.getElementById('sSbUrl'); if(sbU)sbU.value=S.supabaseUrl||'';
   const sbK=document.getElementById('sSbKey'); if(sbK)sbK.value=S.supabaseKey||'';
   renderCaps();renderCalendar();renderFixed();renderComments();updateNotif();
+  renderHeroSeg();renderWeekBars();
+}
+
+// ═══ 홈 히어로 카드 세그먼트(월간/주간/오늘) ═══
+let curHomeSeg='month';
+function setHomeSeg(seg){
+  curHomeSeg=seg;
+  document.querySelectorAll('#homeSeg .seg2-item').forEach(el=>el.classList.toggle('active',el.dataset.seg===seg));
+  renderHeroSeg();
+}
+const fmtSigned=n=>(n<0?'-':'')+won(Math.abs(n));
+function renderHeroSeg(){
+  const lbl=document.getElementById('hero2Lbl'),amtEl=document.getElementById('hero2Amt'),
+    ring=document.getElementById('hero2Ring'),pctEl=document.getElementById('hero2Pct'),
+    badgeText=document.getElementById('heroBadgeText'),cap=document.getElementById('hero2Cap'),
+    m1=document.getElementById('mini1'),m2=document.getElementById('mini2'),m3=document.getElementById('mini3');
+  if(!lbl)return;
+  const circ=201;
+  const setRing=pct=>{ring.style.strokeDashoffset=circ-(circ*Math.max(0,Math.min(100,pct))/100);};
+
+  if(curHomeSeg==='month'){
+    const eff=effectiveBudget(),spent=totSpent(),remain=eff-spent;
+    const{total,elapsed}=getBD();
+    const realPct=Math.round(spent/Math.max(eff,1)*100);
+    const pace=getPace();
+    lbl.textContent='이번 달 남은 금액';
+    amtEl.textContent=fmtSigned(remain);
+    pctEl.textContent=realPct+'%';
+    setRing(realPct);
+    badgeText.textContent=pace.item.txt;
+    m1.textContent=won(eff);m2.textContent=won(spent);m3.textContent=fmtSigned(remain);
+    const shouldSpend=Math.round(eff*(elapsed/total));
+    const diff=spent-shouldSpend;
+    cap.textContent=`${elapsed}일째 · 지금쯤 ${won(shouldSpend)} 써야 정상 (${diff<=0?won(Math.abs(diff))+' 여유':won(diff)+' 초과'})`;
+  }else if(curHomeSeg==='week'){
+    const wBudget=S.weeklyBudget||0,wInfo=getWeekInfo(),ws=getWeeklySpent();
+    const wSpentVal=ws?ws.spent:0,wRemain=wBudget-wSpentVal;
+    const wPct=Math.round(wSpentVal/Math.max(wBudget,1)*100);
+    lbl.textContent='이번 주 남은 금액';
+    if(wBudget>0){
+      amtEl.textContent=fmtSigned(wRemain);
+      pctEl.textContent=(ws?wPct:0)+'%';
+      setRing(ws?wPct:0);
+      m1.textContent=won(wBudget);m2.textContent=ws?won(wSpentVal):'0원';m3.textContent=fmtSigned(wRemain);
+    }else{
+      amtEl.textContent='—';pctEl.textContent='—';setRing(0);
+      m1.textContent='—';m2.textContent='—';m3.textContent='—';
+    }
+    if(wBudget>0&&ws){
+      const wPace=calcPace(wBudget,wSpentVal,wInfo.elapsed,wInfo.total);
+      badgeText.textContent=wPace.item.txt;
+      const wShould=Math.round(wBudget*(wInfo.elapsed/wInfo.total));
+      const wdiff=wSpentVal-wShould;
+      cap.textContent=`이번 주 ${wInfo.elapsed}일째 · 지금쯤 ${won(wShould)} 써야 정상 (${wdiff<=0?won(Math.abs(wdiff))+' 여유':won(wdiff)+' 초과'})`;
+    }else{
+      badgeText.textContent=wBudget>0?'캡처를 올리면 계산돼요':'주간 예산 미설정';
+      cap.textContent=wBudget>0?'이번 주 캡처를 올리면 계산돼요':'설정에서 주간 예산을 입력해주세요';
+    }
+  }else{
+    const ds=getDailySpent();
+    const spentToday=(ds&&!ds.noCaptureToday&&ds.spent>0)?ds.spent:0;
+    const todayBudget=getTodayBudget();
+    const todayBaseline=todayBudget+spentToday;
+    const pct=todayBaseline>0?Math.round(spentToday/todayBaseline*100):0;
+    lbl.textContent='오늘 남은 금액';
+    amtEl.textContent=fmtSigned(todayBudget);
+    pctEl.textContent=todayBaseline>0?pct+'%':'—';
+    setRing(pct);
+    m1.textContent=won(todayBaseline);m2.textContent=won(spentToday);m3.textContent=fmtSigned(todayBudget);
+    if(todayBaseline>0){
+      const tPace=calcPace(todayBaseline,spentToday,1,1);
+      badgeText.textContent=tPace.item.txt;
+    }else{
+      badgeText.textContent='예산 미설정';
+    }
+    cap.textContent=S.budgetStart&&S.budgetEnd?`오늘 배정액 ${won(todayBaseline)} 중 ${won(spentToday)} 사용`:'설정에서 예산 기간을 입력해주세요';
+  }
+}
+
+// ═══ 주간 소진 추이 막대 (이번 주 월~일, 메모 카드 금액 합계 기준) ═══
+function renderWeekBars(){
+  const wrap=document.getElementById('wk2Bars');
+  if(!wrap)return;
+  const{weekStartStr}=getWeekInfo();
+  const[sy,sm,sd]=weekStartStr.split('-').map(Number);
+  const todayS=toStr();
+  const labels=['월','화','수','목','금','토','일'];
+  const days=labels.map((label,i)=>{
+    const dt=new Date(Date.UTC(sy,sm-1,sd+i));
+    const ds=dt.toISOString().slice(0,10);
+    const amt=getMemos(ds).reduce((a,c)=>a+(c.amt||0),0);
+    return{ds,label,amt,isToday:ds===todayS};
+  });
+  const maxAmt=Math.max(1,...days.map(d=>d.amt));
+  const weekTotal=days.reduce((a,d)=>a+d.amt,0);
+  const wBudget=S.weeklyBudget||0;
+  const rangeEl=document.getElementById('wk2Range');
+  if(rangeEl)rangeEl.textContent=`${weekTotal.toLocaleString('ko-KR')} / ${wBudget.toLocaleString('ko-KR')}원`;
+  wrap.innerHTML=days.map(d=>{
+    const h=d.amt>0?Math.max(16,Math.round((d.amt/maxAmt)*62)):16;
+    const barColor=d.isToday?'var(--ind)':(d.amt>0?'var(--bar-n)':'var(--bar-l)');
+    const tip=d.isToday&&d.amt>0?`<div class="wk2-tip num">${won(d.amt)}</div>`:'';
+    return`<div class="wk2-bar-col">${tip}<div class="wk2-bar" style="height:${h}px;background:${barColor};"></div><span class="wk2-bar-lbl${d.isToday?' hi':''}">${d.label}</span></div>`;
+  }).join('');
 }
 
 // ═══ 달력 (지출 탭) ═══
