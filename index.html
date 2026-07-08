@@ -693,7 +693,21 @@ const totSpent=()=>{
   return Math.max(0, effectiveBudget() - usableBal());
 };
 const todaySpent=()=>S.expenses.filter(e=>e.date===toStr()).reduce((a,e)=>a+e.amount,0);
-const ydSpent=()=>{const[y,m,d]=toStr().split('-').map(Number);const yd=new Date(Date.UTC(y,m-1,d-1)).toISOString().slice(0,10);return getMemos(yd).reduce((a,c)=>a+(c.amt||0),0);};
+const ydSpent=()=>{const[y,m,d]=toStr().split('-').map(Number);const yd=new Date(Date.UTC(y,m-1,d-1)).toISOString().slice(0,10);return getMemos(yd).filter(c=>c.type!=='income').reduce((a,c)=>a+(c.amt||0),0);};
+// 어제 실제 지출/입금 — 캡처가 있으면 잔액 차이(부호 있음, 입금이면 음수)를 우선 쓰고, 캡처가 없을 때만 메모 합계(지출만)로 대체.
+// 양수=지출, 음수=입금, 0=변동없음.
+function getYesterdaySpent(){
+  const[y,m,d]=toStr().split('-').map(Number);
+  const ydStr=new Date(Date.UTC(y,m-1,d-1)).toISOString().slice(0,10);
+  const ydDaily=getDailySpent(ydStr);
+  return (ydDaily&&!ydDaily.noCaptureToday)?ydDaily.spent:ydSpent();
+}
+// 어제 지출/입금을 문장으로 표현 (양수=지출, 음수=입금, 0=변동없음)
+function ydSpentPhrase(amt){
+  if(amt>0)return`어제 ${won(amt)} 썼어요`;
+  if(amt<0)return`어제 ${won(Math.abs(amt))} 입금됐어요`;
+  return'어제는 지출이 없었어요';
+}
 const totBal=()=>Object.values(S.balances).reduce((a,b)=>a+b,0);
 
 // ── 주간 계산 ──────────────────────────────
@@ -1665,7 +1679,7 @@ function buildCtx(){
 - 주간예산: ${won(S.weeklyBudget)}, 이번주 지출: ${won(wSpentVal)} (${wInfo.elapsed}/7일)
 - 고정지출 목록: ${fixedList}
 - 이번 주 지출 메모: ${memoList}
-- 총잔액: ${won(totBal())}, 어제지출: ${won(ydSpent())}`;
+- 총잔액: ${won(totBal())}, ${ydSpentPhrase(getYesterdaySpent())}`;
 }
 
 async function askAI(t){document.getElementById('chatInp').value=t;await sendChat();}
@@ -1800,18 +1814,17 @@ function buildSimpleSummary(){
   const recommendedDaily=remain>0?Math.round(remain/remaining):0;
   const recommendedWeekly=recommendedDaily*7;
 
-  // 메모(직접 기록한 지출 카드) 합계는 사용자가 깜빡하고 안 적으면 실제로 썼어도 0으로 나옴 —
-  // 어제 날짜에 실제 잔액 캡처가 있으면 그 잔액 감소분(실제로 빠져나간 돈)을 우선 쓰고, 캡처가 없을 때만 메모 합계로 대체
-  const[ty,tm,td]=toStr().split('-').map(Number);
-  const ydStr=new Date(Date.UTC(ty,tm-1,td-1)).toISOString().slice(0,10);
-  const ydDailySpent=getDailySpent(ydStr);
-  const ydActual=(ydDailySpent&&!ydDailySpent.noCaptureToday)?ydDailySpent.spent:ydSpent();
+  const ydActual=getYesterdaySpent();
 
   const lines=[];
   lines.push(`월예산 ${won(eff)} 중 ${won(spent)} 사용 (${realPct}%)`);
   lines.push(wBudget>0?`주예산 ${won(wBudget)} 중 ${won(wSpentVal)} 사용 (${wPct}%)`:`주예산 미설정`);
   lines.push(unpaidList.length?`미납된 고정비는 ${unpaidList.join(', ')}이 있어요`:`미납된 고정비 없음`);
-  lines.push(`어제 ${won(ydActual)} 썼으니 오늘은 ${todayBudget<0?'-'+won(Math.abs(todayBudget)):won(todayBudget)} 써도 괜찮아요`);
+  const todayBudgetTxt=todayBudget<0?'-'+won(Math.abs(todayBudget)):won(todayBudget);
+  const ydLine=ydActual>0?`어제 ${won(ydActual)} 썼으니 오늘은 ${todayBudgetTxt} 써도 괜찮아요`
+    :ydActual<0?`어제 ${won(Math.abs(ydActual))} 입금됐으니 오늘은 ${todayBudgetTxt} 써도 괜찮아요`
+    :`어제 지출 없었으니 오늘은 ${todayBudgetTxt} 써도 괜찮아요`;
+  lines.push(ydLine);
   lines.push(remain>0?`이 페이스면 주에 ${won(recommendedWeekly)} 일에 ${won(recommendedDaily)} 써야될 것 같아요`:`이미 이번 달 예산을 초과해서 지출을 최대한 줄이는 게 좋아요`);
   return lines.join('\n');
 }
@@ -1899,7 +1912,7 @@ function updateNotif(){
 function buildNotifBody(){
   const spent=totSpent();const eff=effectiveBudget();const pace=getPace();
   const tb=getTodayBudget();const dailyTxt=tb<0?'-'+won(tb):won(tb);
-  return`💰 총잔액: ${won(totBal())}\n📅 어제지출: ${won(ydSpent())}\n📊 소진율: ${Math.round(spent/Math.max(eff,1)*100)}%\n📆 오늘예산: ${dailyTxt}\n${pace.item.em} ${pace.item.txt}`;
+  return`💰 총잔액: ${won(totBal())}\n📅 ${ydSpentPhrase(getYesterdaySpent())}\n📊 소진율: ${Math.round(spent/Math.max(eff,1)*100)}%\n📆 오늘예산: ${dailyTxt}\n${pace.item.em} ${pace.item.txt}`;
 }
 function sendNotif(){if(Notification.permission!=='granted')return;new Notification('머니페이스 일일 리포트 💸',{body:buildNotifBody(),tag:'daily-report',renotify:true});}
 function testNotif(){if(Notification.permission!=='granted'){showToast('먼저 알림을 허용해주세요');return;}sendNotif();showToast('테스트 알림 보냈어요!');}
