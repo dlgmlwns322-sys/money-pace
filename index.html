@@ -1178,8 +1178,14 @@ function renderCalendar(){
       if(expenseAmt>0)inner+=`<div class="cal-amt">${expenseAmt.toLocaleString('ko-KR')}</div>`;
       if(incomeAmt>0)inner+=`<div class="cal-amt" style="color:var(--green)">+${incomeAmt.toLocaleString('ko-KR')}</div>`;
       const firstText=(cards.find(c=>c.text)||{}).text;
-      if(cards.length>1)inner+=`<div class="cal-memo">${cards.length}건${firstText?' · '+escapeHtml(firstText):''}</div>`;
-      else if(firstText)inner+=`<div class="cal-memo">${escapeHtml(firstText)}</div>`;
+      if(cards.length>1){
+        inner+=`<div class="cal-memo">${cards.length}건${firstText?' · '+escapeHtml(firstText):''}</div>`;
+      }else if(firstText){
+        inner+=`<div class="cal-memo">${escapeHtml(firstText)}</div>`;
+      }else if(cards[0]&&cards[0].category){
+        // 메모(텍스트) 없이 카테고리+금액만 입력한 경우엔 카테고리라도 보여줘서 뭘 썼는지 알 수 있게
+        inner+=`<div class="cal-memo">${escapeHtml(cards[0].category)}</div>`;
+      }
     }
     html+=`<div class="cal-cell${isToday?' today':''}" onclick="openMemo('${dateStr}')">
       <div class="cal-day ${dayCls}">${d}</div>
