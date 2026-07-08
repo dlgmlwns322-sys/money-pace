@@ -319,7 +319,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
     <div class="wk2-bars" id="wk2Bars"></div>
   </div>
 
-  <button type="button" class="cta2" onclick="openMemo(toStr())">한 번에 지출 기록하기</button>
+  <button type="button" class="cta2" onclick="bulkRecordWeek()">한 번에 지출 기록하기</button>
 
   <!-- 기존 상세 카드 (숨김 유지 — render() 로직 그대로 재사용, 값 계산은 여기서 계속 일어남) -->
   <div class="hidden">
@@ -417,6 +417,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
       <select id="memoCat" style="background:transparent;border:none;outline:none;font-size:14px;font-weight:700;font-family:inherit;color:var(--text);flex:0 0 auto;"></select>
       <span style="color:var(--text3)">·</span>
       <input type="text" id="memoAmt" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" inputmode="numeric" placeholder="금액 (선택)" oninput="onMoneyInput(this)" style="background:transparent;border:none;outline:none;font-size:16px;font-weight:800;flex:1;min-width:0;font-family:inherit;color:var(--text)"/>
+      <button type="button" id="memoTypeToggle" onclick="toggleMemoType()" style="border:1px solid var(--border);border-radius:999px;padding:5px 10px;font-size:11px;font-weight:700;font-family:inherit;cursor:pointer;flex:0 0 auto;">입금(+)</button>
     </div>
     <textarea class="modal-ta" id="memoInput" placeholder="메모 (선택)"></textarea>
     <div class="modal-btns">
@@ -1088,6 +1089,34 @@ function showWeekBarInfo(idx){
   });
 }
 
+// ═══ 한 번에 지출 기록하기 — 이번 주(월~오늘) 캡처 기반 지출/입금을 달력 메모로 일괄 반영 ═══
+// 자동 기록된 카드는 id를 "auto-날짜-expense/income"으로 고정해서, 버튼을 여러 번 눌러도
+// 같은 날은 이미 기록된 카드가 있으면 건너뛰어 중복 등록되지 않는다.
+function bulkRecordWeek(){
+  const{weekStartStr}=getWeekInfo();
+  const[sy,sm,sd]=weekStartStr.split('-').map(Number);
+  const todayS=toStr();
+  let added=0,skipped=0;
+  for(let i=0;i<7;i++){
+    const dt=new Date(Date.UTC(sy,sm-1,sd+i));
+    const ds=dt.toISOString().slice(0,10);
+    if(ds>todayS)break; // 아직 안 지난 날은 캡처가 있을 수 없음
+    const daily=getDailySpent(ds);
+    if(!daily||daily.noCaptureToday||!daily.spent)continue;
+    const isIncome=daily.spent<0;
+    const amt=Math.abs(daily.spent);
+    const autoId='auto-'+ds+'-'+(isIncome?'income':'expense');
+    const cards=getMemos(ds);
+    if(cards.some(c=>c.id===autoId)){skipped++;continue;}
+    cards.push({id:autoId,category:'',amt,text:'',type:isIncome?'income':'expense'});
+    S.memos[ds]=cards;
+    added++;
+  }
+  if(added>0){save();renderCalendar();renderWeekBars();showToast(`${added}일치 기록했어요 ✓`);}
+  else if(skipped>0)showToast('이미 다 기록되어 있어요');
+  else showToast('이번 주에 기록할 지출이 없어요');
+}
+
 // ═══ 달력 (지출 탭) ═══
 let calYear, calMonth; // 현재 보고 있는 달력 년/월
 (function(){const n=new Date();calYear=n.getFullYear();calMonth=n.getMonth();})();
@@ -1125,8 +1154,10 @@ function renderCalendar(){
     let inner='';
     if(cards.length){
       inner+='<div class="cal-dot"></div>';
-      const totalAmt=cards.reduce((a,c)=>a+(c.amt||0),0);
-      if(totalAmt>0)inner+=`<div class="cal-amt">${totalAmt.toLocaleString('ko-KR')}</div>`;
+      const expenseAmt=cards.filter(c=>c.type!=='income').reduce((a,c)=>a+(c.amt||0),0);
+      const incomeAmt=cards.filter(c=>c.type==='income').reduce((a,c)=>a+(c.amt||0),0);
+      if(expenseAmt>0)inner+=`<div class="cal-amt">${expenseAmt.toLocaleString('ko-KR')}</div>`;
+      if(incomeAmt>0)inner+=`<div class="cal-amt" style="color:var(--green)">+${incomeAmt.toLocaleString('ko-KR')}</div>`;
       const firstText=(cards.find(c=>c.text)||{}).text;
       if(cards.length>1)inner+=`<div class="cal-memo">${cards.length}건${firstText?' · '+escapeHtml(firstText):''}</div>`;
       else if(firstText)inner+=`<div class="cal-memo">${escapeHtml(firstText)}</div>`;
@@ -1168,11 +1199,27 @@ function openMemo(dateStr){
 }
 function closeMemo(){document.getElementById('memoModal').classList.add('hidden');memoDate=null;memoEditId=null;}
 
+let memoType='expense'; // 'expense'(지출, 기본) | 'income'(입금/+)
+function toggleMemoType(){
+  memoType=memoType==='expense'?'income':'expense';
+  updateMemoTypeUI();
+}
+function updateMemoTypeUI(){
+  const btn=document.getElementById('memoTypeToggle');
+  if(!btn)return;
+  const isIncome=memoType==='income';
+  btn.textContent=isIncome?'입금(+) ✓':'입금(+)';
+  btn.style.background=isIncome?'var(--green-light)':'transparent';
+  btn.style.color=isIncome?'var(--green)':'var(--text2)';
+  btn.style.borderColor=isIncome?'var(--green)':'var(--border)';
+}
 function resetMemoForm(){
   document.getElementById('memoCat').value=MEMO_CATS[0];
   document.getElementById('memoAmt').value='';
   document.getElementById('memoInput').value='';
   memoEditId=null;
+  memoType='expense';
+  updateMemoTypeUI();
   const btn=document.getElementById('memoSaveBtn');
   if(btn)btn.textContent='카드 추가';
 }
@@ -1185,15 +1232,18 @@ function renderMemoCards(){
     el.innerHTML='<div style="text-align:center;color:var(--text3);padding:8px 0;font-size:12px">아직 입력한 카드가 없어요</div>';
     return;
   }
-  el.innerHTML=cards.map(c=>`
+  el.innerHTML=cards.map(c=>{
+    const isIncome=c.type==='income';
+    const amtTxt=c.amt>0?(isIncome?'+'+c.amt.toLocaleString('ko-KR')+'원':c.amt.toLocaleString('ko-KR')+'원'):'';
+    return`
     <div style="display:flex;align-items:center;gap:8px;background:var(--bg);border-radius:var(--r-xs);padding:9px 11px;">
       <div style="flex:1;min-width:0;cursor:pointer;" onclick="editMemoCard('${c.id}')">
-        <div style="font-size:11px;color:var(--text3);font-weight:700;">${c.category||'기타'}${c.amt>0?' · '+c.amt.toLocaleString('ko-KR')+'원':''}</div>
+        <div style="font-size:11px;font-weight:700;color:${isIncome?'var(--green)':'var(--text3)'}">${isIncome?'입금':(c.category||'기타')}${amtTxt?' · '+amtTxt:''}</div>
         ${c.text?`<div style="font-size:13px;color:var(--text);margin-top:2px;">${escapeHtml(c.text)}</div>`:''}
       </div>
       <button type="button" onclick="delMemoCard('${c.id}')" style="background:none;border:none;color:var(--text3);font-size:15px;line-height:1;cursor:pointer;padding:4px;">✕</button>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
 }
 
 function addMemoCard(){
@@ -1201,12 +1251,13 @@ function addMemoCard(){
   const category=document.getElementById('memoCat').value;
   const amt=parseInt((document.getElementById('memoAmt').value||'').replace(/[^0-9]/g,''))||0;
   const text=document.getElementById('memoInput').value.trim();
+  const type=memoType;
   if(amt<=0&&!text){showToast('금액이나 메모를 입력해주세요');return;}
   let cards=getMemos(memoDate);
   if(memoEditId){
-    cards=cards.map(c=>c.id===memoEditId?{...c,category,amt,text}:c);
+    cards=cards.map(c=>c.id===memoEditId?{...c,category,amt,text,type}:c);
   }else{
-    cards=[...cards,{id:Date.now().toString()+Math.random().toString(36).slice(2,6),category,amt,text}];
+    cards=[...cards,{id:Date.now().toString()+Math.random().toString(36).slice(2,6),category,amt,text,type}];
   }
   S.memos[memoDate]=cards;
   const wasEdit=!!memoEditId;
@@ -1221,6 +1272,8 @@ function editMemoCard(id){
   document.getElementById('memoCat').value=c.category||MEMO_CATS[0];
   document.getElementById('memoAmt').value=c.amt>0?c.amt.toLocaleString('ko-KR'):'';
   document.getElementById('memoInput').value=c.text||'';
+  memoType=c.type||'expense';
+  updateMemoTypeUI();
   const btn=document.getElementById('memoSaveBtn');
   if(btn)btn.textContent='수정 완료';
 }
