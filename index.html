@@ -1047,7 +1047,7 @@ function renderHeroSeg(){
 // ═══ 주간 소진 추이 막대 (이번 주 월~일, 잔액 캡처 기반 일별 지출 — getDailySpent와 동일한 소스) ═══
 // 메모 카드 금액은 선택 입력이라 입력 안 하면 실제로 쓴 돈이 있어도 0으로 잡히는 문제가 있어서
 // "오늘 쓸 수 있는 돈" 등 다른 곳과 동일하게 캡처 잔액 차이 기반으로 계산하도록 통일.
-let weekBarsData=[],weekBarActiveIdx=-1;
+let weekBarsData=[];
 function renderWeekBars(){
   const wrap=document.getElementById('wk2Bars');
   if(!wrap)return;
@@ -1059,19 +1059,21 @@ function renderWeekBars(){
     const dt=new Date(Date.UTC(sy,sm-1,sd+i));
     const ds=dt.toISOString().slice(0,10);
     const daily=getDailySpent(ds);
-    const amt=(daily&&!daily.noCaptureToday&&daily.spent>0)?daily.spent:0;
-    return{ds,label,amt,isToday:ds===todayS};
+    // 잔액이 늘어난 날(입금/충전)도 막대에 표시 — spent<0이면 입금, amt는 절대값으로 저장
+    const isIncome=!!(daily&&!daily.noCaptureToday&&daily.spent<0);
+    const amt=(daily&&!daily.noCaptureToday&&daily.spent)?Math.abs(daily.spent):0;
+    return{ds,label,amt,isIncome,isToday:ds===todayS};
   });
   weekBarsData=days;
   const maxAmt=Math.max(1,...days.map(d=>d.amt));
   const wkSpent=getWeeklySpent();
-  const weekTotal=wkSpent?wkSpent.spent:days.reduce((a,d)=>a+d.amt,0);
+  const weekTotal=wkSpent?wkSpent.spent:days.reduce((a,d)=>a+(d.isIncome?-d.amt:d.amt),0);
   const wBudget=S.weeklyBudget||0;
   const rangeEl=document.getElementById('wk2Range');
   if(rangeEl)rangeEl.textContent=`${weekTotal.toLocaleString('ko-KR')} / ${wBudget.toLocaleString('ko-KR')}원`;
   wrap.innerHTML=days.map((d,i)=>{
     const h=d.amt>0?Math.max(16,Math.round((d.amt/maxAmt)*62)):16;
-    const barColor=d.isToday?'var(--ind)':(d.amt>0?'var(--bar-n)':'var(--bar-l)');
+    const barColor=d.isIncome?'var(--green)':(d.isToday?'var(--ind)':(d.amt>0?'var(--bar-n)':'var(--bar-l)'));
     return`<div class="wk2-bar-col" onclick="showWeekBarInfo(${i})"><div class="wk2-tip num hidden" id="wk2Tip${i}"></div><div class="wk2-bar" style="height:${h}px;background:${barColor};"></div><span class="wk2-bar-lbl${d.isToday?' hi':''}">${d.label}</span></div>`;
   }).join('');
   const defaultIdx=days.findIndex(d=>d.isToday);
@@ -1080,12 +1082,15 @@ function renderWeekBars(){
 function showWeekBarInfo(idx){
   const d=weekBarsData[idx];
   if(!d)return;
-  weekBarActiveIdx=idx;
   weekBarsData.forEach((_,i)=>{
     const tip=document.getElementById(`wk2Tip${i}`);
     if(!tip)return;
-    tip.classList.toggle('hidden',i!==idx||weekBarsData[i].amt<=0);
-    if(i===idx&&weekBarsData[i].amt>0)tip.textContent=won(weekBarsData[i].amt);
+    const day=weekBarsData[i];
+    tip.classList.toggle('hidden',i!==idx||day.amt<=0);
+    if(i===idx&&day.amt>0){
+      tip.textContent=(day.isIncome?'+':'')+won(day.amt);
+      tip.style.background=day.isIncome?'var(--green)':'';
+    }
   });
 }
 
