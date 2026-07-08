@@ -827,11 +827,8 @@ function render(){
   const tbOver=todayBudget<0;
   document.getElementById('dailyBudget').textContent=eff>0?(tbOver?'-':'')+won(todayBudget):'—';
   document.getElementById('dailyBudget').style.color=tbOver?'var(--red)':'var(--blue)';
-  const dsForSub=getDailySpent();
-  const spentTodayForSub=(dsForSub&&!dsForSub.noCaptureToday&&dsForSub.spent>0)?dsForSub.spent:0;
-  const todayBaseline=todayBudget+spentTodayForSub; // 오늘 배정액(차감 전 기준선) = 오늘 쓸 수 있는 돈 + 오늘 사용액
   document.getElementById('dailySub').textContent=S.budgetStart&&S.budgetEnd
-    ?(`오늘 배정액 ${won(todayBaseline)}(총 남은예산 ${won(remain)} ÷ 남은일수 ${dl}일)에서 ${won(spentTodayForSub)} 사용${tbOver?` (${won(Math.abs(todayBudget))} 초과)`:''}`)
+    ?`${won(Math.max(0,remain))} ÷ ${dl}일`
     :'설정에서 예산 기간을 입력해주세요';
 
   // 월간 소진율 링
@@ -866,17 +863,17 @@ function render(){
   if(ds&&ds.noCaptureToday){
     tsEl.textContent=won(0);
     tsEl.style.color='var(--text3)';
-    tsSub.textContent=`오늘(${ds.todayDate.slice(5)}) 캡처가 아직 없어서 지출 0원으로 표시 중 (마지막 캡처 ${ds.prevDate.slice(5)}, 잔액 ${won(ds.prevTotal)})`;
+    tsSub.textContent=`${won(ds.prevTotal)} → 오늘 캡처 전`;
   } else if(ds){
     if(ds.spent>=0){
       tsEl.textContent=won(ds.spent);
       tsEl.style.color='var(--red)';
-      tsSub.textContent=`${ds.prevDate.slice(5)} → ${ds.todayDate.slice(5)} 비교 (잔액 ${won(ds.prevTotal)} → ${won(ds.todayTotal)})`;
+      tsSub.textContent=`${won(ds.prevTotal)} → ${won(ds.todayTotal)}`;
     } else {
       // 잔액이 늘어남 = 입금/충전
       tsEl.textContent='+'+won(Math.abs(ds.spent));
       tsEl.style.color='var(--green)';
-      tsSub.textContent=`잔액이 늘었어요 (입금/충전, ${ds.prevDate.slice(5)} → ${ds.todayDate.slice(5)})`;
+      tsSub.textContent=`${won(ds.prevTotal)} → ${won(ds.todayTotal)}`;
     }
   } else {
     tsEl.textContent='—';
@@ -1046,7 +1043,9 @@ function renderHeroSeg(){
   }
 }
 
-// ═══ 주간 소진 추이 막대 (이번 주 월~일, 메모 카드 금액 합계 기준) ═══
+// ═══ 주간 소진 추이 막대 (이번 주 월~일, 잔액 캡처 기반 일별 지출 — getDailySpent와 동일한 소스) ═══
+// 메모 카드 금액은 선택 입력이라 입력 안 하면 실제로 쓴 돈이 있어도 0으로 잡히는 문제가 있어서
+// "오늘 쓸 수 있는 돈" 등 다른 곳과 동일하게 캡처 잔액 차이 기반으로 계산하도록 통일.
 let weekBarsData=[],weekBarActiveIdx=-1;
 function renderWeekBars(){
   const wrap=document.getElementById('wk2Bars');
@@ -1058,12 +1057,14 @@ function renderWeekBars(){
   const days=labels.map((label,i)=>{
     const dt=new Date(Date.UTC(sy,sm-1,sd+i));
     const ds=dt.toISOString().slice(0,10);
-    const amt=getMemos(ds).reduce((a,c)=>a+(c.amt||0),0);
+    const daily=getDailySpent(ds);
+    const amt=(daily&&!daily.noCaptureToday&&daily.spent>0)?daily.spent:0;
     return{ds,label,amt,isToday:ds===todayS};
   });
   weekBarsData=days;
   const maxAmt=Math.max(1,...days.map(d=>d.amt));
-  const weekTotal=days.reduce((a,d)=>a+d.amt,0);
+  const wkSpent=getWeeklySpent();
+  const weekTotal=wkSpent?wkSpent.spent:days.reduce((a,d)=>a+d.amt,0);
   const wBudget=S.weeklyBudget||0;
   const rangeEl=document.getElementById('wk2Range');
   if(rangeEl)rangeEl.textContent=`${weekTotal.toLocaleString('ko-KR')} / ${wBudget.toLocaleString('ko-KR')}원`;
