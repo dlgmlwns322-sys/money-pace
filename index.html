@@ -18,15 +18,15 @@ if('serviceWorker' in navigator){
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
 :root{
-  --bg:#F5F6FA;--white:#FFFFFF;--border:#EEEEF2;
-  --text:#191919;--text2:#6B6B6B;--text3:#ADADAD;
-  --blue:#024AD8;--blue-light:#E8EFFC;
+  /* 인디고 리디자인 시스템 — 전체 화면 공통 토큰 (2026-07-08 전체 탭 적용) */
+  --bg:#F5F6FC;--white:#FFFFFF;--border:#EEEFF6;
+  --text:#16162E;--text2:#6B6D8C;--text3:#A6A8C6;
+  --blue:#4F46E5;--blue-light:#ECEBFD;
   --green:#00B493;--green-light:#E5F7F4;
-  --red:#F04452;--red-light:#FEF0F1;
+  --red:#F0475B;--red-light:#FEF0F1;
   --orange:#FF7D00;--orange-light:#FFF3E8;
-  --shadow:0 2px 8px rgba(26,26,26,0.08);
-  --r:16px;--r-sm:12px;--r-xs:8px;
-  /* 리디자인(인디고 시스템) 토큰 — 홈 화면부터 순차 적용 */
+  --shadow:0 8px 24px rgba(30,27,80,.06);
+  --r:20px;--r-sm:14px;--r-xs:10px;
   --ind:#4F46E5;--ind2:#4E52E6;--ind3:#7B58F2;
   --ink-s:#16162E;--ink-m:#6B6D8C;--ink-w:#8A8CA8;--ink-w2:#A6A8C6;
   --danger2:#F0475B;--sub-bg:#F5F6FC;
@@ -71,9 +71,9 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 .pdtl{margin-top:8px;font-size:11px;color:var(--text3);}
 .baseline-box{margin-top:12px;padding:10px 12px;background:var(--bg);border-radius:var(--r-xs);font-size:12px;color:var(--text2);line-height:1.6;}
 .baseline-box b{color:var(--text);}
-.upload-area{border:2px dashed var(--border);border-radius:var(--r-sm);padding:26px 16px;text-align:center;cursor:pointer;position:relative;background:var(--bg);}
+.upload-area{border:2px dashed #D6D8EC;border-radius:18px;padding:26px 16px;text-align:center;cursor:pointer;position:relative;background:#F8F9FE;}
 .upload-area input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
-.upload-icon{font-size:30px;margin-bottom:6px;}
+.upload-icon{width:52px;height:52px;border-radius:16px;background:var(--blue-light);color:var(--ind);display:flex;align-items:center;justify-content:center;margin:0 auto 10px;}
 .upload-txt{font-size:13px;font-weight:700;margin-bottom:2px;}
 .upload-sub{font-size:11px;color:var(--text3);}
 .loading-row{display:flex;align-items:center;gap:10px;padding:14px 0;color:var(--text2);font-size:13px;justify-content:center;}
@@ -151,7 +151,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 .bnav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:430px;background:var(--white);border-top:1px solid var(--border);display:flex;justify-content:space-around;padding:7px 0 18px;z-index:50;box-shadow:0 -2px 10px rgba(0,0,0,0.05);}
 .nb{display:flex;flex-direction:column;align-items:center;gap:2px;background:transparent;border:none;color:var(--text3);cursor:pointer;font-family:inherit;padding:4px 10px;}
 .nb.active{color:var(--blue);}
-.ni{font-size:19px;}
+.ni{width:22px;height:22px;stroke:currentColor;fill:none;}
 .nl{font-size:10px;font-weight:600;}
 .toast{position:fixed;bottom:88px;left:50%;transform:translateX(-50%) translateY(16px);background:#191919;color:#fff;padding:10px 18px;border-radius:28px;font-size:13px;font-weight:600;z-index:999;opacity:0;transition:all 0.22s;pointer-events:none;white-space:nowrap;}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
@@ -160,8 +160,9 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 /* Calendar */
 .cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
 .cal-title{font-size:16px;font-weight:800;}
-.cal-nav{display:flex;gap:8px;}
-.cal-nav button{width:30px;height:30px;border-radius:8px;border:none;background:var(--bg);color:var(--text2);font-size:15px;cursor:pointer;font-family:inherit;}
+.cal-nav{display:flex;gap:8px;align-items:center;}
+.cal-nav button{width:30px;height:30px;border-radius:9px;border:none;background:var(--bg);color:var(--text2);font-size:15px;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;}
+.cal-nav .cal-today-btn{width:auto;padding:7px 11px;font-size:12px;font-weight:700;color:var(--ind);background:var(--blue-light);}
 .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;}
 .cal-dow{text-align:center;font-size:11px;font-weight:700;color:var(--text3);padding:4px 0;}
 .cal-cell{min-height:62px;border-radius:10px;background:var(--bg);padding:5px 4px;cursor:pointer;display:flex;flex-direction:column;position:relative;transition:background 0.15s;overflow:hidden;}
@@ -186,7 +187,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 .fx-item{display:flex;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid var(--border);}
 .fx-item:last-child{border-bottom:none;}
 .fx-check{width:26px;height:26px;border-radius:8px;border:2px solid var(--border);background:var(--white);cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:15px;color:#fff;transition:all 0.15s;}
-.fx-check.on{background:var(--green);border-color:var(--green);}
+.fx-check.on{background:var(--ind);border-color:var(--ind);}
 .fx-info{flex:1;}
 .fx-name{font-size:14px;font-weight:700;}
 .fx-meta{font-size:11px;color:var(--text3);margin-top:2px;}
@@ -238,6 +239,23 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 </style>
 </head>
 <body>
+<div style="position:absolute;width:0;height:0;overflow:hidden">
+<svg xmlns="http://www.w3.org/2000/svg"><defs>
+<symbol id="ic-home" viewBox="0 0 24 24"><path d="M3 10.7 12 4l9 6.7V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"></path></symbol>
+<symbol id="ic-cal" viewBox="0 0 24 24"><path d="M4 6.5h16V20H4zM4 10h16M8 3.5v4M16 3.5v4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></path></symbol>
+<symbol id="ic-wallet" viewBox="0 0 24 24"><path d="M3.5 7.5h15a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2zM16.5 13h3.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"></path><circle cx="16.5" cy="13.5" r="1.1" fill="currentColor"></circle></symbol>
+<symbol id="ic-pin" viewBox="0 0 24 24"><path d="M12 21s6-5.4 6-10a6 6 0 1 0-12 0c0 4.6 6 10 6 10z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"></path><circle cx="12" cy="11" r="2" fill="none" stroke="currentColor" stroke-width="1.7"></circle></symbol>
+<symbol id="ic-ai" viewBox="0 0 24 24"><path d="M4.5 5.5h15v10h-9l-4 4v-4h-2z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"></path><path d="M9 10h6M9 12.6h4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"></path></symbol>
+<symbol id="ic-set" viewBox="0 0 24 24"><path d="M4 8h7M16 8h4M4 16h4M13 16h7" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"></path><circle cx="13.5" cy="8" r="2.2" fill="none" stroke="currentColor" stroke-width="1.7"></circle><circle cx="9.5" cy="16" r="2.2" fill="none" stroke="currentColor" stroke-width="1.7"></circle></symbol>
+<symbol id="ic-chevL" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></symbol>
+<symbol id="ic-chevR" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></symbol>
+<symbol id="ic-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></symbol>
+<symbol id="ic-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 6.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"></path></symbol>
+<symbol id="ic-send" viewBox="0 0 24 24"><path d="M4 12l16-7-7 16-2-6z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"></path></symbol>
+<symbol id="ic-eye" viewBox="0 0 24 24"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"></path><circle cx="12" cy="12" r="2.6" fill="none" stroke="currentColor" stroke-width="1.7"></circle></symbol>
+<symbol id="ic-cam" viewBox="0 0 24 24"><path d="M3.5 8h3l1.4-2h6.2L15.5 8h3a1.5 1.5 0 0 1 1.5 1.5v8a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 2 17.5v-8A1.5 1.5 0 0 1 3.5 8z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"></path><circle cx="11" cy="13" r="3" fill="none" stroke="currentColor" stroke-width="1.6"></circle></symbol>
+</defs></svg>
+</div>
 <div class="safe"></div>
 <div class="header">
   <div class="header-title">머니페이스 💸</div>
@@ -246,15 +264,6 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
     <div id="syncBadge" style="font-size:10px;color:var(--text3)"></div>
   </div>
 </div>
-<div class="tabs">
-  <button class="tab active" onclick="showTab('home')">홈</button>
-  <button class="tab" onclick="showTab('add')">지출</button>
-  <button class="tab" onclick="showTab('capture')">잔액</button>
-  <button class="tab" onclick="showTab('fixed')">고정지출</button>
-  <button class="tab" onclick="showTab('ai')">AI</button>
-  <button class="tab" onclick="showTab('settings')">설정</button>
-</div>
-
 <!-- HOME -->
 <div id="tab-home" class="sec">
   <div id="apiBanner" class="api-warn hidden">⚠️ 설정에서 Google Vision API 키를 입력해야 이미지 인식이 돼요</div>
@@ -388,9 +397,9 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
     <div class="cal-head">
       <div class="cal-title" id="calTitle">2026년 6월</div>
       <div class="cal-nav">
-        <button onclick="calMove(-1)">‹</button>
-        <button onclick="calToday()">오늘</button>
-        <button onclick="calMove(1)">›</button>
+        <button onclick="calMove(-1)"><svg width="17" height="17" style="stroke:currentColor;fill:none"><use href="#ic-chevL"></use></svg></button>
+        <button onclick="calToday()" class="cal-today-btn">오늘</button>
+        <button onclick="calMove(1)"><svg width="17" height="17" style="stroke:currentColor;fill:none"><use href="#ic-chevR"></use></svg></button>
       </div>
     </div>
     <div class="cal-grid" id="calDow"></div>
@@ -422,13 +431,13 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
   <div class="card">
     <div class="card-title">토스 캡처 업로드</div>
     <div class="upload-area"><input type="file" accept="image/*" id="imgInp" onchange="handleCap(event)"/>
-      <div class="upload-icon">📸</div>
+      <div class="upload-icon"><svg width="26" height="26" style="stroke:currentColor;fill:none"><use href="#ic-cam"></use></svg></div>
       <div class="upload-txt">토스 홈화면 캡처 올리기</div>
       <div class="upload-sub">3개 계좌 잔액이 보이는 화면으로 캡처해주세요</div>
     </div>
     <div id="ocrLoad" class="loading-row hidden"><div class="spinner"></div> Google AI가 잔액을 읽는 중...</div>
     <div id="ocrRes" style="margin-top:11px;"></div>
-    <button class="btn btn-success hidden" id="applyBtn" onclick="applyBal()" style="margin-top:11px;">잔액 반영하기</button>
+    <button class="btn btn-primary hidden" id="applyBtn" onclick="applyBal()" style="margin-top:11px;">잔액 반영하기</button>
   </div>
   <div class="card">
     <div class="card-title">캡처 기록</div>
@@ -444,7 +453,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
       <input class="fx-inp" type="text" id="fxName" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="카드/항목명 (예: 넷플릭스)" style="flex:2"/>
       <input class="fx-inp" type="text" id="fxAmt" placeholder="금액" inputmode="numeric" oninput="onMoneyInput(this)" autocomplete="off" autocorrect="off" autocapitalize="off" style="flex:1"/>
     </div>
-    <button class="btn btn-primary" onclick="addFixed()">추가하기</button>
+    <button class="btn btn-primary" onclick="addFixed()" style="display:flex;align-items:center;justify-content:center;gap:5px;"><svg width="16" height="16" style="stroke:currentColor;fill:none"><use href="#ic-plus"></use></svg>추가하기</button>
   </div>
   <div class="card">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
@@ -475,7 +484,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
     </div>
     <div class="cinp-wrap">
       <input class="cinp" type="text" id="chatInp" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="질문하거나 오늘 쓴 돈을 말해주세요..." onkeydown="if(event.key==='Enter')sendChat()"/>
-      <button class="csend" onclick="sendChat()">➤</button>
+      <button class="csend" onclick="sendChat()"><svg width="17" height="17" style="stroke:currentColor;fill:none"><use href="#ic-send"></use></svg></button>
     </div>
   </div>
 
@@ -533,12 +542,12 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 </div>
 
 <div class="bnav">
-  <button class="nb active" onclick="showTab('home')" id="nav-home"><span class="ni">🏠</span><span class="nl">홈</span></button>
-  <button class="nb" onclick="showTab('add')" id="nav-add"><span class="ni">✏️</span><span class="nl">지출</span></button>
-  <button class="nb" onclick="showTab('capture')" id="nav-capture"><span class="ni">📸</span><span class="nl">잔액</span></button>
-  <button class="nb" onclick="showTab('fixed')" id="nav-fixed"><span class="ni">📌</span><span class="nl">고정지출</span></button>
-  <button class="nb" onclick="showTab('ai')" id="nav-ai"><span class="ni">🤖</span><span class="nl">AI</span></button>
-  <button class="nb" onclick="showTab('settings')" id="nav-settings"><span class="ni">⚙️</span><span class="nl">설정</span></button>
+  <button class="nb active" onclick="showTab('home')" id="nav-home"><svg class="ni"><use href="#ic-home"></use></svg><span class="nl">홈</span></button>
+  <button class="nb" onclick="showTab('add')" id="nav-add"><svg class="ni"><use href="#ic-cal"></use></svg><span class="nl">지출</span></button>
+  <button class="nb" onclick="showTab('capture')" id="nav-capture"><svg class="ni"><use href="#ic-wallet"></use></svg><span class="nl">잔액</span></button>
+  <button class="nb" onclick="showTab('fixed')" id="nav-fixed"><svg class="ni"><use href="#ic-pin"></use></svg><span class="nl">고정지출</span></button>
+  <button class="nb" onclick="showTab('ai')" id="nav-ai"><svg class="ni"><use href="#ic-ai"></use></svg><span class="nl">AI</span></button>
+  <button class="nb" onclick="showTab('settings')" id="nav-settings"><svg class="ni"><use href="#ic-set"></use></svg><span class="nl">설정</span></button>
 </div>
 <div class="toast" id="toast"></div>
 
