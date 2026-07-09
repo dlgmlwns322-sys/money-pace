@@ -198,7 +198,10 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 .fx-inp{background:var(--bg);border:1.5px solid var(--border);border-radius:var(--r-xs);padding:10px 12px;font-size:13px;font-family:inherit;color:var(--text);outline:none;}
 .fx-inp:focus{border-color:var(--blue);}
 /* ── 홈 리디자인 (플로팅 히어로 카드 · 세그먼트) ── */
-.hero2{background:linear-gradient(150deg,var(--ind2) 0%,var(--ind3) 100%);border-radius:30px;padding:20px 20px 22px;color:#fff;box-shadow:0 22px 44px rgba(74,66,220,.45);position:relative;overflow:hidden;margin-bottom:14px;}
+/* 상태별 컬러 (디자인 "상태별 컬러" 섹션): 좋음(여유 5%↑)=초록, 나쁨(예산 초과 페이스)=빨강, 보통=인디고 */
+.hero2{background:linear-gradient(150deg,var(--ind2) 0%,var(--ind3) 100%);border-radius:30px;padding:20px 20px 22px;color:#fff;box-shadow:0 14px 28px -14px rgba(74,66,220,.5);position:relative;overflow:hidden;margin-bottom:14px;transition:background 0.3s,box-shadow 0.3s;}
+.hero2.good{background:linear-gradient(150deg,#00B08F 0%,#2BC9A4 100%);box-shadow:0 14px 28px -14px rgba(0,176,143,.5);}
+.hero2.bad{background:linear-gradient(150deg,#E8394E 0%,#F2705B 100%);box-shadow:0 14px 28px -14px rgba(232,57,78,.5);}
 .hero2::after{content:'';position:absolute;right:-30px;top:-30px;width:130px;height:130px;border-radius:50%;background:rgba(255,255,255,.09);pointer-events:none;}
 .hero2-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.2);padding:5px 11px;border-radius:999px;font-size:12px;font-weight:700;position:relative;z-index:1;}
 .hero2-badge .dot{width:7px;height:7px;border-radius:50%;background:#fff;display:inline-block;}
@@ -990,6 +993,16 @@ function setHomeSeg(seg){
   renderHeroSeg();
 }
 const fmtSigned=n=>(n<0?'-':'')+won(Math.abs(n));
+// 소진 페이스에 따라 히어로 카드 배경색 전환 (디자인 "상태별 컬러" 스펙):
+// 여유 5% 이상=초록(good), 예산 초과 페이스=빨강(bad), 그 외(0~5% 여유·데이터 없음)=인디고(기본)
+function setHeroState(pace){
+  const hero=document.querySelector('.hero2');
+  if(!hero)return;
+  hero.classList.remove('good','bad');
+  if(!pace)return;
+  if(!pace.isSurplus)hero.classList.add('bad');
+  else if(pace.pct>=5)hero.classList.add('good');
+}
 function renderHeroSeg(){
   const lbl=document.getElementById('hero2Lbl'),amtEl=document.getElementById('hero2Amt'),
     ring=document.getElementById('hero2Ring'),pctEl=document.getElementById('hero2Pct'),
@@ -1009,6 +1022,7 @@ function renderHeroSeg(){
     pctEl.textContent=realPct+'%';
     setRing(realPct);
     badgeText.textContent=pace.item.txt;
+    setHeroState(eff>0?pace:null);
     m1.textContent=won(eff);m2.textContent=won(spent);m3.textContent=fmtSigned(remain);
     const shouldSpend=Math.round(eff*(elapsed/total));
     const diff=spent-shouldSpend;
@@ -1030,11 +1044,13 @@ function renderHeroSeg(){
     if(wBudget>0&&ws){
       const wPace=calcPace(wBudget,wSpentVal,wInfo.elapsed,wInfo.total);
       badgeText.textContent=wPace.item.txt;
+      setHeroState(wPace);
       const wShould=Math.round(wBudget*(wInfo.elapsed/wInfo.total));
       const wdiff=wSpentVal-wShould;
       cap.textContent=`이번 주 ${wInfo.elapsed}일째 · 지금쯤 ${won(wShould)} 써야 정상 (${wdiff<=0?won(Math.abs(wdiff))+' 여유':won(wdiff)+' 초과'})`;
     }else{
       badgeText.textContent=wBudget>0?'캡처를 올리면 계산돼요':'주간 예산 미설정';
+      setHeroState(null);
       cap.textContent=wBudget>0?'이번 주 캡처를 올리면 계산돼요':'설정에서 주간 예산을 입력해주세요';
     }
   }else{
@@ -1051,8 +1067,10 @@ function renderHeroSeg(){
     if(todayBaseline>0){
       const tPace=calcPace(todayBaseline,spentToday,1,1);
       badgeText.textContent=tPace.item.txt;
+      setHeroState(tPace);
     }else{
       badgeText.textContent='예산 미설정';
+      setHeroState(null);
     }
     cap.textContent=S.budgetStart&&S.budgetEnd?`오늘 배정액 ${won(todayBaseline)} 중 ${won(spentToday)} 사용`:'설정에서 예산 기간을 입력해주세요';
   }
