@@ -201,6 +201,8 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 /* 상태별 컬러 (디자인 "상태별 컬러" 섹션): 좋음(여유 5%↑)=초록, 나쁨(예산 초과 페이스)=빨강, 보통=인디고 */
 .hero2{background:linear-gradient(150deg,var(--ind2) 0%,var(--ind3) 100%);border-radius:30px;padding:20px 20px 22px;color:#fff;box-shadow:0 14px 28px -14px rgba(74,66,220,.5);position:relative;overflow:hidden;margin-bottom:14px;transition:background 0.3s,box-shadow 0.3s;}
 .hero2.good{background:linear-gradient(150deg,#00B08F 0%,#2BC9A4 100%);box-shadow:0 14px 28px -14px rgba(0,176,143,.5);}
+.hero2.blue{background:linear-gradient(150deg,#1E6FE0 0%,#3E9BF0 100%);box-shadow:0 14px 28px -14px rgba(30,111,224,.5);}
+.hero2.orange{background:linear-gradient(150deg,#F57C1F 0%,#FF9D42 100%);box-shadow:0 14px 28px -14px rgba(245,124,31,.5);}
 .hero2.bad{background:linear-gradient(150deg,#E8394E 0%,#F2705B 100%);box-shadow:0 14px 28px -14px rgba(232,57,78,.5);}
 .hero2::after{content:'';position:absolute;right:-30px;top:-30px;width:130px;height:130px;border-radius:50%;background:rgba(255,255,255,.09);pointer-events:none;}
 .hero2-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.2);padding:5px 11px;border-radius:999px;font-size:12px;font-weight:700;position:relative;z-index:1;}
@@ -993,15 +995,24 @@ function setHomeSeg(seg){
   renderHeroSeg();
 }
 const fmtSigned=n=>(n<0?'-':'')+won(Math.abs(n));
-// 소진 페이스에 따라 히어로 카드 배경색 전환 (디자인 "상태별 컬러" 스펙):
-// 여유 5% 이상=초록(good), 예산 초과 페이스=빨강(bad), 그 외(0~5% 여유·데이터 없음)=인디고(기본)
+// 소진 페이스에 따라 히어로 카드 배경색 5단계 전환 (예산 대비 |편차|% 기준):
+//   초록(good) 여유10%+ · 파랑(blue) 여유3~10% · 보라(기본) ±3% 순항 · 주황(orange) 초과~10% · 빨강(bad) 초과10%+
+//   ±3% 균형(및 데이터 없음)은 클래스 없이 기본 인디고 그라디언트 유지.
 function setHeroState(pace){
   const hero=document.querySelector('.hero2');
   if(!hero)return;
-  hero.classList.remove('good','bad');
+  hero.classList.remove('good','blue','orange','bad');
   if(!pace)return;
-  if(!pace.isSurplus)hero.classList.add('bad');
-  else if(pace.pct>=5)hero.classList.add('good');
+  const p=pace.pct;
+  if(pace.isSurplus){
+    if(p>=10)hero.classList.add('good');       // 초록: 아주 여유
+    else if(p>=3)hero.classList.add('blue');   // 파랑: 여유 있음
+    // else ±3% → 기본(보라) 순항
+  }else{
+    if(p>=10)hero.classList.add('bad');        // 빨강: 많이 초과
+    else if(p>=3)hero.classList.add('orange'); // 주황: 살짝 초과
+    // else ±3% → 기본(보라) 순항
+  }
 }
 function renderHeroSeg(){
   const lbl=document.getElementById('hero2Lbl'),amtEl=document.getElementById('hero2Amt'),
