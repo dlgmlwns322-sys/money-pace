@@ -469,8 +469,8 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
     <div style="font-size:11px;color:var(--text3);margin-bottom:12px">체크하면 빠져나간 날짜가 기록돼요 · 자동 초기화 없음 (새 예산 주기에 직접 해제)</div>
     <div id="fxList"><div style="text-align:center;color:var(--text3);padding:22px 0;font-size:13px">아직 고정지출이 없어요</div></div>
     <div id="fxSummary" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);display:none">
-      <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px"><span style="color:var(--text2)">총 고정지출</span><span style="font-weight:800" id="fxTotal">0원</span></div>
-      <div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--text2)">빠져나간 금액</span><span style="font-weight:800;color:var(--green)" id="fxPaid">0원</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px"><span style="color:var(--text2)">총 고정지출</span><span class="num" style="font-weight:800" id="fxTotal">0원</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--text2)">빠져나간 금액</span><span class="num" style="font-weight:800;color:var(--blue)" id="fxPaid">0원</span></div>
     </div>
   </div>
 </div>
@@ -1405,10 +1405,10 @@ function renderFixed(){
       <div class="fx-check${f.paid?' on':''}" onclick="toggleFixed('${f.id}')">${f.paid?'✓':''}</div>
       <div class="fx-info">
         <div class="fx-name">${escapeHtml(f.name)}</div>
-        <div class="fx-meta">${f.paid&&f.paidDate?`✅ <span class="fx-date" onclick="editFixedDate('${f.id}')">${f.paidDate.slice(5).replace('-','/')} 빠져나감 <span class="fx-pencil">✏️</span></span>`:'아직 안 빠져나감'}</div>
+        <div class="fx-meta">${f.paid&&f.paidDate?`<span class="fx-date" onclick="editFixedDate('${f.id}')">${f.paidDate.slice(5).replace('-','/')} 빠져나감</span>`:'아직 안 빠져나감'}</div>
       </div>
       <div style="display:flex;align-items:center;gap:8px">
-        <div class="fx-amt">${won(f.amount)}</div>
+        <div class="fx-amt num">${won(f.amount)}</div>
         <button onclick="delFixed('${f.id}')" style="background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:18px">×</button>
       </div>
     </div>
