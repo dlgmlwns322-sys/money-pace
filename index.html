@@ -996,8 +996,8 @@ function setHomeSeg(seg){
 }
 const fmtSigned=n=>(n<0?'-':'')+won(Math.abs(n));
 // 소진 페이스에 따라 히어로 카드 배경색 5단계 전환 (예산 대비 |편차|% 기준):
-//   초록(good) 여유10%+ · 파랑(blue) 여유3~10% · 보라(기본) ±3% 순항 · 주황(orange) 초과~10% · 빨강(bad) 초과10%+
-//   ±3% 균형(및 데이터 없음)은 클래스 없이 기본 인디고 그라디언트 유지.
+//   초록(good) 여유50%+ · 파랑(blue) 여유15~50% · 보라(기본) ±15% 순항 · 주황(orange) 초과15~50% · 빨강(bad) 초과50%+
+//   ±15% 균형(및 데이터 없음)은 클래스 없이 기본 인디고 그라디언트 유지. (임계값 2026-07-11 상향: 빨강 기준 초과 50%)
 function setHeroState(pace){
   const hero=document.querySelector('.hero2');
   if(!hero)return;
@@ -1005,13 +1005,13 @@ function setHeroState(pace){
   if(!pace)return;
   const p=pace.pct;
   if(pace.isSurplus){
-    if(p>=10)hero.classList.add('good');       // 초록: 아주 여유
-    else if(p>=3)hero.classList.add('blue');   // 파랑: 여유 있음
-    // else ±3% → 기본(보라) 순항
+    if(p>=50)hero.classList.add('good');        // 초록: 아주 여유
+    else if(p>=15)hero.classList.add('blue');   // 파랑: 여유 있음
+    // else ±15% → 기본(보라) 순항
   }else{
-    if(p>=10)hero.classList.add('bad');        // 빨강: 많이 초과
-    else if(p>=3)hero.classList.add('orange'); // 주황: 살짝 초과
-    // else ±3% → 기본(보라) 순항
+    if(p>=50)hero.classList.add('bad');         // 빨강: 많이 초과
+    else if(p>=15)hero.classList.add('orange'); // 주황: 살짝 초과
+    // else ±15% → 기본(보라) 순항
   }
 }
 function renderHeroSeg(){
