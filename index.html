@@ -1744,7 +1744,8 @@ async function sendChat(){
 
 [규칙]
 - 지출 기록으로 보이면(예: "오늘 점심 8천원, 커피 4500원", "택시비 만이천원 씀") type을 "log"로 하고, entries에 지출 하나당 카드 하나씩: category(${MEMO_CATS.join(', ')} 중 하나, 애매하면 "기타"), amt(숫자만), text(무엇을 샀는지 짧게), date(YYYY-MM-DD, 언급 없으면 오늘 ${todayStr}, "어제"면 하루 전 날짜)
-- 주간 한도/주간 예산을 바꿔달라는 말이면 type "setting", setting={"action":"set_weekly_budget","weeklyBudget":숫자} — 이 액션일 땐 fixedName/fixedAmount는 절대 채우지 말 것
+- 주간 한도/주간 예산을 특정 금액으로 바꿔달라는 말이면 type "setting", setting={"action":"set_weekly_budget","weeklyBudget":숫자} — 이 액션일 땐 fixedName/fixedAmount는 절대 채우지 말 것
+- "지금 남은 잔액으로 주간 한도 배분해줘"처럼 금액 지정 없이 현재 남은 잔액 기준으로 주간 한도를 다시 계산해달라는 말이면 type "setting", setting={"action":"allocate_weekly_from_balance"} — 계산은 앱이 알아서 하니 weeklyBudget 필드는 채우지 말 것
 - 고정지출을 추가해달라면 type "setting", setting={"action":"add_fixed","fixedName":항목명,"fixedAmount":숫자} — 이 액션일 땐 weeklyBudget은 절대 채우지 말 것. 금액은 반드시 fixedAmount에만 넣기
 - 기존 고정지출 금액을 바꿔달라면 type "setting", setting={"action":"edit_fixed","fixedName":아래 기존 고정지출 목록(${fixedNames}) 중 정확히 일치하는 이름,"fixedAmount":새 금액} — weeklyBudget은 채우지 말 것
 - 기존 고정지출을 삭제/없애달라면 type "setting", setting={"action":"delete_fixed","fixedName":위 기존 목록 중 정확히 일치하는 이름} (fixedAmount/weeklyBudget 불필요)
@@ -1763,7 +1764,7 @@ ${buildCtx()}`;
           category:{type:'string'},amt:{type:'number'},text:{type:'string'},date:{type:'string'}
         },required:['category','amt']}},
         setting:{type:'object',properties:{
-          action:{type:'string',enum:['set_weekly_budget','add_fixed','edit_fixed','delete_fixed']},
+          action:{type:'string',enum:['set_weekly_budget','allocate_weekly_from_balance','add_fixed','edit_fixed','delete_fixed']},
           weeklyBudget:{type:'number'},
           fixedName:{type:'string'},
           fixedAmount:{type:'number'}
@@ -1789,7 +1790,7 @@ ${buildCtx()}`;
     if(!res.ok){const raw=await res.text();throw new Error(geminiErr(res.status,raw));}
     const data=await res.json();
     const raw=data.candidates?.[0]?.content?.parts?.[0]?.text;
-    let result;
+    let result;let allocReply=null;
     try{result=JSON.parse(raw);}catch(e){result=null;}
     if(!result||!result.reply){
       el.textContent='응답을 받지 못했어요.';return;
@@ -1814,6 +1815,11 @@ ${buildCtx()}`;
       const fixedAmt=st.fixedAmount>0?st.fixedAmount:(st.weeklyBudget>0?st.weeklyBudget:0);
       if(st.action==='set_weekly_budget'&&st.weeklyBudget>0){
         S.weeklyBudget=parseInt(st.weeklyBudget)||S.weeklyBudget;
+      }else if(st.action==='allocate_weekly_from_balance'){
+        // 계산은 모델이 아니라 앱이 직접 함(암산 오류 방지) — 남은 잔액을 예산기간 잔여일 기준으로 7일치로 환산
+        const{remaining}=getBD();
+        S.weeklyBudget=Math.round(usableBal()/Math.max(1,remaining)*7);
+        allocReply=`남은 잔액 기준으로 주간 한도를 ${won(S.weeklyBudget)}으로 배분했어요 ✓`;
       }else if(st.action==='add_fixed'&&st.fixedName&&fixedAmt>0){
         S.fixed.push({id:Date.now().toString(),name:st.fixedName,amount:parseInt(fixedAmt)||0,paid:false,paidDate:''});
       }else if(st.action==='edit_fixed'&&st.fixedName){
@@ -1824,7 +1830,8 @@ ${buildCtx()}`;
       }
       save();renderFixed();render();
     }
-    el.textContent=result.reply;chatHist.push({role:'assistant',content:result.reply});
+    const replyText=allocReply||result.reply;
+    el.textContent=replyText;chatHist.push({role:'assistant',content:replyText});
     if(chatHist.length>20)chatHist=chatHist.slice(-20);
   }catch(e){el.textContent='오류: '+e.message;}
 }
