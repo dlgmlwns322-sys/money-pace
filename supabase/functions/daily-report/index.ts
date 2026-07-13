@@ -173,14 +173,31 @@ function buildSimpleSummary(S: any, todayStr: string) {
   const recommendedDaily = remain > 0 ? Math.round(remain / remaining) : 0;
   const recommendedWeekly = recommendedDaily * 7;
 
+  // 말투 톤: 쓴 비율(realPct) - 시간 경과 비율. +면 과소비(빠름), -면 여유. 상황에 맞게 코멘트 뉘앙스 변경.
+  const timePct = Math.round(elapsed / Math.max(total, 1) * 100);
+  const paceDelta = realPct - timePct;
+  const pace = paceDelta >= 15 ? "over" : paceDelta >= 6 ? "fast" : paceDelta <= -10 ? "relaxed" : "ok";
+  const tbTxt = todayBudget < 0 ? "-" + won(Math.abs(todayBudget)) : won(todayBudget);
+  const ydHead = ydSpentVal > 0 ? `어제 ${won(ydSpentVal)} 썼` : `어제 지출 없었`;
+  const ydLine = (pace === "over" || pace === "fast")
+    ? `${ydHead}어요. 페이스가 빠르니 오늘은 ${tbTxt} 안에서 막아보세요`
+    : pace === "relaxed"
+    ? `${ydHead}어요. 여유 있으니 오늘은 ${tbTxt}까지 편하게 써도 돼요`
+    : `${ydHead}으니 오늘은 ${tbTxt} 써도 괜찮아요`;
+  const rw = won(recommendedWeekly), rd = won(recommendedDaily);
+  const lastLine = remain <= 0
+    ? `이미 이번 달 예산을 초과했어요. 남은 기간은 꼭 필요한 데만 쓰는 게 좋아요`
+    : pace === "over" ? `지출 페이스가 많이 빨라요. 이번 주는 주 ${rw}·일 ${rd} 안으로 바짝 조여야 해요`
+    : pace === "fast" ? `조금 빠른 페이스예요. 주 ${rw}·일 ${rd} 정도로 맞춰가면 좋아요`
+    : pace === "relaxed" ? `페이스에 여유가 있어요. 주 ${rw}·일 ${rd}까지 써도 되니 너무 아끼지 않아도 돼요`
+    : `페이스 적당해요. 이대로 주 ${rw}·일 ${rd} 유지하면 딱이에요`;
+
   const lines: string[] = [];
   lines.push(`월예산 ${won(eff)} 중 ${won(spent)} 사용 (${realPct}%)`);
   lines.push(wBudget > 0 ? `주예산 ${won(wBudget)} 중 ${won(wSpentVal)} 사용 (${wPct}%)` : `주예산 미설정`);
   lines.push(unpaidList.length ? `미납된 고정비는 ${unpaidList.join(", ")}이 있어요` : `미납된 고정비 없음`);
-  lines.push(`어제 ${won(ydSpentVal)} 썼으니 오늘은 ${todayBudget < 0 ? "-" + won(Math.abs(todayBudget)) : won(todayBudget)} 써도 괜찮아요`);
-  lines.push(remain > 0
-    ? `이 페이스면 주에 ${won(recommendedWeekly)} 일에 ${won(recommendedDaily)} 써야될 것 같아요`
-    : `이미 이번 달 예산을 초과해서 지출을 최대한 줄이는 게 좋아요`);
+  lines.push(ydLine);
+  lines.push(lastLine);
 
   return lines.join("\n");
 }
