@@ -349,6 +349,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
         <div class="binfo">
           <div class="bitem"><span class="blbl">월 예산</span><span class="bval" id="bTotal">—</span></div>
           <div class="bitem"><span class="blbl">고정지출</span><span class="bval" style="color:var(--orange)" id="bFixed">0원</span></div>
+          <div class="bitem" id="bIncomeRow" style="display:none"><span class="blbl">예정입금</span><span class="bval" style="color:var(--blue)" id="bIncome">0원</span></div>
           <div class="bitem"><span class="blbl">사용가능</span><span class="bval" style="color:var(--blue)" id="bEffective">—</span></div>
           <div class="bitem"><span class="blbl">사용</span><span class="bval" style="color:var(--red)" id="bSpent">0원</span></div>
           <div class="bitem"><span class="blbl">남은 예산</span><span class="bval" id="bRemain">—</span></div>
@@ -454,9 +455,13 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 <!-- 고정지출 -->
 <div id="tab-fixed" class="sec hidden">
   <div class="card">
-    <div class="card-title">고정지출 추가</div>
+    <div class="card-title">고정 항목 추가</div>
+    <div style="display:flex;gap:6px;margin-bottom:8px">
+      <button type="button" id="fxTypeExpense" onclick="setFxType('expense')" style="flex:1;padding:9px;border-radius:9px;border:1px solid var(--border);background:var(--orange);color:#fff;font-weight:800;font-size:13px;cursor:pointer">지출 −</button>
+      <button type="button" id="fxTypeIncome" onclick="setFxType('income')" style="flex:1;padding:9px;border-radius:9px;border:1px solid var(--border);background:transparent;color:var(--text2);font-weight:800;font-size:13px;cursor:pointer">입금 +</button>
+    </div>
     <div class="fx-add-row">
-      <input class="fx-inp" type="text" id="fxName" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="카드/항목명 (예: 넷플릭스)" style="flex:2"/>
+      <input class="fx-inp" type="text" id="fxName" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="항목명 (예: 넷플릭스 / 용돈)" style="flex:2"/>
       <input class="fx-inp" type="text" id="fxAmt" placeholder="금액" inputmode="numeric" oninput="onMoneyInput(this)" autocomplete="off" autocorrect="off" autocapitalize="off" style="flex:1"/>
     </div>
     <button class="btn btn-primary" onclick="addFixed()" style="display:flex;align-items:center;justify-content:center;gap:5px;"><svg width="16" height="16" style="stroke:currentColor;fill:none"><use href="#ic-plus"></use></svg>추가하기</button>
@@ -471,6 +476,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
     <div id="fxSummary" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);display:none">
       <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px"><span style="color:var(--text2)">총 고정지출</span><span class="num" style="font-weight:800" id="fxTotal">0원</span></div>
       <div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--text2)">빠져나간 금액</span><span class="num" style="font-weight:800;color:var(--blue)" id="fxPaid">0원</span></div>
+      <div id="fxIncomeRow" style="display:none;justify-content:space-between;font-size:13px;margin-top:4px"><span style="color:var(--text2)">예정 입금(+)</span><span class="num" style="font-weight:800;color:var(--blue)" id="fxIncome">0원</span></div>
     </div>
   </div>
 </div>
@@ -667,18 +673,25 @@ function timeToMinutes(t){
   return h*60+parseInt(m[3],10);
 }
 
-// 고정지출 합계 (체크 여부와 무관하게 등록된 모든 고정지출)
-const totFixed=()=>(S.fixed||[]).reduce((a,f)=>a+(f.amount||0),0);
-// 실제 사용 가능 월 예산 = 월 예산 - 고정지출 합계
+// 고정 항목 부호: 지출은 +금액(예산 차감), 입금(type:'income')은 −금액(예산 가산).
+// type 없으면 지출로 취급(기존 저장 데이터 하위호환).
+const fxSigned=f=>((f.type==='income'?-1:1)*(f.amount||0));
+// 고정 항목 순합계(지출 − 입금) = 예산에서 차감할 순액. (체크 여부 무관)
+const totFixed=()=>(S.fixed||[]).reduce((a,f)=>a+fxSigned(f),0);
+// 표시용 분리 합계
+const totFixedExpense=()=>(S.fixed||[]).filter(f=>f.type!=='income').reduce((a,f)=>a+(f.amount||0),0);
+const totFixedIncome=()=>(S.fixed||[]).filter(f=>f.type==='income').reduce((a,f)=>a+(f.amount||0),0);
+// 실제 사용 가능 월 예산 = 월 예산 - 고정지출 + 예정입금 (= 월예산 - 순액)
 const effectiveBudget=()=>Math.max(0, S.budget - totFixed());
-// 미납(아직 안 빠져나간) 고정지출 = 잔액엔 남아있지만 곧 나갈 돈
-const unpaidFixed=()=>(S.fixed||[]).filter(f=>!f.paid).reduce((a,f)=>a+(f.amount||0),0);
+// 미납(아직 안 빠져나간 지출 / 아직 안 들어온 입금)의 순액 = 잔액엔 아직 미반영이지만 곧 반영될 돈.
+// 입금은 음수라 여기서 빼면(usableBal) 예정입금만큼 쓸 수 있는 돈이 늘어난다(A방식: 즉시 반영).
+const unpaidFixed=()=>(S.fixed||[]).filter(f=>!f.paid).reduce((a,f)=>a+fxSigned(f),0);
 // 기간(from~to, 포함) 중 실제로 빠져나간(paid) 고정지출 합계.
 // 고정지출은 unpaidFixed()로 이미 예산에서 선차감돼 있으므로, 실제 빠져나간 날의 잔액 감소분에서
 // 이 금액을 다시 빼줘야 일별/주간 "쓴 돈"에 이중으로 잡히지 않는다.
 // affectsBalance:false인 항목(예: 추적 안 하는 별도 저축통장으로 빠지는 저축)은 애초에 카카오/국민/신한
 // 잔액 diff에 안 잡히므로 여기서도 빼면 안 됨 — 명시적으로 false가 아닌 한(기본값 true) 포함.
-const fixedPaidInRange=(from,to)=>(S.fixed||[]).filter(f=>f.paid&&f.paidDate&&f.paidDate>=from&&f.paidDate<=to&&f.affectsBalance!==false).reduce((a,f)=>a+(f.amount||0),0);
+const fixedPaidInRange=(from,to)=>(S.fixed||[]).filter(f=>f.paid&&f.paidDate&&f.paidDate>=from&&f.paidDate<=to&&f.affectsBalance!==false).reduce((a,f)=>a+fxSigned(f),0);
 // 실제 쓸 수 있는 잔액 = 총잔액 - 미납 고정지출
 const usableBal=()=>Math.max(0, totBal() - unpaidFixed());
 
@@ -830,8 +843,9 @@ function render(){
   ['kakao','kb','shinhan'].forEach(k=>{
     document.getElementById('bal-'+k).textContent=S.balances[k]>0?won(S.balances[k]):'—';
   });
-  const eff=effectiveBudget();          // 사용 가능 예산 (월예산 - 고정지출)
-  const fixedTot=totFixed();
+  const eff=effectiveBudget();          // 사용 가능 예산 (월예산 - 고정지출 + 예정입금)
+  const fixedTot=totFixedExpense();     // 표시용: 지출만
+  const fixedInc=totFixedIncome();      // 표시용: 예정입금만
   const spent=totSpent();
   const remain=eff-spent;                // 남은 예산 (음수면 초과)
   const isOver=remain<0;
@@ -860,6 +874,8 @@ function render(){
   // 월간 소진 현황 카드 (B방식: 월예산/고정지출/사용가능 모두 표시)
   document.getElementById('bTotal').textContent=S.budget>0?won(S.budget):'—';
   document.getElementById('bFixed').textContent=fixedTot>0?'-'+won(fixedTot):'0원';
+  document.getElementById('bIncomeRow').style.display=fixedInc>0?'':'none';
+  document.getElementById('bIncome').textContent='+'+won(fixedInc);
   document.getElementById('bEffective').textContent=won(eff);
   document.getElementById('bSpent').textContent=won(spent)+(isOver?` (${realPct}%)`:'');
   document.getElementById('bSpent').style.color='var(--red)';
@@ -1344,15 +1360,24 @@ function delMemoCard(id){
 // ═══ 고정지출 ═══
 // 예산기간이 달력상 매월 1일과 무관하게 사용자가 설정한 시작일~종료일 기준이라
 // 달이 바뀐다고 자동으로 체크 해제하지 않는다. 해제는 사용자가 직접 토글.
+// 추가 폼 현재 선택 타입: 'expense'(지출) | 'income'(예정입금)
+let fxAddType='expense';
+function setFxType(t){
+  fxAddType=t;
+  const ex=document.getElementById('fxTypeExpense'),inc=document.getElementById('fxTypeIncome');
+  const on=(el,color)=>{el.style.background=color;el.style.color='#fff';};
+  const off=el=>{el.style.background='transparent';el.style.color='var(--text2)';};
+  if(t==='income'){off(ex);on(inc,'var(--blue)');}else{on(ex,'var(--orange)');off(inc);}
+}
 function addFixed(){
   const name=document.getElementById('fxName').value.trim();
   const amt=parseInt(document.getElementById('fxAmt').value.replace(/[^0-9]/g,''));
   if(!name){showToast('항목명을 입력해주세요');return;}
   if(!amt||amt<=0){showToast('금액을 입력해주세요');return;}
-  S.fixed.push({id:Date.now().toString(),name,amount:amt,paid:false,paidDate:''});
+  S.fixed.push({id:Date.now().toString(),name,amount:amt,type:fxAddType,paid:false,paidDate:''});
   document.getElementById('fxName').value='';
   document.getElementById('fxAmt').value='';
-  save();renderFixed();render();showToast('고정지출이 추가됐어요 ✓');
+  save();renderFixed();render();showToast(fxAddType==='income'?'예정 입금이 추가됐어요 ✓':'고정지출이 추가됐어요 ✓');
 }
 
 function toggleFixed(id){
@@ -1396,27 +1421,37 @@ function renderFixed(){
   if(mLabel){const n=new Date();mLabel.textContent=`${n.getMonth()+1}월`;}
   if(!el)return;
   if(!S.fixed.length){
-    el.innerHTML='<div style="text-align:center;color:var(--text3);padding:22px 0;font-size:13px">아직 고정지출이 없어요</div>';
+    el.innerHTML='<div style="text-align:center;color:var(--text3);padding:22px 0;font-size:13px">아직 등록된 항목이 없어요</div>';
     document.getElementById('fxSummary').style.display='none';
     return;
   }
-  el.innerHTML=S.fixed.map(f=>`
+  el.innerHTML=S.fixed.map(f=>{
+    const isInc=f.type==='income';
+    const doneWord=isInc?'들어옴':'빠져나감', pendWord=isInc?'아직 안 들어옴':'아직 안 빠져나감';
+    const meta=f.paid&&f.paidDate
+      ?`<span class="fx-date" onclick="editFixedDate('${f.id}')">${f.paidDate.slice(5).replace('-','/')} ${doneWord}</span>`
+      :pendWord;
+    return`
     <div class="fx-item">
       <div class="fx-check${f.paid?' on':''}" onclick="toggleFixed('${f.id}')">${f.paid?'✓':''}</div>
       <div class="fx-info">
-        <div class="fx-name">${escapeHtml(f.name)}</div>
-        <div class="fx-meta">${f.paid&&f.paidDate?`<span class="fx-date" onclick="editFixedDate('${f.id}')">${f.paidDate.slice(5).replace('-','/')} 빠져나감</span>`:'아직 안 빠져나감'}</div>
+        <div class="fx-name">${escapeHtml(f.name)}${isInc?' <span style="font-size:10px;color:var(--blue);font-weight:800">입금</span>':''}</div>
+        <div class="fx-meta">${meta}</div>
       </div>
       <div style="display:flex;align-items:center;gap:8px">
-        <div class="fx-amt num">${won(f.amount)}</div>
+        <div class="fx-amt num"${isInc?' style="color:var(--blue)"':''}>${isInc?'+':''}${won(f.amount)}</div>
         <button onclick="delFixed('${f.id}')" style="background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:18px">×</button>
       </div>
-    </div>
-  `).join('');
-  const total=S.fixed.reduce((a,f)=>a+f.amount,0);
-  const paid=S.fixed.filter(f=>f.paid).reduce((a,f)=>a+f.amount,0);
-  document.getElementById('fxTotal').textContent=won(total);
-  document.getElementById('fxPaid').textContent=won(paid);
+    </div>`;
+  }).join('');
+  const totalExp=S.fixed.filter(f=>f.type!=='income').reduce((a,f)=>a+f.amount,0);
+  const paidExp=S.fixed.filter(f=>f.type!=='income'&&f.paid).reduce((a,f)=>a+f.amount,0);
+  const totalInc=S.fixed.filter(f=>f.type==='income').reduce((a,f)=>a+f.amount,0);
+  document.getElementById('fxTotal').textContent=won(totalExp);
+  document.getElementById('fxPaid').textContent=won(paidExp);
+  const incRow=document.getElementById('fxIncomeRow');
+  incRow.style.display=totalInc>0?'flex':'none';
+  document.getElementById('fxIncome').textContent='+'+won(totalInc);
   document.getElementById('fxSummary').style.display='block';
 }
 
@@ -1692,9 +1727,9 @@ function delCap(id){S.captures=S.captures.filter(c=>c.id!==id);save();renderCaps
 let chatHist=[];
 function buildCtx(){
   const{total,elapsed,remaining}=getBD();const spent=totSpent();const pace=getPace();
-  const eff=effectiveBudget();const fx=totFixed();
+  const eff=effectiveBudget();const fxExp=totFixedExpense();const fxInc=totFixedIncome();
   const wInfo=getWeekInfo();const ws=getWeeklySpent();const wSpentVal=ws?ws.spent:0;
-  const fixedList=(S.fixed||[]).map(f=>`${f.name} ${won(f.amount)}${f.paid?'(빠짐 '+f.paidDate+')':''}`).join(', ')||'없음';
+  const fixedList=(S.fixed||[]).map(f=>{const isInc=f.type==='income';return`${f.name} ${isInc?'+':''}${won(f.amount)}${f.paid?'('+(isInc?'들어옴 ':'빠짐 ')+f.paidDate+')':''}`;}).join(', ')||'없음';
   // 이번 주(월~오늘) 지출 메모 카드 전체 (카테고리+금액+내용)
   const weekCards=Object.entries(S.memos||{})
     .filter(([d])=>d>=wInfo.weekStartStr&&d<=toStr())
@@ -1707,7 +1742,7 @@ function buildCtx(){
   }).join(' / ')||'없음';
   return`[재무 현황]
 - 예산기간: ${S.budgetStart}~${S.budgetEnd}(총${total}일,경과${elapsed}일,남은${remaining}일)
-- 월예산: ${won(S.budget)} / 고정지출 ${won(fx)} 제외 → 사용가능 ${won(eff)}
+- 월예산: ${won(S.budget)} / 고정지출 -${won(fxExp)}${fxInc>0?' / 예정입금 +'+won(fxInc):''} → 사용가능 ${won(eff)}
 - 이번달 지출: ${won(spent)} (소진율 ${Math.round(spent/Math.max(eff,1)*100)}%)
 - 남은예산: ${won(eff-spent)}, 오늘 쓸 수 있는 돈: ${(()=>{const tb=getTodayBudget();return tb<0?'-'+won(tb):won(tb);})()}
 - 지금쯤 정상 지출액: ${won(Math.round(eff*(elapsed/total)))} / 월 페이스: ${pace.item.txt}
