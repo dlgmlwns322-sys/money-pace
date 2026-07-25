@@ -1593,15 +1593,20 @@ function parseAmount(str){
 
 function parseText(text){
   const lines=text.split('\n').map(l=>l.trim()).filter(l=>l);
-  const amtPat=/(\d{1,3}(?:,\d{3})+|\d{4,})\s*원?/;
+  const amtPat=/(\d{1,3}(?:,\d{3})+|\d{3,})\s*원?/;  // 3자리 금액(예: 780원)도 인식 — 안 그러면 계좌-금액 짝짓기가 어긋나 엉뚱한 숫자를 끌어옴
   const result={kakao:0,kb:0,shinhan:0};
-  const EXCLUDE=['쓴 돈','쓴돈','포인트','지원금','신용','대출','보험','적립','이번 달','이번달','번'];
+  const EXCLUDE=['쓴 돈','쓴돈','포인트','지원금','신용','대출','보험','적립','이번 달','이번달','번','연금','수령액','미리보기'];
   const isExcluded=(line)=>EXCLUDE.some(w=>line.includes(w));
 
   // 1) 금액이 들어있는 줄들의 위치를 먼저 수집 (제외 줄 제거)
   const amountLines=[]; // {idx, value}
+  // "쓴 돈"류 라벨: 이 라벨 바로 위/아래 숫자는 잔액이 아니라 지출합계이므로 후보에서 제외.
+  // (토스는 "1,373,774원" 다음 줄에 "7월에 쓴 돈" 라벨이 옴)
+  const SPENT_LABEL=['쓴 돈','쓴돈'];
+  const nearSpentLabel=i=>SPENT_LABEL.some(w=>(lines[i]||'').includes(w));
   lines.forEach((line,idx)=>{
     if(isExcluded(line))return;
+    if(nearSpentLabel(idx-1)||nearSpentLabel(idx+1))return;
     const m=line.match(amtPat);
     if(m){
       const n=parseInt(m[1].replace(/,/g,''));
