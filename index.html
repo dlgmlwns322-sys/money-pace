@@ -706,6 +706,11 @@ function getBD(){
 }
 // 쓴 돈 = 실사용예산(월예산-고정지출) - 쓸 수 있는 잔액(총잔액-미납고정지출)
 const totSpent=()=>{
+  // 예산기간이 설정돼 있으면 기간 내 '실제 하루지출 합산'(입금 무시)으로 계산.
+  // 순잔액차이(예산-사용가능잔액) 방식은 예산 시작일 등에 입금이 들어오면 소진이 0으로 뭉개져서 바꿈.
+  if(S.budgetStart&&S.budgetEnd&&S.captures&&S.captures.length){
+    return sumSpentInRange(S.budgetStart, toStr());
+  }
   const tb=Object.values(S.balances).reduce((a,b)=>a+b,0);
   if(tb<=0)return 0;
   return Math.max(0, effectiveBudget() - usableBal());
@@ -747,32 +752,12 @@ function getWeekInfo(){
 function getWeeklySpent(){
   if(!S.captures||S.captures.length<1)return null;
   const {weekStartStr}=getWeekInfo();
-  // 캡처별 총잔액 + 날짜별 최신만
-  const withTotal=S.captures.map(c=>({date:c.date,minutes:timeToMinutes(c.time),total:(c.balances.kakao||0)+(c.balances.kb||0)+(c.balances.shinhan||0)}));
-  const byDate={};
-  withTotal.forEach(c=>{if(!byDate[c.date]||c.minutes>byDate[c.date].minutes)byDate[c.date]=c;});
-  const days=Object.values(byDate).sort((a,b)=>a.date.localeCompare(b.date)); // 오름차순
-  // 주 시작일 이전(당일 제외)의 가장 마지막 잔액 = 주 시작 기준 잔액.
-  // <=로 당일까지 포함하면 월요일(주 시작일)에 캡처를 올린 날 startBal===curBal이 되어
-  // 그날 지출이 0으로 사라지는 버그가 있었음 → <로 당일 캡처는 제외.
-  let startBal=null, curBal=null;
-  for(const d of days){
-    if(d.date<weekStartStr) startBal=d.total; // 주 시작 시점 잔액 (그 이전 마지막 캡처)
-    curBal=d.total; // 가장 최신
-  }
-  // 주 시작 이전 캡처가 없으면, 주 안에서 가장 이른 캡처를 시작으로
-  if(startBal===null){
-    const inWeek=days.filter(d=>d.date>=weekStartStr);
-    if(inWeek.length<1)return null;
-    startBal=inWeek[0].total;
-    curBal=inWeek[inWeek.length-1].total;
-  }
-  // 이번 주 안에 실제로 빠져나간(=affectsBalance:false가 아닌) 고정지출은 잔액 감소분에서 제외.
-  // "오늘 체크한 것만" 빼면 다음날부터 그 금액이 다시 이번주 지출로 새는 버그가 있어 전체 주 범위로 뺀다.
-  // affectsBalance 플래그가 저축처럼 추적 밖 계좌로 나가는 항목의 과다차감(0원)을 막아준다.
-  const fixedThisWeek=fixedPaidInRange(weekStartStr, toStr());
-  const spent=Math.max(0, startBal-curBal-fixedThisWeek);
-  return {spent, startBal, curBal};
+  const today=toStr();
+  // 이번 주(월~오늘) 안에 캡처가 하나도 없으면 계산 불가 → null (기존과 동일하게 "캡처 올리면 계산돼요" 표시)
+  if(!S.captures.some(c=>c.date>=weekStartStr&&c.date<=today))return null;
+  // 순잔액차이 대신 '실제 하루지출 합산'(입금 무시). 예산 시작일 등에 입금이 들어와도
+  // 주간 지출이 0으로 뭉개지지 않고 진짜 쓴 돈만 잡힌다(막대그래프와 동일 소스).
+  return {spent: sumSpentInRange(weekStartStr, today)};
 }
 
 // 캡처 기록에서 '오늘'(실제 달력 기준)과 오늘 이전 가장 최근 날짜의 잔액 차이로 일일 지출 계산.
@@ -804,6 +789,21 @@ function getDailySpent(dateStr){
   // 오늘 실제로 빠져나간 고정지출은 제외 (이미 예산에서 선차감돼 있어 이중차감 방지)
   const spent=prevTotal - todayCap.total - fixedPaidInRange(todayStr, todayStr);
   return {spent, todayDate:todayStr, prevDate, todayTotal:todayCap.total, prevTotal};
+}
+
+// 범위 [fromStr, toStr] 내 '실제 쓴 돈' 합계 — 각 캡처일의 하루지출(getDailySpent)을 더하되
+// 입금(음수 지출)·미캡처일은 제외한다. 순잔액차이 방식과 달리 기간 중 입금이 들어와도
+// 지출이 0으로 뭉개지지 않는다(예: 예산 시작일 입금). 캡처가 띄엄띄엄이어도
+// getDailySpent가 '직전 캡처'와 비교하므로 텔레스코핑으로 총액이 보존된다.
+function sumSpentInRange(fromStr, toStr){
+  if(!S.captures||S.captures.length<1)return 0;
+  const dates=[...new Set(S.captures.map(c=>c.date))].filter(d=>d>=fromStr&&d<=toStr).sort();
+  let sum=0;
+  for(const d of dates){
+    const ds=getDailySpent(d);
+    if(ds&&!ds.noCaptureToday&&ds.spent>0)sum+=ds.spent;
+  }
+  return sum;
 }
 
 // 오늘 쓸 수 있는 돈 = 오늘 하루치 배정액(어제 마감 잔액 기준 남은예산÷남은일수) - 오늘 실제 지출.
