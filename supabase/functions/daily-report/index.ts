@@ -214,16 +214,23 @@ async function sendTelegram(text: string) {
 Deno.serve(async () => {
   const { dateStr, hh, mm } = kstParts();
 
+  // 매분 호출되므로 알람 시각만 먼저 조회 (data 전체는 캡처 썸네일 때문에 커서 egress 폭증)
+  const { data: alarmRow, error: alarmErr } = await supabase
+    .from("app_data").select("alarm:data->>alarmTime").eq("id", ROW_ID).single();
+  if (alarmErr || !alarmRow) return new Response("no data", { status: 200 });
+
+  const alarmTime: string = (alarmRow as { alarm: string | null }).alarm || "09:00";
+  const [ah, am] = alarmTime.split(":");
+  if (hh !== ah || mm !== am) {
+    return new Response("not time yet", { status: 200 });
+  }
+
+  // 발송 시각일 때만 data 전체 조회
   const { data: row, error } = await supabase
     .from("app_data").select("data").eq("id", ROW_ID).single();
   if (error || !row) return new Response("no data", { status: 200 });
 
   const S = row.data;
-  const alarmTime: string = S.alarmTime || "09:00";
-  const [ah, am] = alarmTime.split(":");
-  if (hh !== ah || mm !== am) {
-    return new Response("not time yet", { status: 200 });
-  }
 
   // 같은 분에 cron이 중복 호출돼도 하루 한 번만 발송되도록 가드 (insert 충돌 시 스킵)
   const { error: logErr } = await supabase.from("notify_log").insert({ sent_date: dateStr });
