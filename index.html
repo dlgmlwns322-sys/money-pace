@@ -598,6 +598,9 @@ function save(){
 }
 
 const ROW_ID='my_money_data'; // 혼자 쓰는 단일 데이터 행
+// API 키·접속정보는 기기(localStorage)에만 두고 클라우드에는 올리지 않음
+const LOCAL_ONLY_KEYS=['visionKey','claudeKey','supabaseUrl','supabaseKey'];
+function cloudPayload(s){const d={...s};LOCAL_ONLY_KEYS.forEach(k=>delete d[k]);return d;}
 
 async function syncToCloud(){
   if(!S.supabaseUrl||!S.supabaseKey)return;
@@ -612,7 +615,7 @@ async function syncToCloud(){
         'Authorization':'Bearer '+S.supabaseKey,
         'Prefer':'resolution=merge-duplicates'
       },
-      body:JSON.stringify({id:ROW_ID, data:S, updated_at:new Date().toISOString()})
+      body:JSON.stringify({id:ROW_ID, data:cloudPayload(S), updated_at:new Date().toISOString()})
     });
     if(!res.ok){const t=await res.text();throw new Error(t);}
     updateSyncBadge('saved');
@@ -633,10 +636,10 @@ async function loadFromCloud(){
     if(!res.ok){const t=await res.text();throw new Error(t);}
     const rows=await res.json();
     if(rows&&rows.length&&rows[0].data){
-      // 클라우드 데이터로 교체 (단, supabase 키 자체는 유지)
+      // 클라우드 데이터로 교체 (단, 로컬 전용 키·접속정보는 유지)
       const cloud=rows[0].data;
-      const url=S.supabaseUrl, key=S.supabaseKey;
-      S={...defState(),...cloud,supabaseUrl:url,supabaseKey:key};
+      const local={};LOCAL_ONLY_KEYS.forEach(k=>{local[k]=S[k];});
+      S={...defState(),...cloud,...local};
       localStorage.setItem('mp_v6',JSON.stringify(S));
       updateSyncBadge('saved');
       return true;
