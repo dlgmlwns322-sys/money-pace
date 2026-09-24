@@ -333,7 +333,6 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
       <div class="hero-amt" id="heroTotal">—</div>
       <div class="acc-row"><div class="acc-dot" style="background:#FFEB00"></div><div class="acc-name">카카오뱅크</div><div class="acc-val" id="bal-kakao">—</div></div>
       <div class="acc-row"><div class="acc-dot" style="background:#FFB800"></div><div class="acc-name">국민은행</div><div class="acc-val" id="bal-kb">—</div></div>
-      <div class="acc-row"><div class="acc-dot" style="background:#A0BEFF"></div><div class="acc-name">신한은행</div><div class="acc-val" id="bal-shinhan">—</div></div>
     </div>
     <div class="card">
       <div class="card-title">📅 월간 소진 현황</div>
@@ -440,7 +439,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
     <div class="upload-area"><input type="file" accept="image/*" id="imgInp" onchange="handleCap(event)"/>
       <div class="upload-icon"><svg width="26" height="26" style="stroke:currentColor;fill:none"><use href="#ic-cam"></use></svg></div>
       <div class="upload-txt">토스 홈화면 캡처 올리기</div>
-      <div class="upload-sub">3개 계좌 잔액이 보이는 화면으로 캡처해주세요</div>
+      <div class="upload-sub">카카오뱅크·국민은행 잔액이 보이는 화면으로 캡처해주세요</div>
     </div>
     <div id="ocrLoad" class="loading-row hidden"><div class="spinner"></div> Google AI가 잔액을 읽는 중...</div>
     <div id="ocrRes" style="margin-top:11px;"></div>
@@ -471,7 +470,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
       <div class="card-title" style="margin:0">이번 달 고정지출</div>
       <div style="font-size:12px;color:var(--text2)" id="fxMonthLabel"></div>
     </div>
-    <div style="font-size:11px;color:var(--text3);margin-bottom:12px">체크하면 빠져나간 날짜가 기록돼요 · 자동 초기화 없음 (새 예산 주기에 직접 해제)</div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:12px">체크하면 빠져나간 날짜가 기록돼요 · 새 예산 주기가 되면 자동으로 해제돼요(납부 기록은 보관)</div>
     <div id="fxList"><div style="text-align:center;color:var(--text3);padding:22px 0;font-size:13px">아직 고정지출이 없어요</div></div>
     <div id="fxSummary" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);display:none">
       <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px"><span style="color:var(--text2)">총 고정지출</span><span class="num" style="font-weight:800" id="fxTotal">0원</span></div>
@@ -549,7 +548,6 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
   <div style="padding:0 0 8px;"><button class="btn btn-primary" onclick="saveSets()">저장하기</button></div>
   <div class="sgt">데이터</div>
   <div class="sg">
-    <div class="sr"><div><div class="slbl" style="color:var(--red)">이번 달 초기화</div><div class="sdesc">지출 내역 삭제</div></div><button class="btn btn-sm btn-danger" onclick="resetData()">초기화</button></div>
   </div>
 </div>
 
@@ -587,62 +585,187 @@ function defState(){return{budget:700000,weeklyBudget:200000,budgetStart:'',budg
 let S=(()=>{try{const r=localStorage.getItem('mp_v6');if(r)return{...defState(),...JSON.parse(r)};}catch(e){}return defState();})();
 
 // ── 저장: localStorage(즉시) + Supabase(백그라운드 백업) ──
-let syncTimer=null, syncing=false;
+// 동기화 상태(이 기기에만 저장)
+//  rev: 마지막으로 클라우드와 맞춘 데이터 버전(data.rev). 예전 데이터(rev 없음)는 0으로 본다.
+//  seq: 이 기기에서 바뀐 횟수, sentSeq: 클라우드에 올라간 변경 번호. 둘이 다르면 아직 못 올린 변경이 있다.
+const syncMeta=(()=>{try{return JSON.parse(localStorage.getItem('mp_sync')||'{}');}catch(e){return{};}})();
+const saveSyncMeta=()=>{try{localStorage.setItem('mp_sync',JSON.stringify(syncMeta));}catch(e){}};
+const isDirty=()=>(syncMeta.seq||0)!==(syncMeta.sentSeq||0);
+let syncTimer=null, syncing=false, syncAgain=false;
+let syncChain=Promise.resolve();
+const serialSync=fn=>(syncChain=syncChain.then(()=>fn()).catch(e=>{console.error('sync chain',e);return false;}));
+const queueSync=()=>serialSync(syncToCloud);
+// 로컬 백업: 사진까지 포함한 이 기기 데이터(키·접속정보 제외). 실패하면 false.
+function backupLocal(tag){
+  try{const d={...S};LOCAL_ONLY_KEYS.forEach(k=>delete d[k]);localStorage.setItem('mp_v6_backup_'+(tag||'')+Date.now(),JSON.stringify(d));return true;}
+  catch(e){return false;}
+}
 function save(){
-  localStorage.setItem('mp_v6',JSON.stringify(S));
+  syncMeta.seq=(syncMeta.seq||0)+1;saveSyncMeta();
+  try{localStorage.setItem('mp_v6',JSON.stringify(S));}
+  catch(e){showToast('이 기기 저장 공간이 부족해 저장하지 못했어요. 캡처 기록을 정리해주세요');}
   // Supabase 동기화는 0.8초 디바운스 (연속 저장 시 마지막 것만 업로드)
   if(S.supabaseUrl&&S.supabaseKey){
     if(syncTimer)clearTimeout(syncTimer);
-    syncTimer=setTimeout(syncToCloud,800);
+    syncTimer=setTimeout(queueSync,800);
   }
 }
 
 const ROW_ID='my_money_data'; // 혼자 쓰는 단일 데이터 행
 // API 키·접속정보는 기기(localStorage)에만 두고 클라우드에는 올리지 않음
 const LOCAL_ONLY_KEYS=['visionKey','claudeKey','supabaseUrl','supabaseKey'];
-function cloudPayload(s){const d={...s};LOCAL_ONLY_KEYS.forEach(k=>delete d[k]);return d;}
+// 캡처 사진(썸네일)도 이 기기에만 둔다. 계산에는 잔액 숫자만 쓰므로, 클라우드 데이터 크기(=전송량)를 크게 줄인다.
+function cloudPayload(s,rev){
+  const d={...s};LOCAL_ONLY_KEYS.forEach(k=>delete d[k]);
+  d.captures=(s.captures||[]).map(({thumb,...c})=>c);
+  if(rev!=null)d.rev=rev;
+  return d;
+}
+const sbHeaders=extra=>({'apikey':S.supabaseKey,'Authorization':'Bearer '+S.supabaseKey,...(extra||{})});
+
+// 클라우드 데이터 버전만 받기(수십 바이트). 행이 없으면 exists:false.
+async function fetchCloudRev(){
+  const res=await fetch(`${S.supabaseUrl}/rest/v1/app_data?id=eq.${ROW_ID}&select=rev:data->>rev`,{headers:sbHeaders()});
+  if(!res.ok)throw new Error(await res.text());
+  const rows=await res.json();
+  if(!rows||!rows.length)return{exists:false,rev:null};
+  return{exists:true,rev:rows[0].rev==null?0:Number(rows[0].rev)};
+}
 
 async function syncToCloud(){
   if(!S.supabaseUrl||!S.supabaseKey)return;
+  if(syncing){syncAgain=true;return;}
   syncing=true; updateSyncBadge('saving');
+  const seqAtSend=syncMeta.seq||0;
+  let conflict=false, failed=false;
   try{
-    // upsert: 있으면 갱신, 없으면 생성
-    const res=await fetch(`${S.supabaseUrl}/rest/v1/app_data?on_conflict=id`,{
-      method:'POST',
-      headers:{
-        'Content-Type':'application/json',
-        'apikey':S.supabaseKey,
-        'Authorization':'Bearer '+S.supabaseKey,
-        'Prefer':'resolution=merge-duplicates'
-      },
-      body:JSON.stringify({id:ROW_ID, data:cloudPayload(S), updated_at:new Date().toISOString()})
-    });
-    if(!res.ok){const t=await res.text();throw new Error(t);}
-    updateSyncBadge('saved');
+    const known=syncMeta.rev;
+    const next=(known||0)+1;
+    const body={data:cloudPayload(S,next),updated_at:new Date().toISOString()};
+    let ok=false;
+    if(known!=null){
+      // 조건부 갱신(원자적): 클라우드 버전이 내가 아는 버전일 때만 바꾼다. 0행이면 다른 기기가 먼저 저장한 것.
+      const cond=known===0?'data->>rev=is.null':`data->>rev=eq.${known}`;
+      const res=await fetch(`${S.supabaseUrl}/rest/v1/app_data?id=eq.${ROW_ID}&${cond}&select=id`,{
+        method:'PATCH',headers:sbHeaders({'Content-Type':'application/json','Prefer':'return=representation'}),body:JSON.stringify(body)});
+      if(!res.ok)throw new Error(await res.text());
+      ok=(await res.json()).length===1;
+    }else{
+      // 이 기기가 한 번도 맞춘 적 없음: 클라우드가 비어 있을 때만 새로 만든다.
+      // 클라우드가 있으면 자동으로 고르지 않고, 양쪽 백업 후 사용자에게 묻는다.
+      const c=await fetchCloudRev();
+      if(c.exists){syncing=false;await firstSyncPickNewer(c.rev);return;}
+      if(!c.exists){
+        const res=await fetch(`${S.supabaseUrl}/rest/v1/app_data`,{
+          method:'POST',headers:sbHeaders({'Content-Type':'application/json','Prefer':'return=minimal'}),body:JSON.stringify({id:ROW_ID,...body})});
+        ok=res.ok;
+        if(!res.ok&&res.status!==409)throw new Error(await res.text());
+      }
+    }
+    if(!ok&&known!=null){
+      // 조건부 갱신이 0행: 다른 기기가 먼저 저장했거나, 클라우드 행이 지워졌다. 지워졌으면 다시 만든다.
+      const c=await fetchCloudRev();
+      if(!c.exists){
+        const res=await fetch(`${S.supabaseUrl}/rest/v1/app_data`,{
+          method:'POST',headers:sbHeaders({'Content-Type':'application/json','Prefer':'return=minimal'}),body:JSON.stringify({id:ROW_ID,...body})});
+        ok=res.ok;
+      }
+    }
+    if(ok){
+      syncMeta.rev=next;syncMeta.sentSeq=seqAtSend;saveSyncMeta();
+      updateSyncBadge('saved');
+    }else conflict=true;
   }catch(e){
+    failed=true;
     updateSyncBadge('error');
     console.error('sync error',e);
   }
   syncing=false;
+  if(conflict){await takeCloudKeepLocalBackup();return;}
+  // 오류(인증·서버 장애·한도 초과 등)면 자동으로 다시 보내지 않는다. 다음 저장이나 앱 시작 때 다시 시도한다.
+  // (계속 재시도하면 요청이 쌓여 Supabase 사용량을 낭비한다)
+  if(failed){syncAgain=false;return;}
+  // 올리는 사이 또 바뀌었으면 한 번 더 올린다
+  if(syncAgain||isDirty()){syncAgain=false;if(isDirty()){if(syncTimer)clearTimeout(syncTimer);syncTimer=setTimeout(queueSync,800);}}
+}
+
+// 다른 기기 변경이 더 새로우면 그걸 쓰고, 이 기기의 못 올린 변경은 따로 보관한다.
+// 보관에 실패하면(저장 공간 부족 등) 아무것도 바꾸지 않고 알린다.
+async function takeCloudKeepLocalBackup(){
+  if(!backupLocal()){updateSyncBadge('error');showToast('다른 기기 변경과 겹쳤는데 백업 공간이 부족해요. 설정에서 클라우드 불러오기로 정리해주세요');return false;}
+  const ok=await loadFromCloud();
+  if(ok){render();showToast('다른 기기에서 바뀐 내용을 불러왔어요. 이 기기 변경은 백업해뒀어요');}
+  return ok;
+}
+
+// 앱 시작 시: 버전만 먼저 확인하고, 클라우드가 다를 때만 전체를 받는다. (Supabase 월 5GB 한도)
+async function syncOnStart(){
+  if(!S.supabaseUrl||!S.supabaseKey)return false;
+  try{
+    const c=await fetchCloudRev();
+    if(!c.exists){await syncToCloud();return false;}
+    if(syncMeta.rev==null)return await firstSyncPickNewer(c.rev);
+    if(syncMeta.rev===c.rev){
+      updateSyncBadge('saved');
+      if(isDirty())await syncToCloud();
+      return false;
+    }
+    if(isDirty())return await takeCloudKeepLocalBackup();
+    return await loadFromCloud();
+  }catch(e){updateSyncBadge('error');console.error('sync check error',e);return false;}
+}
+
+// 새 동기화 방식으로 처음 맞출 때: 어느 쪽이 최신인지 코드로는 확실히 알 수 없다
+// (예: Supabase가 멈춘 동안 이 기기에만 저장됨). 양쪽을 모두 백업한 뒤 사용자에게 한 번 묻는다.
+async function firstSyncPickNewer(cloudRev){
+  const res=await fetch(`${S.supabaseUrl}/rest/v1/app_data?id=eq.${ROW_ID}&select=data`,{headers:sbHeaders()});
+  if(!res.ok)throw new Error(await res.text());
+  const rows=await res.json();
+  const cloud=(rows&&rows[0]&&rows[0].data)||{};
+  const lastCap=d=>{const c=[...(d.captures||[])].sort((a,b)=>(Number(b.id)||0)-(Number(a.id)||0))[0];return c?`${c.date} ${c.time||''}`:'없음';};
+  let cloudSaved=true;
+  try{localStorage.setItem('mp_v6_backup_cloud_'+Date.now(),JSON.stringify(cloud));}catch(e){cloudSaved=false;}
+  if(!cloudSaved||!backupLocal()){updateSyncBadge('error');showToast('백업 공간이 부족해 동기화를 멈췄어요');return false;}
+  const useLocal=confirm(`동기화 방식이 바뀌어 한 번만 확인할게요.\n\n이 기기 마지막 잔액 기록: ${lastCap(S)}\n클라우드 마지막 잔액 기록: ${lastCap(cloud)}\n\n[확인] 이 기기 데이터로 클라우드를 맞춤\n[취소] 클라우드 데이터를 이 기기로 가져옴\n\n(어느 쪽이든 양쪽 모두 이 기기에 백업돼 있어요)`);
+  if(useLocal){
+    syncMeta.rev=cloudRev;syncMeta.seq=(syncMeta.seq||0)+1;saveSyncMeta();
+    await syncToCloud();
+    return false;
+  }
+  // 방금 백업한 그 클라우드 데이터를 그대로 적용(다시 받지 않음)
+  const ok=applyCloudData(cloud);
+  if(ok)render();
+  return ok;
+}
+
+// 받은 클라우드 데이터 적용 (로컬 전용 키·접속정보와 이 기기의 캡처 사진은 유지)
+function applyCloudData(cloud){
+  const prevS=S;
+  const local={};LOCAL_ONLY_KEYS.forEach(k=>{local[k]=S[k];});
+  const thumbs=new Map((S.captures||[]).filter(c=>c.thumb).map(c=>[c.id,c.thumb]));
+  const rev=cloud.rev==null?0:Number(cloud.rev);
+  S={...defState(),...cloud,...local};
+  delete S.rev;
+  S.captures=(S.captures||[]).map(c=>({...c,thumb:c.thumb||thumbs.get(c.id)||null}));
+  try{localStorage.setItem('mp_v6',JSON.stringify(S));}
+  catch(e){S=prevS;updateSyncBadge('error');showToast('이 기기 저장 공간이 부족해 불러오지 못했어요');return false;}
+  syncMeta.rev=rev;syncMeta.sentSeq=syncMeta.seq||0;saveSyncMeta();
+  updateSyncBadge('saved');
+  return true;
 }
 
 async function loadFromCloud(){
   if(!S.supabaseUrl||!S.supabaseKey)return false;
   updateSyncBadge('loading');
+  const seqBefore=syncMeta.seq||0;
   try{
-    const res=await fetch(`${S.supabaseUrl}/rest/v1/app_data?id=eq.${ROW_ID}&select=data`,{
-      headers:{'apikey':S.supabaseKey,'Authorization':'Bearer '+S.supabaseKey}
-    });
+    const res=await fetch(`${S.supabaseUrl}/rest/v1/app_data?id=eq.${ROW_ID}&select=data`,{headers:sbHeaders()});
     if(!res.ok){const t=await res.text();throw new Error(t);}
     const rows=await res.json();
     if(rows&&rows.length&&rows[0].data){
-      // 클라우드 데이터로 교체 (단, 로컬 전용 키·접속정보는 유지)
-      const cloud=rows[0].data;
-      const local={};LOCAL_ONLY_KEYS.forEach(k=>{local[k]=S[k];});
-      S={...defState(),...cloud,...local};
-      localStorage.setItem('mp_v6',JSON.stringify(S));
-      updateSyncBadge('saved');
-      return true;
+      // 받는 사이 이 기기에서 또 바뀌었으면 덮지 않는다(다음 저장 때 조건부 갱신이 충돌을 처리)
+      if((syncMeta.seq||0)!==seqBefore){updateSyncBadge('error');return false;}
+      return applyCloudData(rows[0].data);
     }
     updateSyncBadge('saved');
     return false;
@@ -660,6 +783,9 @@ function updateSyncBadge(status){
   el.textContent=map[status]||'';
   el.style.color=status==='error'?'var(--red)':'var(--text3)';
 }
+// 실제로 쓰는 계좌(2026-09-25 사용자: 카카오뱅크·국민은행만 사용). 예전 기록의 신한 값은 모든 계산에서 똑같이 빠진다.
+const ACCOUNTS=[{id:'kakao',n:'카카오뱅크',c:'#FFEB00'},{id:'kb',n:'국민은행',c:'#FFB800'}];
+const sumAcc=b=>ACCOUNTS.reduce((a,x)=>a+((b&&b[x.id])||0),0);
 const won=n=>Math.abs(Math.round(n)).toLocaleString('ko-KR')+'원';
 // 한국시간(KST) 기준 오늘 날짜 YYYY-MM-DD. toISOString()은 UTC라 자정~오전9시에 전날로 밀리므로 사용 금지.
 const toStr=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Seoul'}).format(new Date());
@@ -694,9 +820,52 @@ const unpaidFixed=()=>(S.fixed||[]).filter(f=>!f.paid).reduce((a,f)=>a+fxSigned(
 // 이 금액을 다시 빼줘야 일별/주간 "쓴 돈"에 이중으로 잡히지 않는다.
 // affectsBalance:false인 항목(예: 추적 안 하는 별도 저축통장으로 빠지는 저축)은 애초에 카카오/국민/신한
 // 잔액 diff에 안 잡히므로 여기서도 빼면 안 됨 — 명시적으로 false가 아닌 한(기본값 true) 포함.
-const fixedPaidInRange=(from,to)=>(S.fixed||[]).filter(f=>f.paid&&f.paidDate&&f.paidDate>=from&&f.paidDate<=to&&f.affectsBalance!==false).reduce((a,f)=>a+fxSigned(f),0);
+// 지난 주기에 납부한 기록(fixedPaidLog)도 함께 본다. 주기가 넘어가며 체크가 풀려도 과거 지출 보정이 바뀌지 않게.
+const fixedPaidInRange=(from,to)=>[...(S.fixed||[]).filter(f=>f.paid),...(S.fixedPaidLog||[])].filter(f=>f.paidDate&&f.paidDate>=from&&f.paidDate<=to&&f.affectsBalance!==false).reduce((a,f)=>a+fxSigned(f),0);
 // 실제 쓸 수 있는 잔액 = 총잔액 - 미납 고정지출
 const usableBal=()=>Math.max(0, totBal() - unpaidFixed());
+
+// ── 예산 주기 자동 전환 ──
+// 오늘이 예산 종료일을 지나면: 지난 주기 결산을 cycles에 남기고, 납부한 고정항목은 fixedPaidLog로 옮긴 뒤 체크를 푼다.
+// 새 주기 = 종료일 다음 날부터 한 달 뒤 전날까지(예: 9/25~10/24). 여러 달 안 열었으면 한 주기씩 반복한다.
+function addMonthsKeepDay(dateStr,n){
+  const[y,m,d]=dateStr.split('-').map(Number);
+  const last=new Date(Date.UTC(y,m-1+n+1,0)).getUTCDate();
+  return new Date(Date.UTC(y,m-1+n,Math.min(d,last))).toISOString().slice(0,10);
+}
+const dayAfter=d=>{const[y,m,dd]=d.split('-').map(Number);return new Date(Date.UTC(y,m-1,dd+1)).toISOString().slice(0,10);};
+const dayBefore=d=>{const[y,m,dd]=d.split('-').map(Number);return new Date(Date.UTC(y,m-1,dd-1)).toISOString().slice(0,10);};
+function rollBudgetCycle(){
+  if(!S.budgetStart||!S.budgetEnd)return false;
+  const today=toStr();
+  // 기준일(예: 25일, 31일)을 따로 기억한다. 짧은 달을 지나도 다음 달에 원래 날짜로 돌아오게.
+  if(!S.budgetAnchorDay)S.budgetAnchorDay=Number(S.budgetStart.slice(8,10));
+  let rolled=false,guard=0;
+  while(today>S.budgetEnd&&guard++<240){
+    const start=S.budgetStart,end=S.budgetEnd;
+    // 지난 주기 안에 납부한 것만 기록으로 옮기고 체크를 푼다. 새 주기에 이미 납부한 것은 그대로 둔다.
+    const paid=(S.fixed||[]).filter(f=>f.paid&&f.paidDate&&f.paidDate<=end);
+    S.cycles=[...(S.cycles||[]),{start,end,budget:S.budget,effective:effectiveBudget(),spent:sumSpentInRange(start,end),closedAt:today}].slice(-24);
+    // 납부 기록은 캡처 보관 기간(3개월)만큼 둔다. 그보다 오래된 날짜는 보정할 캡처가 없다.
+    S.fixedPaidLog=[...(S.fixedPaidLog||[]),...paid.map(f=>({name:f.name,amount:f.amount,type:f.type||'expense',paidDate:f.paidDate,affectsBalance:f.affectsBalance}))]
+      .filter(f=>f.paidDate>=addMonthsKeepDay(today,-3));
+    paid.forEach(f=>{f.paid=false;f.paidDate='';});
+    S.budgetStart=dayAfter(end);
+    S.budgetEnd=dayBefore(anchorDateInMonth(S.budgetStart,1,S.budgetAnchorDay));
+    rolled=true;
+  }
+  return rolled;
+}
+// start가 속한 달에서 n달 뒤, 기준일(그 달에 없으면 말일)의 날짜
+function anchorDateInMonth(start,n,day){
+  const[y,m]=start.split('-').map(Number);
+  const last=new Date(Date.UTC(y,m-1+n+1,0)).getUTCDate();
+  return new Date(Date.UTC(y,m-1+n,Math.min(day,last))).toISOString().slice(0,10);
+}
+// 앱을 켜둔 채 종료일을 넘겨도 전환되도록: 화면으로 돌아올 때와 30분마다 확인
+function checkBudgetRollover(){if(rollBudgetCycle()){save();render();showToast(`새 예산 주기 시작: ${S.budgetStart} ~ ${S.budgetEnd}`);}}
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)checkBudgetRollover();});
+setInterval(checkBudgetRollover,30*60*1000);
 
 function getBD(){
   if(!S.budgetStart||!S.budgetEnd)return{total:30,elapsed:15,remaining:15};
@@ -712,13 +881,13 @@ const totSpent=()=>{
   // 예산기간이 설정돼 있으면 기간 내 '실제 하루지출 합산'(입금 무시)으로 계산.
   // 순잔액차이(예산-사용가능잔액) 방식은 예산 시작일 등에 입금이 들어오면 소진이 0으로 뭉개져서 바꿈.
   if(S.budgetStart&&S.budgetEnd&&S.captures&&S.captures.length){
-    return sumSpentInRange(S.budgetStart, toStr());
+    const today=toStr();
+    return sumSpentInRange(S.budgetStart, today<S.budgetEnd?today:S.budgetEnd);
   }
-  const tb=Object.values(S.balances).reduce((a,b)=>a+b,0);
+  const tb=totBal();
   if(tb<=0)return 0;
   return Math.max(0, effectiveBudget() - usableBal());
 };
-const todaySpent=()=>S.expenses.filter(e=>e.date===toStr()).reduce((a,e)=>a+e.amount,0);
 const ydSpent=()=>{const[y,m,d]=toStr().split('-').map(Number);const yd=new Date(Date.UTC(y,m-1,d-1)).toISOString().slice(0,10);return getMemos(yd).filter(c=>c.type!=='income').reduce((a,c)=>a+(c.amt||0),0);};
 // 어제 실제 지출/입금 — 캡처가 있으면 잔액 차이(부호 있음, 입금이면 음수)를 우선 쓰고, 캡처가 없을 때만 메모 합계(지출만)로 대체.
 // 양수=지출, 음수=입금, 0=변동없음.
@@ -734,7 +903,7 @@ function ydSpentPhrase(amt){
   if(amt<0)return`어제 ${won(Math.abs(amt))} 입금됐어요`;
   return'어제는 지출이 없었어요';
 }
-const totBal=()=>Object.values(S.balances).reduce((a,b)=>a+b,0);
+const totBal=()=>sumAcc(S.balances);
 
 // ── 주간 계산 ──────────────────────────────
 // 이번 주(월~일) 시작일과 경과/총 일수 구하기
@@ -773,7 +942,7 @@ function getDailySpent(dateStr){
   const withTotal=S.captures.map(c=>({
     date:c.date,
     minutes:timeToMinutes(c.time),
-    total:(c.balances.kakao||0)+(c.balances.kb||0)+(c.balances.shinhan||0)
+    total:sumAcc(c.balances)
   }));
   const byDate={};
   withTotal.forEach(c=>{
@@ -843,7 +1012,7 @@ function getPace(){
 function render(){
   const tb=totBal();
   document.getElementById('heroTotal').textContent=tb>0?won(tb):'잔액을 업로드해주세요';
-  ['kakao','kb','shinhan'].forEach(k=>{
+  ACCOUNTS.map(a=>a.id).forEach(k=>{
     document.getElementById('bal-'+k).textContent=S.balances[k]>0?won(S.balances[k]):'—';
   });
   const eff=effectiveBudget();          // 사용 가능 예산 (월예산 - 고정지출 + 예정입금)
@@ -1458,9 +1627,12 @@ function renderFixed(){
   document.getElementById('fxSummary').style.display='block';
 }
 
+let capReqId=0;
 async function handleCap(ev){
   const file=ev.target.files[0];
   if(!file)return;
+  pendingCap=null;
+  const reqId=++capReqId;
   const reader=new FileReader();
   reader.onerror=()=>{document.getElementById('ocrLoad').classList.add('hidden');document.getElementById('ocrRes').innerHTML='<div style="color:var(--red);font-size:12px">이미지를 읽지 못했어요</div>';};
   reader.onload=async(e)=>{
@@ -1480,6 +1652,7 @@ async function handleCap(ev){
         body:JSON.stringify({requests:[{image:{content:b64},features:[{type:'TEXT_DETECTION',maxResults:1}]}]})
       });
       const data=await res.json();
+      if(reqId!==capReqId)return; // 그 사이 다른 캡처를 올렸으면 이 결과는 버린다
       document.getElementById('ocrLoad').classList.add('hidden');
       if(data.error){
         document.getElementById('ocrRes').innerHTML='<div style="background:var(--red-light);color:var(--red);padding:12px;border-radius:8px;font-size:12px;word-break:break-all">⚠️ '+(data.error.message||JSON.stringify(data.error))+'</div>';
@@ -1492,9 +1665,8 @@ async function handleCap(ev){
       }
       const bals=parseText(text);
       const thumb=await makeThumb(dataUrl);
-      S.captures.unshift({id:Date.now().toString(),date:toStr(),time:new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}),thumb,balances:{...bals}});
-      pruneCaptures();
-      save();
+      if(reqId!==capReqId)return;
+      pendingCap={thumb};
       showOCRRes(bals);document.getElementById('applyBtn').classList.remove('hidden');
     }catch(err){
       document.getElementById('ocrLoad').classList.add('hidden');
@@ -1523,15 +1695,18 @@ async function autoProcessSharedImage(dataUrl){
     const text=data.responses?.[0]?.fullTextAnnotation?.text||'';
     if(!text)throw new Error('글자 인식 실패');
     const bals=parseText(text);
-    // 캡처 기록 저장
     const thumb=await makeThumb(dataUrl);
-    S.captures.unshift({id:Date.now().toString(),date:toStr(),time:new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}),thumb,balances:{...bals}});
-    pruneCaptures();
-    // 완전 자동: 바로 잔액 반영
-    S.balances={kakao:bals.kakao||0,kb:bals.kb||0,shinhan:bals.shinhan||0};
-    save();render();
-    showTab('home');
-    showToast(`자동 반영 완료! 총 ${won(totBal())} ✓`);
+    pendingCap={thumb};
+    // 두 계좌를 모두 읽었을 때만 바로 반영한다. 하나라도 못 읽으면 0원으로 저장하지 않고 확인 화면을 띄운다
+    // (0원으로 저장하면 그 계좌 잔액 전체가 그날 지출로 잡힌다).
+    if(ACCOUNTS.every(a=>bals[a.id]>0)){
+      commitBalances(bals,'ocr');
+      showTab('home');
+      showToast(`자동 반영 완료! 총 ${won(totBal())} ✓`);
+    }else{
+      showOCRRes(bals);document.getElementById('applyBtn').classList.remove('hidden');
+      showToast('못 읽은 계좌가 있어요. 확인 후 반영해주세요');
+    }
   }catch(err){
     document.getElementById('ocrLoad').classList.add('hidden');
     document.getElementById('ocrRes').innerHTML='<div style="background:var(--red-light);color:var(--red);padding:12px;border-radius:8px;font-size:12px;word-break:break-all">⚠️ 자동 처리 실패: '+err.message+'<br>아래에서 직접 입력해주세요</div>';
@@ -1585,8 +1760,7 @@ async function clearSharedDB(){
 // 각 계좌 이름과 매칭되는 키워드 (토스 화면에 표시되는 계좌 별칭)
 const ACCOUNT_KEYWORDS={
   kakao:['입출금통장','입출금'],          // 카카오 = 입출금통장
-  kb:['KB','국민','나라사랑','우대통장'],   // 국민은행
-  shinhan:['한달살이','신한']             // 신한은행
+  kb:['KB','국민','나라사랑','우대통장']    // 국민은행
 };
 
 function parseAmount(str){
@@ -1597,7 +1771,7 @@ function parseAmount(str){
 function parseText(text){
   const lines=text.split('\n').map(l=>l.trim()).filter(l=>l);
   const amtPat=/(\d{1,3}(?:,\d{3})+|\d{3,})\s*원?/;  // 3자리 금액(예: 780원)도 인식 — 안 그러면 계좌-금액 짝짓기가 어긋나 엉뚱한 숫자를 끌어옴
-  const result={kakao:0,kb:0,shinhan:0};
+  const result={kakao:0,kb:0};
   const EXCLUDE=['쓴 돈','쓴돈','포인트','지원금','신용','대출','보험','적립','이번 달','이번달','번','연금','수령액','미리보기'];
   const isExcluded=(line)=>EXCLUDE.some(w=>line.includes(w));
 
@@ -1646,19 +1820,42 @@ function onOcrInput(el){
   el.dataset.raw=raw;
   el.value=raw?parseInt(raw).toLocaleString('ko-KR'):'';
 }
+// 확인을 기다리는 캡처(사진 썸네일). '잔액 반영하기'를 눌러야 캡처 기록으로 저장된다.
+let pendingCap=null;
+// 잔액 입력 줄: 값이 없으면(못 읽음) 지난 잔액을 채우고 '못 읽음' 표시
+function balRows(v,title){
+  return `<div style="font-size:12px;color:var(--text2);margin-bottom:8px">${title}</div>`+ACCOUNTS.map(b=>{
+    const got=v&&v[b.id]>0;
+    const val=got?v[b.id]:(S.balances[b.id]||0);
+    const tag=got?'':`<div style="font-size:10px;color:var(--orange);margin-top:2px">${v?'못 읽음 · ':''}지난 잔액</div>`;
+    return `<div class="ocr-row"><div class="ocr-bank"><div style="width:7px;height:7px;border-radius:50%;background:${b.c}"></div><div>${b.n}${tag}</div></div><input class="ocr-inp" type="text" inputmode="numeric" autocomplete="off" autocorrect="off" id="ocr-${b.id}" data-raw="${val}" value="${val?fmtComma(val):''}" placeholder="0" oninput="onOcrInput(this)"/></div>`;
+  }).join('');
+}
 function showOCRRes(v){
-  const banks=[{id:'kakao',n:'카카오뱅크',c:'#FFEB00'},{id:'kb',n:'국민은행',c:'#FFB800'},{id:'shinhan',n:'신한은행',c:'#A0BEFF'}];
-  document.getElementById('ocrRes').innerHTML=`<div style="font-size:12px;color:var(--text2);margin-bottom:8px">인식된 잔액이에요. 틀렸으면 수정해주세요.</div>`+banks.map(b=>`<div class="ocr-row"><div class="ocr-bank"><div style="width:7px;height:7px;border-radius:50%;background:${b.c}"></div>${b.n}</div><input class="ocr-inp" type="text" inputmode="numeric" autocomplete="off" autocorrect="off" id="ocr-${b.id}" data-raw="${v[b.id]}" value="${fmtComma(v[b.id])}" oninput="onOcrInput(this)"/></div>`).join('');
+  document.getElementById('ocrRes').innerHTML=balRows(v,'인식된 잔액이에요. 틀렸으면 수정한 뒤 반영해주세요.');
 }
 function showManual(){
-  const banks=[{id:'kakao',n:'카카오뱅크',c:'#FFEB00'},{id:'kb',n:'국민은행',c:'#FFB800'},{id:'shinhan',n:'신한은행',c:'#A0BEFF'}];
-  document.getElementById('ocrRes').innerHTML=`<div style="font-size:12px;color:var(--text2);margin-bottom:8px">잔액을 직접 입력해주세요</div>`+banks.map(b=>`<div class="ocr-row"><div class="ocr-bank"><div style="width:7px;height:7px;border-radius:50%;background:${b.c}"></div>${b.n}</div><input class="ocr-inp" type="text" inputmode="numeric" autocomplete="off" autocorrect="off" id="ocr-${b.id}" data-raw="0" value="" placeholder="0" oninput="onOcrInput(this)"/></div>`).join('');
+  if(!pendingCap)pendingCap={thumb:null};
+  document.getElementById('ocrRes').innerHTML=balRows(null,'잔액을 직접 입력해주세요 (지난 잔액이 채워져 있어요)');
   document.getElementById('applyBtn').classList.remove('hidden');
+}
+// 확정한 잔액을 현재 잔액과 캡처 기록에 함께 저장한다. 지출 계산은 캡처 기록을 쓰므로
+// 사용자가 고친 값, 직접 입력한 값도 반드시 여기로 들어와야 한다.
+function commitBalances(bals,source){
+  const b={};ACCOUNTS.forEach(a=>{b[a.id]=bals[a.id]||0;});
+  S.balances={...S.balances,...b};
+  S.captures.unshift({id:Date.now().toString(),date:toStr(),time:new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}),thumb:(pendingCap&&pendingCap.thumb)||null,source,balances:b});
+  pendingCap=null;
+  pruneCaptures();
+  save();render();
 }
 function applyBal(){
   const getRaw=id=>{const el=document.getElementById(id);if(!el)return 0;return parseInt((el.dataset.raw||el.value||'0').replace(/[^0-9]/g,''))||0;};
-  S.balances={kakao:getRaw('ocr-kakao'),kb:getRaw('ocr-kb'),shinhan:getRaw('ocr-shinhan')};
-  save();render();showToast('잔액이 반영됐어요 ✓');showTab('home');
+  const bals={};ACCOUNTS.forEach(a=>{bals[a.id]=getRaw('ocr-'+a.id);});
+  commitBalances(bals,pendingCap&&pendingCap.thumb?'ocr':'manual');
+  document.getElementById('applyBtn').classList.add('hidden');
+  document.getElementById('ocrRes').innerHTML='';
+  showToast('잔액이 반영됐어요 ✓');showTab('home');
 }
 
 // 캡처 썸네일 축소 (원본 저장은 용량 폭증 → 가로 180px JPEG로)
@@ -1710,7 +1907,7 @@ function renderCaps(){
     const body=dates.map(d=>{
       const dOpen=!!capOpen[d];
       const wd=WD[new Date(d).getDay()];
-      const cells=byDate[d].map(c=>`<div class="cap-cell"><img src="${c.thumb}" onclick="lightbox('${c.id}')"/><div class="cap-cell-t">${c.time||''}</div><button class="cap-del" onclick="event.stopPropagation();delCap('${c.id}')">×</button></div>`).join('');
+      const cells=byDate[d].map(c=>`<div class="cap-cell">${c.thumb?`<img src="${c.thumb}" onclick="lightbox('${c.id}')"/>`:`<div onclick="lightbox('${c.id}')" style="width:100%;aspect-ratio:9/16;display:grid;place-items:center;font-size:10px;color:var(--text3);background:var(--bg);border-radius:6px">직접 입력</div>`}<div class="cap-cell-t">${c.time||''}</div><button class="cap-del" onclick="event.stopPropagation();delCap('${c.id}')">×</button></div>`).join('');
       return `<div class="cap-day">
         <div class="cap-dhead" onclick="toggleCapMonth('${d}')"><span>${parseInt(d.slice(5,7))}/${parseInt(d.slice(8,10))} (${wd})</span><span class="cap-dcount">${byDate[d].length}장 ${dOpen?'▾':'▸'}</span></div>
         <div class="cap-dbody" style="display:${dOpen?'flex':'none'}">${cells}</div>
@@ -1727,7 +1924,7 @@ function lightbox(id){
   const d=document.createElement('div');
   d.className='lightbox';
   d.onclick=()=>d.remove();
-  d.innerHTML=`<div class="lb-inner"><img src="${c.thumb}"/><div class="lb-info">${c.date} ${c.time||''} · 카카오 ${won(c.balances.kakao)} · 국민 ${won(c.balances.kb)} · 신한 ${won(c.balances.shinhan)}</div></div>`;
+  d.innerHTML=`<div class="lb-inner">${c.thumb?`<img src="${c.thumb}"/>`:''}<div class="lb-info">${c.date} ${c.time||''} · ${ACCOUNTS.map(a=>`${a.n} ${won(c.balances[a.id]||0)}`).join(' · ')}</div></div>`;
   document.body.appendChild(d);
 }
 function delCap(id){S.captures=S.captures.filter(c=>c.id!==id);save();renderCaps();}
@@ -1976,7 +2173,7 @@ function saveSets(){
   S.supabaseUrl=sbU; S.supabaseKey=sbK;
   save();render();schedAlarm();showToast('저장됐어요 ✓');
   // 처음 연결했으면 바로 업로드 시도
-  if(sbChanged&&sbU&&sbK)syncToCloud();
+  if(sbChanged&&sbU&&sbK)queueSync();
 }
 
 // 클라우드에서 수동으로 불러오기 (다른 기기 데이터 가져올 때)
@@ -1986,12 +2183,11 @@ async function manualLoad(){
   if(!sbU||!sbK){showToast('먼저 Supabase URL과 키를 입력해주세요');return;}
   S.supabaseUrl=sbU; S.supabaseKey=sbK; save();
   if(!confirm('클라우드 데이터로 덮어쓸까요? 현재 기기의 데이터는 사라질 수 있어요.'))return;
-  const ok=await loadFromCloud();
+  const ok=await serialSync(loadFromCloud);
   if(ok){render();showToast('클라우드에서 불러왔어요 ✓');}
   else showToast('클라우드에 저장된 데이터가 없어요');
 }
 
-function resetData(){if(!confirm('이번 달 지출 내역을 모두 삭제할까요?'))return;S.expenses=[];S.lastPace=null;save();render();showToast('초기화됐어요');}
 
 let aTimer=null;
 async function reqNotif(){
@@ -2042,9 +2238,11 @@ if('Notification'in window&&Notification.permission==='granted')schedAlarm();
 // 앱 시작 시: 클라우드 동기화 → 공유 이미지 체크 (AI 코멘트는 자동 생성 안 함)
 (async function initApp(){
   if(S.supabaseUrl&&S.supabaseKey){
-    const ok=await loadFromCloud();
+    const ok=await serialSync(syncOnStart);
     if(ok)render();
   }
+  // 예산 주기가 끝났으면 자동으로 다음 주기로 넘긴다
+  checkBudgetRollover();
   // 토스에서 공유로 들어왔으면 자동 처리
   await checkSharedImage();
   // AI 코멘트는 여기서 자동 생성하지 않음 — '오늘 코멘트 생성' 버튼을 눌러야 생성
