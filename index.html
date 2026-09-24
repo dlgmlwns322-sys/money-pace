@@ -619,19 +619,24 @@ function restoreLatestBackup(){
   let data;try{data=JSON.parse(localStorage.getItem(b.k));}catch(e){showToast('백업을 읽지 못했어요');return;}
   const local={};LOCAL_ONLY_KEYS.forEach(k=>{local[k]=S[k];});
   if(!backupLocal('prerestore_')){showToast('저장 공간이 부족해 되돌리지 못했어요');return;}
+  const prevS=S;
   S={...defState(),...data,...local};delete S.rev;
-  save();render();renderBackupInfo();showToast('백업으로 되돌렸어요 ✓');
+  if(!save()){S=prevS;render();return;}
+  render();renderBackupInfo();showToast('백업으로 되돌렸어요 ✓');
 }
 function renderBackupInfo(){const el=document.getElementById('backupInfo');if(el)el.textContent=`이 기기 백업 ${listBackups().length}개 (최근 5개 보관)`;}
+// 이 기기에 저장하고 성공 여부를 돌려준다(실패하면 호출한 쪽이 '완료' 표시를 하지 않는다).
 function save(){
   syncMeta.seq=(syncMeta.seq||0)+1;saveSyncMeta();
+  let stored=true;
   try{localStorage.setItem('mp_v6',JSON.stringify(S));}
-  catch(e){showToast('이 기기 저장 공간이 부족해 저장하지 못했어요. 캡처 기록을 정리해주세요');}
-  // Supabase 동기화는 0.8초 디바운스 (연속 저장 시 마지막 것만 업로드)
-  if(S.supabaseUrl&&S.supabaseKey){
+  catch(e){stored=false;if(syncTimer){clearTimeout(syncTimer);syncTimer=null;}showToast('이 기기 저장 공간이 부족해 저장하지 못했어요. 캡처 기록을 정리해주세요');}
+  // Supabase 동기화는 0.8초 디바운스 (연속 저장 시 마지막 것만 업로드). 이 기기 저장에 실패했으면 올리지 않는다.
+  if(stored&&S.supabaseUrl&&S.supabaseKey){
     if(syncTimer)clearTimeout(syncTimer);
     syncTimer=setTimeout(queueSync,800);
   }
+  return stored;
 }
 
 const ROW_ID='my_money_data'; // 혼자 쓰는 단일 데이터 행
@@ -1723,7 +1728,7 @@ async function autoProcessSharedImage(dataUrl){
     // 두 계좌를 모두 읽었을 때만 바로 반영한다. 하나라도 못 읽으면 0원으로 저장하지 않고 확인 화면을 띄운다
     // (0원으로 저장하면 그 계좌 잔액 전체가 그날 지출로 잡힌다).
     if(ACCOUNTS.every(a=>bals[a.id]>0)){
-      commitBalances(bals,'ocr');
+      if(!commitBalances(bals,'ocr'))return;
       showTab('home');
       showToast(`자동 반영 완료! 총 ${won(totBal())} ✓`);
     }else{
@@ -1866,16 +1871,19 @@ function showManual(){
 // 사용자가 고친 값, 직접 입력한 값도 반드시 여기로 들어와야 한다.
 function commitBalances(bals,source){
   const b={};ACCOUNTS.forEach(a=>{b[a.id]=bals[a.id]||0;});
+  const prevBal=S.balances,prevCaps=[...(S.captures||[])]; // 복사본(아래 unshift가 원래 배열을 바꾸므로)
   S.balances={...S.balances,...b};
   S.captures.unshift({id:Date.now().toString(),date:toStr(),time:new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}),thumb:(pendingCap&&pendingCap.thumb)||null,source,balances:b});
   pendingCap=null;
   pruneCaptures();
-  save();render();
+  if(!save()){S.balances=prevBal;S.captures=prevCaps;render();return false;}
+  render();
+  return true;
 }
 function applyBal(){
   const getRaw=id=>{const el=document.getElementById(id);if(!el)return 0;return parseInt((el.dataset.raw||el.value||'0').replace(/[^0-9]/g,''))||0;};
   const bals={};ACCOUNTS.forEach(a=>{bals[a.id]=getRaw('ocr-'+a.id);});
-  commitBalances(bals,pendingCap&&pendingCap.thumb?'ocr':'manual');
+  if(!commitBalances(bals,pendingCap&&pendingCap.thumb?'ocr':'manual'))return;
   document.getElementById('applyBtn').classList.add('hidden');
   document.getElementById('ocrRes').innerHTML='';
   showToast('잔액이 반영됐어요 ✓');showTab('home');
@@ -2184,17 +2192,28 @@ function onMoneyInput(el){
 function parseMoney(id){return parseInt((document.getElementById(id).value||'').replace(/[^0-9]/g,''))||0;}
 
 function saveSets(){
+  const prevS=JSON.parse(JSON.stringify(S)),prevRev=syncMeta.rev;
   const b=parseMoney('sBudget');
   if(!b||b<1000){showToast('월 예산을 올바르게 입력해주세요');return;}
   S.budget=b;
   S.weeklyBudget=parseMoney('sWeekly');
-  S.budgetStart=document.getElementById('sStart').value;S.budgetEnd=document.getElementById('sEnd').value;
+  const newStart=document.getElementById('sStart').value;
+  if(newStart&&newStart!==S.budgetStart)S.budgetAnchorDay=Number(newStart.slice(8,10)); // 시작일을 직접 바꾸면 기준일도 따라간다
+  S.budgetStart=newStart;S.budgetEnd=document.getElementById('sEnd').value;
   S.alarmTime=document.getElementById('sAlarm').value;S.visionKey=document.getElementById('sVision').value.trim();S.claudeKey=document.getElementById('sClaude').value.trim();
   const sbU=document.getElementById('sSbUrl').value.trim().replace(/\/+$/,''); // 끝 슬래시 제거
   const sbK=document.getElementById('sSbKey').value.trim();
   const sbChanged=(sbU!==S.supabaseUrl)||(sbK!==S.supabaseKey);
+  // 다른 Supabase 주소로 바꾸면 예전 대상의 버전을 버리고 첫 동기화(확인창·양쪽 백업)부터 한다. 키만 바뀐 건 같은 대상.
+  const urlChanged=sbU!==S.supabaseUrl;
   S.supabaseUrl=sbU; S.supabaseKey=sbK;
-  save();render();schedAlarm();showToast('저장됐어요 ✓');
+  if(urlChanged){delete syncMeta.rev;saveSyncMeta();}
+  if(!save()){
+    S=prevS;
+    if(prevRev===undefined)delete syncMeta.rev;else syncMeta.rev=prevRev;
+    saveSyncMeta();render();return;
+  }
+  render();schedAlarm();showToast('저장됐어요 ✓');
   // 처음 연결했으면 바로 업로드 시도
   if(sbChanged&&sbU&&sbK)queueSync();
 }
@@ -2204,12 +2223,18 @@ async function manualLoad(){
   const sbU=document.getElementById('sSbUrl').value.trim().replace(/\/+$/,'');
   const sbK=document.getElementById('sSbKey').value.trim();
   if(!sbU||!sbK){showToast('먼저 Supabase URL과 키를 입력해주세요');return;}
-  S.supabaseUrl=sbU; S.supabaseKey=sbK; save();
   if(!confirm('클라우드 데이터로 덮어쓸까요? 지금 이 기기 데이터는 백업해 둬요.'))return;
   if(!backupLocal()){showToast('저장 공간이 부족해 백업하지 못했어요');return;}
+  const prevUrl=S.supabaseUrl,prevKey=S.supabaseKey,prevRev=syncMeta.rev;
+  if(sbU!==S.supabaseUrl){delete syncMeta.rev;saveSyncMeta();}
+  S.supabaseUrl=sbU; S.supabaseKey=sbK;
   const ok=await serialSync(loadFromCloud);
-  if(ok){render();showToast('클라우드에서 불러왔어요 ✓');}
-  else showToast('클라우드에 저장된 데이터가 없어요');
+  if(ok){render();showToast('클라우드에서 불러왔어요 ✓');return;}
+  // 못 불러왔으면 접속정보·버전을 원래대로(이 기기 데이터는 그대로)
+  S.supabaseUrl=prevUrl;S.supabaseKey=prevKey;
+  if(prevRev===undefined)delete syncMeta.rev;else syncMeta.rev=prevRev;
+  saveSyncMeta();
+  showToast('클라우드에서 불러오지 못했어요');
 }
 
 
