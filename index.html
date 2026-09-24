@@ -548,6 +548,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
   <div style="padding:0 0 8px;"><button class="btn btn-primary" onclick="saveSets()">저장하기</button></div>
   <div class="sgt">데이터</div>
   <div class="sg">
+    <div class="sr"><div><div class="slbl">백업으로 되돌리기</div><div class="sdesc" id="backupInfo">동기화가 겹칠 때 자동으로 백업돼요</div></div><button class="btn btn-sm" onclick="restoreLatestBackup()" style="background:var(--bg);color:var(--text2)">되돌리기</button></div>
   </div>
 </div>
 
@@ -597,9 +598,31 @@ const serialSync=fn=>(syncChain=syncChain.then(()=>fn()).catch(e=>{console.error
 const queueSync=()=>serialSync(syncToCloud);
 // 로컬 백업: 사진까지 포함한 이 기기 데이터(키·접속정보 제외). 실패하면 false.
 function backupLocal(tag){
+  pruneBackups(4);
   try{const d={...S};LOCAL_ONLY_KEYS.forEach(k=>delete d[k]);localStorage.setItem('mp_v6_backup_'+(tag||'')+Date.now(),JSON.stringify(d));return true;}
   catch(e){return false;}
 }
+// 백업 목록(새것부터). 키 끝의 숫자가 만든 시각.
+function listBackups(){
+  const out=[];
+  for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.startsWith('mp_v6_backup_'))out.push({k,t:Number((k.match(/(\d+)$/)||[])[1])||0});}
+  return out.sort((a,b)=>b.t-a.t);
+}
+function pruneBackups(keep){listBackups().slice(keep).forEach(b=>{try{localStorage.removeItem(b.k);}catch(e){}});}
+// 가장 최근 백업으로 되돌리기. 되돌리기 직전 상태도 백업해 둔다.
+function restoreLatestBackup(){
+  const b=listBackups()[0];
+  if(!b){showToast('백업이 없어요');return;}
+  const when=new Date(b.t).toLocaleString('ko-KR');
+  const kind=b.k.includes('_cloud_')?'클라우드 데이터':'이 기기 데이터';
+  if(!confirm(`${when}에 백업한 ${kind}로 되돌릴까요?\n(지금 상태도 백업해 둬요)`))return;
+  let data;try{data=JSON.parse(localStorage.getItem(b.k));}catch(e){showToast('백업을 읽지 못했어요');return;}
+  const local={};LOCAL_ONLY_KEYS.forEach(k=>{local[k]=S[k];});
+  if(!backupLocal('prerestore_')){showToast('저장 공간이 부족해 되돌리지 못했어요');return;}
+  S={...defState(),...data,...local};delete S.rev;
+  save();render();renderBackupInfo();showToast('백업으로 되돌렸어요 ✓');
+}
+function renderBackupInfo(){const el=document.getElementById('backupInfo');if(el)el.textContent=`이 기기 백업 ${listBackups().length}개 (최근 5개 보관)`;}
 function save(){
   syncMeta.seq=(syncMeta.seq||0)+1;saveSyncMeta();
   try{localStorage.setItem('mp_v6',JSON.stringify(S));}
@@ -2182,7 +2205,8 @@ async function manualLoad(){
   const sbK=document.getElementById('sSbKey').value.trim();
   if(!sbU||!sbK){showToast('먼저 Supabase URL과 키를 입력해주세요');return;}
   S.supabaseUrl=sbU; S.supabaseKey=sbK; save();
-  if(!confirm('클라우드 데이터로 덮어쓸까요? 현재 기기의 데이터는 사라질 수 있어요.'))return;
+  if(!confirm('클라우드 데이터로 덮어쓸까요? 지금 이 기기 데이터는 백업해 둬요.'))return;
+  if(!backupLocal()){showToast('저장 공간이 부족해 백업하지 못했어요');return;}
   const ok=await serialSync(loadFromCloud);
   if(ok){render();showToast('클라우드에서 불러왔어요 ✓');}
   else showToast('클라우드에 저장된 데이터가 없어요');
@@ -2220,6 +2244,7 @@ const TABS=['home','add','capture','fixed','ai','settings'];
 // 홈은 디자인상 최상단에 타이틀 없이 바로 히어로 카드로 시작 — 나머지 탭만 화면명을 상단에 표시
 const TAB_TITLES={home:'',add:'지출',capture:'잔액',fixed:'고정지출',ai:'AI',settings:'설정'};
 function showTab(name){
+  if(name==='settings')renderBackupInfo();
   TABS.forEach(t=>{
     document.getElementById('tab-'+t).classList.toggle('hidden',t!==name);
     const n=document.getElementById('nav-'+t);if(n)n.classList.toggle('active',t===name);

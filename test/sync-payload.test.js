@@ -13,6 +13,8 @@ const src=[
   pick(/const isDirty=[^\n]*/),
   pick(/let syncTimer=null, syncing=false, syncAgain=false;/),
   pick(/function backupLocal\(tag\)\{[\s\S]*?\n\}/),
+  pick(/function listBackups\(\)\{[\s\S]*?\n\}/),
+  pick(/function pruneBackups\(keep\)\{[^\n]*/),
   pick(/let syncChain=[^\n]*/),
   pick(/const serialSync=[^\n]*/),
   pick(/const queueSync=[^\n]*/),
@@ -37,7 +39,10 @@ function makeEnv(opt={}){
   env.ctx={
     localStorage:{
       setItem:(k,v)=>{if(opt.failBackup&&k.startsWith('mp_v6_backup_'))throw new Error('quota');env.store[k]=v;},
-      getItem:k=>env.store[k]??null},
+      getItem:k=>env.store[k]??null,
+      removeItem:k=>{delete env.store[k];},
+      key:i=>Object.keys(env.store)[i]??null,
+      get length(){return Object.keys(env.store).length;}},
     updateSyncBadge:()=>{},render:()=>{},showToast:m=>env.toasts.push(m),
     setTimeout:(f)=>{env.timers=(env.timers||0)+1;return 0;},clearTimeout:()=>{},confirm:()=>env.choice,
     fetch:async(url,o={})=>{
@@ -199,6 +204,15 @@ let n=0;const ok=m=>{n++;console.log('ok -',m);};
   assert.strictEqual(posts(env),0,'올리지 않음');assert.strictEqual(env.row.data.budget,9,'처음 맞추는 기기는 기존 클라우드를 덮지 않음');
   assert.strictEqual(env.run.getS().budget,9,'클라우드를 받고 이 기기 것은 백업');
   ok('처음 맞추는 기기: 클라우드가 있으면 덮지 않음');}
+
+  {const env=makeEnv();env.run.setS(local(env));
+  for(let i=0;i<8;i++)env.store['mp_v6_backup_'+(1000+i)]='{}';
+  env.row={data:{budget:9,rev:7}};Object.assign(env.run.syncMeta,{rev:3,seq:6,sentSeq:5});
+  await env.run.syncToCloud();
+  const left=Object.keys(env.store).filter(k=>k.startsWith('mp_v6_backup_'));
+  assert.strictEqual(left.length,5,'백업은 최근 5개만');
+  assert.ok(!left.includes('mp_v6_backup_1000'),'오래된 것부터 지움');
+  ok('백업은 최근 5개만 남김');}
 
   console.log(`\nOK sync-payload (${n})`);
 })().catch(e=>{console.error(e);process.exit(1);});
