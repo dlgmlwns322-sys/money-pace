@@ -72,24 +72,31 @@
     else if (/kbstar|kb스타|국민/.test(app)) r = parseKb(n);
     if (!r || !r.amount) return null;
     r.raw = [n.title, n.text].filter(Boolean).join('\n');
-    // 같은 알림이 두 번 와도 한 번만 저장하기 위한 키
-    r.key = [r.bank, r.at, r.type, r.amount, r.balance].join('|');
+    // 같은 알림이 두 번 와도 한 번만 저장하기 위한 키.
+    // 알림 게시 시각(밀리초)이 있으면 그걸 쓴다: 같은 분·같은 금액·같은 잔액인 서로 다른 거래도 구분된다.
+    // 게시 시각이 없는 경우(카카오톡 대화 내보내기 파일로 채울 때)만 거래 내용으로 키를 만든다.
+    r.key = n.postedAt ? [r.bank, new Date(n.postedAt).getTime(), r.type, r.amount].join('|')
+      : [r.bank, r.at, r.type, r.amount, r.balance, r.counterparty].join('|');
     return r;
   }
 
-  // 내 계좌끼리 이동: 서로 다른 은행에서 같은 금액이 출금·입금으로 10분 안에 오면 한 쌍으로 본다.
-  // 짝이 없어도 상대방 이름에 본인 이름(ownerNames)이 들어 있으면 이동으로 본다.
+  // 내 계좌끼리 이동.
+  // - 확정(transfer): 서로 다른 은행에서 같은 금액이 출금·입금으로 10분 안에 오고,
+  //   양쪽 중 한쪽이라도 상대방에 본인 이름(ownerNames)이 들어 있을 때만 짝짓는다.
+  //   (금액·시각만 맞는 우연한 두 거래를 이동으로 오인하지 않도록)
+  // - 추정(transferGuess): 짝은 없지만 상대방에 본인 이름이 있는 경우. 동명이인일 수 있어 사용자 확인을 받는다.
   function markTransfers(txs, ownerNames) {
-    const names = (ownerNames || []).filter(Boolean);
-    const out = txs.map((t) => ({ ...t, transfer: false }));
+    const names = (ownerNames || []).filter(Boolean).map((nm) => nm.replace(/\s/g, ''));
+    const out = txs.map((t) => ({ ...t, transfer: false, transferGuess: false }));
     const own = (c) => !!c && names.some((nm) => c.replace(/\s/g, '').includes(nm));
     for (const a of out) {
       if (a.transfer || a.type !== 'out') continue;
       const b = out.find((x) => !x.transfer && x !== a && x.type === 'in' && x.bank !== a.bank &&
-        x.amount === a.amount && Math.abs(new Date(x.at) - new Date(a.at)) <= 10 * 60e3);
+        x.amount === a.amount && Math.abs(new Date(x.at) - new Date(a.at)) <= 10 * 60e3 &&
+        (own(a.counterparty) || own(x.counterparty)));
       if (b) { a.transfer = true; b.transfer = true; }
     }
-    for (const t of out) if (!t.transfer && own(t.counterparty)) t.transfer = true;
+    for (const t of out) if (!t.transfer && own(t.counterparty)) t.transferGuess = true;
     return out;
   }
 

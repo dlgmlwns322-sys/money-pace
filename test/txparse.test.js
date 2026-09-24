@@ -61,17 +61,24 @@ t('거래 알림이 아니면 null', () => {
   assert.strictEqual(parseNotification({ app: 'com.kbstar.kbbank', title: 'KB 이벤트 안내', text: '포인트 받기' }), null);
 });
 
-t('내 계좌끼리 이동 짝짓기', () => {
-  assert.ok(markTransfers([kb, kakao]).every((x) => x.transfer));
+t('내 계좌끼리 이동 짝짓기(본인 이름이 있어야 확정)', () => {
+  assert.ok(markTransfers([kb, kakao], ['홍길동']).every((x) => x.transfer));
+  assert.ok(markTransfers([kb, kakao], []).every((x) => !x.transfer));
+});
+
+t('금액·시각만 우연히 맞는 남과의 거래는 이동 아님', () => {
+  const sent = { ...kb, counterparty: '김철수' }, got = { ...kakao, counterparty: '박영희' };
+  assert.ok(markTransfers([sent, got], ['홍길동']).every((x) => !x.transfer && !x.transferGuess));
 });
 
 t('금액이 다르면 이동 아님', () => {
   assert.ok(markTransfers([kb, { ...kakao, amount: 200 }]).every((x) => !x.transfer));
 });
 
-t('본인 이름 상대방은 이동', () => {
+t('짝 없이 본인 이름만 있으면 이동 추정(확인 필요)', () => {
   const m = markTransfers([{ ...kb, at: '2026-09-25T05:00:00+09:00' }], ['홍길동']);
-  assert.ok(m[0].transfer);
+  assert.strictEqual(m[0].transfer, false);
+  assert.strictEqual(m[0].transferGuess, true);
 });
 
 t('1월에 받은 12월 알림은 전년도', () => {
@@ -82,6 +89,13 @@ t('1월에 받은 12월 알림은 전년도', () => {
 
 t('같은 알림 두 번이면 키 동일(중복 제거)', () => {
   assert.strictEqual(kakaoMsg('09/25 02:08\n입금 100원\n홍길동 → 입출금통장(0000)\n잔액 235,300원').key, kakao.key);
+});
+
+t('같은 분·금액·잔액이어도 게시 시각이 다르면 다른 거래', () => {
+  const text = '09/25 02:08\n입금 100원\n홍길동 → 입출금통장(0000)\n잔액 235,300원';
+  const a = parseNotification({ app: 'com.kakao.talk', title: '카카오뱅크', postedAt: '2026-09-24T17:08:10.100Z', text });
+  const b = parseNotification({ app: 'com.kakao.talk', title: '카카오뱅크', postedAt: '2026-09-24T17:08:40.500Z', text });
+  assert.notStrictEqual(a.key, b.key);
 });
 
 console.log(`\n통과 ${ok}개`);
