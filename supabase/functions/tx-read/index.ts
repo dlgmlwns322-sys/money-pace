@@ -19,7 +19,8 @@ async function select(q: { afterId: number; sinceIso: string | null }, limit: nu
 Deno.serve(async (req) => {
   try {
     const out = await handleRead({ method: req.method, headers: req.headers, url: req.url, now: new Date().toISOString() }, { secret: SECRET, select });
-    return new Response(out.body, { status: out.status, headers: out.headers });
+    // 204(사전 요청 응답)는 본문이 있으면 Response 생성이 실패한다 → 본문 없이
+    return new Response(out.status === 204 ? null : out.body, { status: out.status, headers: out.headers });
   } catch (e) {
     console.error("tx-read", e instanceof Error ? e.message : "error");
     return new Response("error", { status: 500 });

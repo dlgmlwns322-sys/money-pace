@@ -933,13 +933,30 @@ setInterval(refreshAndRoll,30*60*1000);
 const TX_STORE='mp_tx';
 let TX=(()=>{try{return JSON.parse(localStorage.getItem(TX_STORE)||'{}');}catch(e){return{};}})();
 TX.rows=TX.rows||[];
-const txDate=at=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Seoul'}).format(new Date(at));
-const txTime=at=>new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date(at));
+// 포맷터는 한 번만 만든다(매번 만들면 거래가 많을 때 매우 느림)
+const KST_DATE_FMT=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Seoul'});
+const KST_TIME_FMT=new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',hour:'2-digit',minute:'2-digit',hour12:false});
+const txDate=at=>KST_DATE_FMT.format(new Date(at));
+const txTime=at=>KST_TIME_FMT.format(new Date(at));
 const ownerNameList=()=>String(S.ownerNames||'').split(',').map(x=>x.trim()).filter(Boolean);
 // 거래마다 '내 계좌끼리 이동' 여부: 사용자가 직접 정한 값이 있으면 그걸, 없으면 자동 판정(짝+본인 이름)
-function txWithFlags(){
-  const marked=(window.TxParse&&TxParse.markTransfers)?TxParse.markTransfers(TX.rows,ownerNameList()):TX.rows.map(r=>({...r,transfer:false,transferGuess:false}));
-  return marked.map(r=>{const o=(S.txOverrides||{})[r.id];return{...r,isTransfer:o&&typeof o.transfer==='boolean'?o.transfer:!!r.transfer};});
+function txWithFlags(){return txDerived().flags;}
+// 거래 파생값을 한 번만 계산해 둔다: 거래 목록·내 이름·사용자 지정이 바뀔 때만 다시 계산
+let txMemo=null;
+function txDerived(){
+  const ov=JSON.stringify(S.txOverrides||{}),own=S.ownerNames||'';
+  if(txMemo&&txMemo.rows===TX.rows&&txMemo.ov===ov&&txMemo.own===own)return txMemo;
+  const marked=(window.TxParse&&window.TxParse.markTransfers)?window.TxParse.markTransfers(TX.rows,ownerNameList()):TX.rows.map(r=>({...r,transfer:false,transferGuess:false}));
+  const overrides=S.txOverrides||{};
+  const flags=marked.map(r=>{const o=overrides[r.id];return{...r,date:txDate(r.at),isTransfer:o&&typeof o.transfer==='boolean'?o.transfer:!!r.transfer};});
+  const byDate=new Map();flags.forEach(r=>{if(!byDate.has(r.date))byDate.set(r.date,[]);byDate.get(r.date).push(r);});
+  const perBank={};
+  ACCOUNTS.forEach(a=>{perBank[a.id]=flags.filter(r=>r.bank===a.id&&r.balance!=null).sort((x,y)=>Date.parse(x.at)-Date.parse(y.at)||x.id-y.id);});
+  const gaps=[];
+  ACCOUNTS.forEach(a=>{const rs=perBank[a.id];for(let i=1;i<rs.length;i++){const expected=rs[i-1].balance+(rs[i].type==='in'?rs[i].amount:-rs[i].amount);if(expected!==rs[i].balance)gaps.push({bank:a.id,date:rs[i].date,afterId:rs[i].id,amount:expected-rs[i].balance});}});
+  const missingByDate=new Map();gaps.forEach(g=>{if(g.amount>0)missingByDate.set(g.date,(missingByDate.get(g.date)||0)+g.amount);});
+  txMemo={rows:TX.rows,ov,own,flags,byDate,perBank,gaps,missingByDate};
+  return txMemo;
 }
 const txMode=d=>!!S.txSince&&d>=S.txSince;
 // KST 기준 '날짜 시각' 비교용 값(분 단위)
@@ -947,8 +964,10 @@ const txKstKey=at=>txDate(at)+' '+String(Math.floor(((Date.parse(at)/60000)+540)
 const capKey=c=>c.date+' '+String(timeToMinutes(c.time)).padStart(4,'0');
 // 그날 0시 직전 총잔액: 계좌마다 그 전 마지막 거래 잔액과 마지막 캡처 중 더 늦은 것
 function balanceBefore(d){
+  const perBank=txDerived().perBank;
   return ACCOUNTS.reduce((sum,a)=>{
-    const lastTx=TX.rows.filter(r=>r.bank===a.id&&r.balance!=null&&txDate(r.at)<d).sort((x,y)=>Date.parse(y.at)-Date.parse(x.at)||y.id-x.id)[0];
+    const rs=perBank[a.id];let lastTx=null;
+    for(let i=rs.length-1;i>=0;i--){if(rs[i].date<d){lastTx=rs[i];break;}}
     const cap=(S.captures||[]).filter(c=>c.date<d&&c.balances&&c.balances[a.id]!=null).sort((x,y)=>capKey(y).localeCompare(capKey(x)))[0];
     if(lastTx&&(!cap||txKstKey(lastTx.at)>=capKey(cap)))return sum+lastTx.balance;
     return sum+((cap&&cap.balances[a.id])||0);
@@ -956,26 +975,17 @@ function balanceBefore(d){
 }
 // 알림 누락 감지: 같은 계좌의 앞 거래 잔액 ± 이번 금액이 이번 잔액과 다르면 그 사이 거래가 빠진 것.
 // 빠진 돈이 나간 쪽(+)이면 그날 지출로 센다(비관적으로), 들어온 쪽(−)이면 표시만.
-function txGaps(){
-  const gaps=[];
-  ACCOUNTS.forEach(a=>{
-    const rs=TX.rows.filter(r=>r.bank===a.id&&r.balance!=null).sort((x,y)=>Date.parse(x.at)-Date.parse(y.at)||x.id-y.id);
-    for(let i=1;i<rs.length;i++){
-      const expected=rs[i-1].balance+(rs[i].type==='in'?rs[i].amount:-rs[i].amount);
-      if(expected!==rs[i].balance)gaps.push({bank:a.id,date:txDate(rs[i].at),afterId:rs[i].id,amount:expected-rs[i].balance});
-    }
-  });
-  return gaps;
-}
+function txGaps(){return txDerived().gaps;}
 // 환불·취소 입금: 원래 출금을 지출에서 되돌린다
 const isRefund=r=>r.type==='in'&&/취소|환불/.test(String(r.method||'')+String(r.counterparty||''));
 // 그날 빠져나간 고정'지출'만(알림 기간엔 입금이 지출 계산에 안 들어가므로 고정입금은 빼지 않는다)
 const fixedExpensePaidOn=d=>[...(S.fixed||[]).filter(f=>f.paid),...(S.fixedPaidLog||[])].filter(f=>f.type!=='income'&&f.paidDate===d&&f.affectsBalance!==false).reduce((a,f)=>a+(f.amount||0),0);
 function txDailySpent(d){
-  const rows=txWithFlags().filter(r=>txDate(r.at)===d);
+  const m=txDerived();
+  const rows=m.byDate.get(d)||[];
   const out=rows.filter(r=>r.type==='out'&&!r.isTransfer).reduce((a,r)=>a+r.amount,0);
   const refunds=rows.filter(r=>isRefund(r)&&!r.isTransfer).reduce((a,r)=>a+r.amount,0);
-  const missing=txGaps().filter(g=>g.date===d&&g.amount>0).reduce((a,g)=>a+g.amount,0);
+  const missing=m.missingByDate.get(d)||0;
   // 고정지출 차감은 그날 출금·누락분을 넘지 않게(표시만 하고 알림이 안 온 날 지출이 음수로 빠지지 않게), 환불은 그대로 뺀다
   const spent=Math.max(0,out+missing-fixedExpensePaidOn(d))-refunds;
   return{spent,missing,todayDate:d,prevTotal:balanceBefore(d),todayTotal:null,source:'tx'};

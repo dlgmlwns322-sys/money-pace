@@ -31,43 +31,53 @@ const dayAfter = (d) => { const [y, m, dd] = d.split("-").map(Number); return ne
 const dayBefore = (d) => { const [y, m, dd] = d.split("-").map(Number); return new Date(Date.UTC(y, m - 1, dd - 1)).toISOString().slice(0, 10); };
 
 // ── 입출금 알림 거래 (앱 txDailySpent·balanceBefore와 같은 식) ──
-export const txDate = (at) => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul" }).format(new Date(at));
+const KST_DATE_FMT = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul" });
+export const txDate = (at) => KST_DATE_FMT.format(new Date(at));
 const ownerNameList = (S) => String(S.ownerNames || "").split(",").map((x) => x.trim()).filter(Boolean);
-function txWithFlags(S, tx) {
+// 거래 파생값을 한 번만 계산(앱 txDerived와 같음). 같은 tx 배열·지정값·이름이면 재사용.
+const memo = new WeakMap();
+function txDerived(S, tx) {
+  const ov = JSON.stringify(S.txOverrides || {}), own = S.ownerNames || "";
+  const hit = memo.get(tx);
+  if (hit && hit.ov === ov && hit.own === own) return hit;
   const TP = globalThis.TxParse;
   const marked = TP && TP.markTransfers ? TP.markTransfers(tx, ownerNameList(S)) : tx.map((r) => ({ ...r, transfer: false, transferGuess: false }));
-  return marked.map((r) => { const o = (S.txOverrides || {})[r.id]; return { ...r, isTransfer: o && typeof o.transfer === "boolean" ? o.transfer : !!r.transfer }; });
+  const overrides = S.txOverrides || {};
+  const flags = marked.map((r) => { const o = overrides[r.id]; return { ...r, date: txDate(r.at), isTransfer: o && typeof o.transfer === "boolean" ? o.transfer : !!r.transfer }; });
+  const byDate = new Map(); flags.forEach((r) => { if (!byDate.has(r.date)) byDate.set(r.date, []); byDate.get(r.date).push(r); });
+  const perBank = {};
+  for (const id of ACCOUNT_IDS) perBank[id] = flags.filter((r) => r.bank === id && r.balance != null).sort((x, y) => Date.parse(x.at) - Date.parse(y.at) || x.id - y.id);
+  const gaps = [];
+  for (const id of ACCOUNT_IDS) { const rs = perBank[id]; for (let i = 1; i < rs.length; i++) { const expected = rs[i - 1].balance + (rs[i].type === "in" ? rs[i].amount : -rs[i].amount); if (expected !== rs[i].balance) gaps.push({ bank: id, date: rs[i].date, afterId: rs[i].id, amount: expected - rs[i].balance }); } }
+  const missingByDate = new Map(); gaps.forEach((g) => { if (g.amount > 0) missingByDate.set(g.date, (missingByDate.get(g.date) || 0) + g.amount); });
+  const d = { ov, own, flags, byDate, perBank, gaps, missingByDate };
+  memo.set(tx, d);
+  return d;
 }
+function txWithFlags(S, tx) { return txDerived(S, tx).flags; }
 const txMode = (S, d) => !!S.txSince && d >= S.txSince;
 const txKstKey = (at) => txDate(at) + " " + String(Math.floor(((Date.parse(at) / 60000) + 540) % 1440)).padStart(4, "0");
 const capKey = (c) => c.date + " " + String(timeToMinutes(c.time)).padStart(4, "0");
 function balanceBefore(S, d, tx) {
+  const perBank = txDerived(S, tx).perBank;
   return ACCOUNT_IDS.reduce((sum, id) => {
-    const lastTx = tx.filter((r) => r.bank === id && r.balance != null && txDate(r.at) < d).sort((x, y) => Date.parse(y.at) - Date.parse(x.at) || y.id - x.id)[0];
+    const rs = perBank[id]; let lastTx = null;
+    for (let i = rs.length - 1; i >= 0; i--) { if (rs[i].date < d) { lastTx = rs[i]; break; } }
     const cap = (S.captures || []).filter((c) => c.date < d && c.balances && c.balances[id] != null).sort((x, y) => capKey(y).localeCompare(capKey(x)))[0];
     if (lastTx && (!cap || txKstKey(lastTx.at) >= capKey(cap))) return sum + lastTx.balance;
     return sum + ((cap && cap.balances[id]) || 0);
   }, 0);
 }
-export function txGaps(tx) {
-  const gaps = [];
-  for (const id of ACCOUNT_IDS) {
-    const rs = tx.filter((r) => r.bank === id && r.balance != null).sort((x, y) => Date.parse(x.at) - Date.parse(y.at) || x.id - y.id);
-    for (let i = 1; i < rs.length; i++) {
-      const expected = rs[i - 1].balance + (rs[i].type === "in" ? rs[i].amount : -rs[i].amount);
-      if (expected !== rs[i].balance) gaps.push({ bank: id, date: txDate(rs[i].at), afterId: rs[i].id, amount: expected - rs[i].balance });
-    }
-  }
-  return gaps;
-}
+export function txGaps(tx, S = {}) { return txDerived(S, tx).gaps; }
 const isRefund = (r) => r.type === "in" && /취소|환불/.test(String(r.method || "") + String(r.counterparty || ""));
 const fixedExpensePaidOn = (S, d) => [...(S.fixed || []).filter((f) => f.paid), ...(S.fixedPaidLog || [])]
   .filter((f) => f.type !== "income" && f.paidDate === d && f.affectsBalance !== false).reduce((a, f) => a + (f.amount || 0), 0);
 function txDailySpent(S, d, tx) {
-  const rows = txWithFlags(S, tx).filter((r) => txDate(r.at) === d);
+  const m = txDerived(S, tx);
+  const rows = m.byDate.get(d) || [];
   const out = rows.filter((r) => r.type === "out" && !r.isTransfer).reduce((a, r) => a + r.amount, 0);
   const refunds = rows.filter((r) => isRefund(r) && !r.isTransfer).reduce((a, r) => a + r.amount, 0);
-  const missing = txGaps(tx).filter((g) => g.date === d && g.amount > 0).reduce((a, g) => a + g.amount, 0);
+  const missing = m.missingByDate.get(d) || 0;
   const spent = Math.max(0, out + missing - fixedExpensePaidOn(S, d)) - refunds;
   return { spent, missing, todayDate: d, prevTotal: balanceBefore(S, d, tx), todayTotal: null, source: "tx" };
 }
