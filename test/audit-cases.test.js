@@ -1,27 +1,16 @@
 // Codex(astra) 최종 감사가 제시한 시험 사례(앱과 리포트 계산이 같은 답을 내는지 포함). 실행: node test/audit-cases.test.js
 const fs = require('fs'), path = require('path'), assert = require('assert');
-const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-const pick = (re) => { const m = html.match(re); assert(m, 'not found: ' + re); return m[0]; };
-const txBlock = html.slice(html.indexOf('// ── 입출금 알림 거래 ──'), html.indexOf('function getBD(){'));
-const src = txBlock + '\n' + [
-  /const ACCOUNTS=[^\n]*/, /const sumAcc=[^\n]*/, /const fxSigned=[^\n]*/, /const totFixed=[^\n]*/, /const effectiveBudget=[^\n]*/,
-  /const unpaidFixed=[^\n]*/, /const fixedPaidInRange=[^\n]*/, /const usableBal=[^\n]*/, /const totBal=[^\n]*/,
-  /function timeToMinutes\(t\)\{[\s\S]*?\n\}/, /function getDailySpent\(dateStr\)\{[\s\S]*?\n\}/, /function sumSpentInRange\(fromStr, toStr\)\{[\s\S]*?\n\}/,
-  /const dayAfter=[^\n]*/, /const dayBefore=[^\n]*/,
-].map(pick).join('\n');
-const TxParse = require('../txparse.js'); globalThis.TxParse = TxParse;
-let today = '2026-09-30'; let saved = 0;
-const app = new Function('ctx', `with(ctx){let S;${src}
-  return{setS:v=>{S=v},getS:()=>S,setTX:v=>{TX=v},sumSpentInRange,applyTxToState,txGaps};}`)({
-  toStr: () => today, localStorage: { getItem: () => null, setItem: () => {} }, window: { TxParse }, render: () => {}, save: () => { saved++; },
-  escapeHtml: (x) => x, won: (x) => x, document: { getElementById: () => null },
-});
+let nowMs = Date.parse('2026-09-30T12:00:00+09:00');
+const makeApp = require('./app');
+const A = makeApp({ nowFn: () => nowMs });
+// 예전 조각 추출 대신 앱 전체(test/app.js)를 쓴다. 테스트 코드는 그대로 두려고 같은 이름으로 연결.
+const app = { setS: (v) => A.set({ S: v }), getS: () => A.S, setTX: (v) => A.set({ TX: v }), ...A.fn };
 let ok = 0; const t = async (n, f) => { await f(); ok++; console.log('ok -', n); };
 const at = (d, hm) => `${d}T${hm}:00+09:00`;
 const base = (extra = {}) => ({ budget: 1000000, budgetStart: '2026-09-25', budgetEnd: '2026-10-24', txSince: '2026-09-25', captures: [], fixed: [], balances: {}, ...extra });
 
 (async () => {
-  const calc = await import('../supabase/functions/daily-report/calc.js');
+  const calc = require('./calc-shim'); // 옛 서버 계산 자리(앱 코드로 계산)
   const both = (S, tx, from, to) => {
     app.setS(JSON.parse(JSON.stringify(S))); app.setTX({ rows: JSON.parse(JSON.stringify(tx)) });
     const a = app.sumSpentInRange(from, to), c = calc.sumSpentInRange(S, from, to, tx);

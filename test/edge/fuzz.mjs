@@ -38,7 +38,7 @@ globalThis.fetch = async (url, init = {}) => {
 const fn = (n) => 'file:///' + path.join(WORK, 'functions', n, 'index.ts').replace(/\\/g, '/');
 await import(fn('tx-ingest')); const ingest = handler;
 await import(fn('tx-read')); const read = handler;
-const calc = await import('file:///' + path.join(WORK, 'functions', 'daily-report', 'calc.js').replace(/\\/g, '/'));
+const calc = createRequire(import.meta.url)('../calc-shim.js'); // 옛 서버 계산 자리(앱 코드로 계산, 2026-09-26)
 
 // ── 무작위 거래 만들기 (잔액이 앞뒤로 맞게) ──
 const AMOUNTS = [1, 7, 99, 100, 999, 1000, 4500, 12345, 99999, 100000, 1234567, 9999999, 50000000, 123456789, 2000000000];
@@ -105,10 +105,12 @@ const truthKeys = new Set(truth.map((x) => key({ ...x, at: new Date(Math.floor(x
 for (const r of got) assert.ok(truthKeys.has(key(r)), '정답에 없는 거래: ' + JSON.stringify(r));
 
 // ── 계산: 잔액 연결이 모두 맞으면 누락 0, 지출 = 출금 합(이동·환불 없음 조건) ──
-const firstDay = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(truth[0].at);
+// 가계부 날짜(새벽 6시 시작) 기준 — 실행 시각에 따라 첫·마지막 거래가 새벽이면 전날로 들어간다
+const ledgerDay = (d) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(new Date(d.getTime() - 6 * 3600e3));
+const firstDay = ledgerDay(truth[0].at);
 const S = { budget: 1e9, budgetStart: firstDay, budgetEnd: '2099-12-31', txSince: firstDay, captures: [], fixed: [], balances: {} };
 assert.deepStrictEqual(calc.txGaps(got, S), [], '잔액 연결이 모두 맞으면 누락 없음');
-const lastDay = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(truth[truth.length - 1].at);
+const lastDay = ledgerDay(truth[truth.length - 1].at);
 const expectedOut = truth.filter((x) => x.type === 'out' && !['토스홍길동', '홍길동'].includes(x.counterparty)).reduce((a, x) => a + x.amount, 0);
 const spent = calc.sumSpentInRange({ ...S, ownerNames: '' }, firstDay, lastDay, got);
 const allOut = truth.filter((x) => x.type === 'out').reduce((a, x) => a + x.amount, 0);

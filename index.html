@@ -192,6 +192,24 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 .modal-ta{width:100%;background:var(--bg);border:1.5px solid var(--border);border-radius:var(--r-xs);padding:12px;font-size:14px;font-family:inherit;color:var(--text);outline:none;resize:none;min-height:90px;box-sizing:border-box;}
 .modal-ta:focus{border-color:var(--blue);}
 .modal-btns{display:flex;gap:8px;margin-top:14px;}
+/* 알림센터(벨) */
+.bell{position:relative;width:34px;height:34px;border-radius:50%;border:none;background:var(--bg);color:var(--text2);display:grid;place-items:center;cursor:pointer;padding:0;flex:none;}
+.bell svg{width:18px;height:18px;}
+.bell.on-hero{position:absolute;top:16px;right:16px;background:rgba(255,255,255,.2);color:#fff;z-index:2;}
+.bell-dot{position:absolute;top:5px;right:6px;min-width:8px;height:8px;border-radius:999px;background:var(--text3);box-shadow:0 0 0 2px var(--white);}
+.bell.on-hero .bell-dot{box-shadow:none;}
+.bell-dot.warn{background:var(--red);}
+.nt-list{max-height:60vh;overflow-y:auto;margin:0 -4px;}
+.nt-item{display:flex;gap:10px;padding:12px 4px;border-bottom:1px solid var(--border);}
+.nt-item:last-child{border-bottom:none;}
+.nt-mark{width:6px;height:6px;border-radius:50%;margin-top:6px;flex:none;background:var(--text3);}
+.nt-item.warn .nt-mark{background:var(--red);}
+.nt-item.seen{opacity:.55;}
+.nt-t{font-size:13px;font-weight:700;color:var(--text);}
+.nt-b{font-size:12px;color:var(--text2);margin-top:2px;line-height:1.45;}
+.nt-go{font-size:11px;font-weight:700;color:var(--blue);background:none;border:none;padding:4px 0 0;cursor:pointer;font-family:inherit;}
+.nt-empty{font-size:12px;color:var(--text3);padding:14px 0;text-align:center;}
+.nt-foot{font-size:10.5px;color:var(--text3);margin-top:10px;}
 /* Fixed expense */
 .fx-item{display:flex;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid var(--border);}
 .fx-item:last-child{border-bottom:none;}
@@ -234,11 +252,63 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 .mini3-val{font-size:13px;font-weight:800;margin-top:3px;}
 .mini3-div{width:1px;background:rgba(255,255,255,.2);}
 .hero2-cap{font-size:10.5px;opacity:.78;margin-top:10px;position:relative;z-index:1;line-height:1.5;}
+/* 홈 A안: 오늘 권장 지출 + 오늘·이번 주·이번 달 막대 (2026-09-26) */
+.hero2-main{margin-top:16px;position:relative;z-index:1;}
+.hero2-sub{font-size:11.5px;opacity:.85;margin-top:6px;}
+.gg{margin-top:14px;position:relative;z-index:1;}
+.gg-top{display:flex;justify-content:space-between;align-items:baseline;font-size:12px;font-weight:700;}
+.gg-top .r{font-size:12.5px;}
+.gg-top .r em{font-style:normal;opacity:.75;font-weight:600;font-size:11px;margin-left:4px;}
+.gg-track{position:relative;height:8px;border-radius:99px;background:rgba(255,255,255,.22);margin-top:7px;}
+.gg-fill{position:absolute;left:0;top:0;bottom:0;border-radius:99px;background:#fff;transition:width .3s;}
+.gg-tick{position:absolute;top:-4px;bottom:-4px;width:2px;margin-left:-1px;border-radius:2px;background:rgba(255,255,255,.95);}
+.gg-meta{font-size:10.5px;opacity:.8;margin-top:5px;display:flex;justify-content:space-between;gap:8px;}
+.gg.over .gg-fill{background:#FFD1D7;}
+.gg-over{font-weight:800;opacity:1;}
+.gg-empty{font-size:11px;opacity:.75;margin-top:6px;}
+.gg-legend{font-size:10px;opacity:.7;margin-top:12px;position:relative;z-index:1;display:flex;align-items:center;gap:6px;}
+.gg-legend b{display:inline-block;width:2px;height:10px;border-radius:2px;background:#fff;}
+.cat-card{background:#fff;border-radius:20px;padding:18px;box-shadow:var(--tile-shadow);margin-bottom:14px;}
+.cat-hd{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:14px;}
+.cat-hd .t{font-size:14px;font-weight:800;}
+.cat-hd .v{font-size:15px;font-weight:800;}
+.cat-body{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:14px 16px;}
+.cat-pie{position:relative;width:132px;height:132px;flex:none;}
+.cat-pie svg{transform:rotate(-90deg);display:block;}
+.cat-pie circle{cursor:pointer;transition:stroke-width .15s,opacity .15s;}
+.cat-mid{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;text-align:center;}
+.cat-mid .n{font-size:11px;color:var(--text2);font-weight:700;}
+.cat-mid .a{font-size:15px;font-weight:800;margin-top:2px;}
+.cat-mid .p{font-size:11px;color:var(--text3);font-weight:700;margin-top:1px;}
+.cat-list{flex:1 1 180px;min-width:180px;display:flex;flex-direction:column;gap:2px;}
+.cat-row{display:grid;grid-template-columns:8px auto 1fr auto;align-items:center;gap:8px;padding:5px 6px;border-radius:8px;cursor:pointer;font-size:12.5px;}
+.cat-row.on{background:var(--bg);}
+.cat-row i{width:8px;height:8px;border-radius:50%;}
+.cat-row .nm{font-weight:700;white-space:nowrap;}
+.cat-row .pc{color:var(--text3);font-weight:700;font-size:11px;min-width:30px;text-align:right;}
+.cat-row .am{font-weight:800;text-align:right;min-width:62px;}
+.cat-empty{font-size:12px;color:var(--text3);padding:10px 0;text-align:center;}
+.cat-tx{margin-top:12px;border-top:1px solid var(--border);padding-top:6px;}
+.cat-tx-row{display:grid;grid-template-columns:42px 1fr auto;gap:8px;align-items:center;padding:9px 2px;font-size:12.5px;border-bottom:1px solid var(--border);cursor:pointer;}
+.cat-tx-row:last-child{border-bottom:none;}
+.cat-tx-row .d{color:var(--text3);font-size:11.5px;}
+.cat-tx-row .m{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.cat-tx-row .a{font-weight:800;}
+.cat-chips{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:4px;}
+.cat-chips button{padding:9px 0;border-radius:10px;border:1px solid var(--border);background:#fff;font-family:inherit;font-size:12.5px;font-weight:700;color:var(--text2);cursor:pointer;}
+.cat-chips button.on{background:var(--ind);border-color:var(--ind);color:#fff;}
+.acc2{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--border);}
+.acc2:last-child{border-bottom:none;}
+.acc2-n{flex:1;font-size:13.5px;font-weight:700;}
+.acc2-s{font-size:10.5px;color:var(--text3);font-weight:500;margin-top:2px;}
+.acc2-v{font-size:15px;font-weight:800;}
 .tile2-row{display:flex;gap:12px;margin-bottom:14px;}
 .tile2{flex:1;background:#fff;border-radius:20px;padding:15px;box-shadow:var(--tile-shadow);}
 .tile2-lbl{font-size:11px;color:var(--ink-w);font-weight:700;}
-.tile2-val{font-size:22px;font-weight:800;margin-top:5px;}
-.tile2-sub{font-size:10px;color:var(--ink-w2);margin-top:4px;}
+.tile2-val{font-size:clamp(17px,5.4vw,22px);font-weight:800;margin-top:5px;white-space:nowrap;}
+.tile2-sub{font-size:10px;color:var(--ink-w2);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.conn-toggle{display:block;margin:18px auto 6px;background:none;border:none;color:var(--text3);font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;}
+.fx-meta{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .wk2-card{background:#fff;border-radius:24px;padding:18px;margin-bottom:14px;box-shadow:var(--tile-shadow);}
 .wk2-hd{display:flex;justify-content:space-between;align-items:center;font-size:14px;font-weight:800;color:var(--ink-s);}
 .wk2-hd .num{font-size:12px;color:var(--ink-m);font-weight:700;}
@@ -261,6 +331,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 <symbol id="ic-pin" viewBox="0 0 24 24"><path d="M12 21s6-5.4 6-10a6 6 0 1 0-12 0c0 4.6 6 10 6 10z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"></path><circle cx="12" cy="11" r="2" fill="none" stroke="currentColor" stroke-width="1.7"></circle></symbol>
 <symbol id="ic-ai" viewBox="0 0 24 24"><path d="M4.5 5.5h15v10h-9l-4 4v-4h-2z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"></path><path d="M9 10h6M9 12.6h4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"></path></symbol>
 <symbol id="ic-set" viewBox="0 0 24 24"><path d="M4 8h7M16 8h4M4 16h4M13 16h7" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"></path><circle cx="13.5" cy="8" r="2.2" fill="none" stroke="currentColor" stroke-width="1.7"></circle><circle cx="9.5" cy="16" r="2.2" fill="none" stroke="currentColor" stroke-width="1.7"></circle></symbol>
+<symbol id="ic-bell" viewBox="0 0 24 24"><path d="M6.5 16.5V11a5.5 5.5 0 0 1 11 0v5.5l1.5 1.5h-14z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"></path><path d="M10 20.2a2.2 2.2 0 0 0 4 0" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"></path></symbol>
 <symbol id="ic-chevL" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></symbol>
 <symbol id="ic-chevR" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></symbol>
 <symbol id="ic-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></symbol>
@@ -273,195 +344,78 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 <div class="safe"></div>
 <div class="header hidden" id="appHeader">
   <div class="header-title" id="headerTitle"></div>
-  <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">
-    <div id="notifDot" style="font-size:11px;color:var(--text3)"></div>
+  <button class="bell" data-bell onclick="openNotices()" aria-label="알림"><svg><use href="#ic-bell"/></svg></button>
+  <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;margin-left:10px">
     <div id="syncBadge" style="font-size:10px;color:var(--text3)"></div>
   </div>
 </div>
 <!-- HOME -->
 <div id="tab-home" class="sec">
-  <div id="apiBanner" class="api-warn hidden">⚠️ 설정에서 Google Vision API 키를 입력해야 이미지 인식이 돼요</div>
 
-  <!-- 플로팅 히어로 카드 (월간/주간/오늘 세그먼트 전환) -->
+  <!-- 히어로 카드: 오늘 권장 지출 + 오늘·이번 주·이번 달 막대(버튼 없이 한 화면, 2026-09-26 A안) -->
   <div class="hero2">
+    <button class="bell on-hero" data-bell onclick="openNotices()" aria-label="알림"><svg><use href="#ic-bell"/></svg></button>
     <div class="hero2-badge" id="heroBadge"><span class="dot"></span><span id="heroBadgeText">순항 중</span></div>
-    <div class="hero2-row">
-      <div>
-        <div class="hero2-lbl" id="hero2Lbl">이번 달 남은 금액</div>
-        <div class="hero2-amt num" id="hero2Amt">—</div>
-      </div>
-      <div class="ring2-w">
-        <svg width="82" height="82" viewBox="0 0 82 82">
-          <circle cx="41" cy="41" r="32" fill="none" stroke="rgba(255,255,255,.25)" stroke-width="8"/>
-          <circle cx="41" cy="41" r="32" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round" stroke-dasharray="201" stroke-dashoffset="201" id="hero2Ring"/>
-        </svg>
-        <div class="ring2-c"><div class="ring2-pct num" id="hero2Pct">0%</div><div class="ring2-sub">소진</div></div>
-      </div>
+    <div class="hero2-main">
+      <div class="hero2-lbl">오늘 권장 지출</div>
+      <div class="hero2-amt num" id="hero2Amt">—</div>
+      <div class="hero2-sub" id="hero2Sub"></div>
     </div>
-    <div class="seg2" id="homeSeg">
-      <button type="button" class="seg2-item active" data-seg="month" onclick="setHomeSeg('month')">월간</button>
-      <button type="button" class="seg2-item" data-seg="week" onclick="setHomeSeg('week')">주간</button>
-      <button type="button" class="seg2-item" data-seg="today" onclick="setHomeSeg('today')">오늘</button>
-    </div>
-    <div class="mini3">
-      <div class="mini3-item"><div class="mini3-lbl">예산</div><div class="mini3-val num" id="mini1">—</div></div>
-      <div class="mini3-div"></div>
-      <div class="mini3-item"><div class="mini3-lbl">소진</div><div class="mini3-val num" id="mini2">—</div></div>
-      <div class="mini3-div"></div>
-      <div class="mini3-item"><div class="mini3-lbl">남은</div><div class="mini3-val num" id="mini3">—</div></div>
-    </div>
-    <div class="hero2-cap" id="hero2Cap"></div>
+    <div class="gg" id="ggToday"></div>
+    <div class="gg" id="ggWeek"></div>
+    <div class="gg" id="ggMonth"></div>
   </div>
 
   <!-- 오늘/어제 2-업 타일 -->
   <div class="tile2-row">
     <div class="tile2">
-      <div class="tile2-lbl">오늘 쓸 수 있는 돈</div>
-      <div class="tile2-val num" id="dailyBudget" style="color:var(--ind)">—</div>
-      <div class="tile2-sub" id="dailySub">설정에서 예산 기간을 입력해주세요</div>
+      <div class="tile2-lbl">통장 잔액</div>
+      <div class="tile2-val num" id="balTotal" style="color:var(--ind)">—</div>
+      <div class="tile2-sub" id="balSub">은행 알림을 기다리는 중</div>
     </div>
     <div class="tile2">
       <div class="tile2-lbl">어제 대비 오늘</div>
       <div class="tile2-val num" id="todaySpent" style="color:var(--danger2)">—</div>
-      <div class="tile2-sub" id="todaySpentSub">캡처를 이틀 이상 올리면 계산돼요</div>
+      <div class="tile2-sub" id="todaySpentSub">은행 알림이 들어오면 계산돼요</div>
     </div>
   </div>
 
   <!-- 주간 소진 추이 (실데이터 막대) -->
   <div class="wk2-card">
-    <div class="wk2-hd"><div>주간 소진 추이</div><div class="num" id="wk2Range">0 / 0원</div></div>
+    <div class="wk2-hd"><div>주간 소진 추이</div><div class="num hidden" id="wk2Range"></div></div>
     <div class="wk2-bars" id="wk2Bars"></div>
   </div>
+  <div class="cat-card" id="catCard"></div>
 
-  <button type="button" class="cta2" onclick="bulkRecordWeek()">한 번에 지출 기록하기</button>
 
-  <!-- 기존 상세 카드 (숨김 유지 — render() 로직 그대로 재사용, 값 계산은 여기서 계속 일어남) -->
-  <div class="hidden">
-    <div class="hero">
-      <div class="hero-lbl">총 잔액</div>
-      <div class="hero-amt" id="heroTotal">—</div>
-      <div class="acc-row"><div class="acc-dot" style="background:#FFEB00"></div><div class="acc-name">카카오뱅크</div><div class="acc-val" id="bal-kakao">—</div></div>
-      <div class="acc-row"><div class="acc-dot" style="background:#FFB800"></div><div class="acc-name">국민은행</div><div class="acc-val" id="bal-kb">—</div></div>
-    </div>
-    <div class="card">
-      <div class="card-title">📅 월간 소진 현황</div>
-      <div class="brow">
-        <div class="ring-w">
-          <svg width="78" height="78" viewBox="0 0 78 78">
-            <circle cx="39" cy="39" r="31" fill="none" stroke="#EEEEF2" stroke-width="8"/>
-            <circle cx="39" cy="39" r="31" fill="none" stroke="var(--blue)" stroke-width="8"
-              stroke-dasharray="195" stroke-dashoffset="195" id="ringCircle" stroke-linecap="round"/>
-          </svg>
-          <div class="ring-c"><div class="ring-pct" id="ringPct">0%</div><div class="ring-sub">소진율</div></div>
-        </div>
-        <div class="binfo">
-          <div class="bitem"><span class="blbl">월 예산</span><span class="bval" id="bTotal">—</span></div>
-          <div class="bitem"><span class="blbl">고정지출</span><span class="bval" style="color:var(--orange)" id="bFixed">0원</span></div>
-          <div class="bitem" id="bIncomeRow" style="display:none"><span class="blbl">예정입금</span><span class="bval" style="color:var(--blue)" id="bIncome">0원</span></div>
-          <div class="bitem"><span class="blbl">사용가능</span><span class="bval" style="color:var(--blue)" id="bEffective">—</span></div>
-          <div class="bitem"><span class="blbl">사용</span><span class="bval" style="color:var(--red)" id="bSpent">0원</span></div>
-          <div class="bitem"><span class="blbl">남은 예산</span><span class="bval" id="bRemain">—</span></div>
-        </div>
-      </div>
-      <div class="baseline-box" id="mBaseline"></div>
-    </div>
-    <div class="card">
-      <div class="card-title">📅 월간 페이스</div>
-      <div id="paceBadge" class="pace-badge" style="background:var(--blue-light);color:var(--blue)">
-        <span id="paceEmoji">😊</span><span id="paceText">순항 중</span>
-      </div>
-      <div class="pbars" id="paceBars"></div>
-      <div class="pcmt hidden" id="pcmt"></div>
-      <div class="pdtl" id="pdtl"></div>
-    </div>
-    <div class="card">
-      <div class="card-title">📆 주간 소진 현황</div>
-      <div class="brow">
-        <div class="ring-w">
-          <svg width="78" height="78" viewBox="0 0 78 78">
-            <circle cx="39" cy="39" r="31" fill="none" stroke="#EEEEF2" stroke-width="8"/>
-            <circle cx="39" cy="39" r="31" fill="none" stroke="var(--green)" stroke-width="8"
-              stroke-dasharray="195" stroke-dashoffset="195" id="wRingCircle" stroke-linecap="round"/>
-          </svg>
-          <div class="ring-c"><div class="ring-pct" id="wRingPct">0%</div><div class="ring-sub">소진율</div></div>
-        </div>
-        <div class="binfo">
-          <div class="bitem"><span class="blbl">주간 예산</span><span class="bval" id="wTotal">—</span></div>
-          <div class="bitem"><span class="blbl">사용</span><span class="bval" style="color:var(--red)" id="wSpent">0원</span></div>
-          <div class="bitem"><span class="blbl">남은 예산</span><span class="bval" id="wRemain">—</span></div>
-          <div class="bitem"><span class="blbl">남은 일수</span><span class="bval" id="wDays">—</span></div>
-        </div>
-      </div>
-      <div class="baseline-box" id="wBaseline"></div>
-    </div>
-    <div class="card">
-      <div class="card-title">📆 주간 페이스</div>
-      <div id="wPaceBadge" class="pace-badge" style="background:var(--green-light);color:var(--green)">
-        <span id="wPaceEmoji">😊</span><span id="wPaceText">순항 중</span>
-      </div>
-      <div class="pbars" id="wPaceBars"></div>
-      <div class="pdtl" id="wPdtl"></div>
-    </div>
-  </div>
 </div>
 
-<!-- 지출(달력) -->
-<div id="tab-add" class="sec hidden">
-  <div class="card">
-    <div class="cal-head">
-      <div class="cal-title" id="calTitle">2026년 6월</div>
-      <div class="cal-nav">
-        <button onclick="calMove(-1)"><svg width="17" height="17" style="stroke:currentColor;fill:none"><use href="#ic-chevL"></use></svg></button>
-        <button onclick="calToday()" class="cal-today-btn">오늘</button>
-        <button onclick="calMove(1)"><svg width="17" height="17" style="stroke:currentColor;fill:none"><use href="#ic-chevR"></use></svg></button>
-      </div>
-    </div>
-    <div class="cal-grid" id="calDow"></div>
-    <div class="cal-grid" id="calGrid" style="margin-top:3px"></div>
-    <div style="font-size:11px;color:var(--text3);margin-top:12px;text-align:center">날짜를 누르면 메모를 남길 수 있어요</div>
-  </div>
-</div>
-
-<!-- 메모 모달 -->
-<div id="memoModal" class="modal-bg hidden">
+<div id="txModal" class="modal-bg hidden" onclick="if(event.target===this)this.classList.add('hidden')">
   <div class="modal">
-    <div class="modal-title" id="memoModalTitle">메모</div>
-    <div id="memoCardList" style="display:flex;flex-direction:column;gap:7px;margin-bottom:12px;max-height:240px;overflow-y:auto;"></div>
-    <div style="display:flex;align-items:center;background:var(--bg);border-radius:var(--r-xs);padding:11px 13px;gap:8px;margin-bottom:10px;">
-      <select id="memoCat" style="background:transparent;border:none;outline:none;font-size:14px;font-weight:700;font-family:inherit;color:var(--text);flex:0 0 auto;"></select>
-      <span style="color:var(--text3)">·</span>
-      <input type="text" id="memoAmt" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" inputmode="numeric" placeholder="금액 (선택)" oninput="onMoneyInput(this)" style="background:transparent;border:none;outline:none;font-size:16px;font-weight:800;flex:1;min-width:0;font-family:inherit;color:var(--text)"/>
-      <button type="button" id="memoTypeToggle" onclick="toggleMemoType()" style="border:1px solid var(--border);border-radius:999px;padding:5px 10px;font-size:11px;font-weight:700;font-family:inherit;cursor:pointer;flex:0 0 auto;">입금(+)</button>
-    </div>
-    <textarea class="modal-ta" id="memoInput" placeholder="메모 (선택)"></textarea>
-    <div class="modal-btns">
-      <button class="btn btn-sm" onclick="closeMemo()" style="background:var(--bg);color:var(--text2);flex:1">닫기</button>
-      <button class="btn btn-sm btn-primary" onclick="addMemoCard()" style="flex:1" id="memoSaveBtn">카드 추가</button>
-    </div>
+    <div class="modal-title" id="txmTitle"></div>
+    <div class="cat-chips" id="txmChips"></div>
+    <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--text2);margin-top:12px"><input type="checkbox" id="txmAll" checked/>같은 가게는 앞으로도</label>
+    <div class="modal-btns"><button class="btn btn-sm" id="txmMove" style="flex:1;background:var(--bg);color:var(--text2)"></button><button class="btn btn-sm" style="flex:1" onclick="document.getElementById('txModal').classList.add('hidden')">닫기</button></div>
   </div>
 </div>
-
-<!-- CAPTURE -->
+<div id="noticeModal" class="modal-bg hidden" onclick="if(event.target===this)closeNotices()">
+  <div class="modal">
+    <div class="modal-title">알림</div>
+    <div class="nt-list" id="noticeList"></div>
+    <div class="nt-foot" id="noticeFoot"></div>
+    <div class="modal-btns"><button class="btn btn-sm" style="flex:1" onclick="closeNotices()">닫기</button></div>
+  </div>
+</div>
+<!-- 거래(은행 알림으로 기록된 거래·계좌 잔액). 탭 id는 호환을 위해 capture 유지 -->
 <div id="tab-capture" class="sec hidden">
   <div class="card">
-    <div class="card-title">토스 캡처 업로드</div>
-    <div class="upload-area"><input type="file" accept="image/*" id="imgInp" onchange="handleCap(event)"/>
-      <div class="upload-icon"><svg width="26" height="26" style="stroke:currentColor;fill:none"><use href="#ic-cam"></use></svg></div>
-      <div class="upload-txt">토스 홈화면 캡처 올리기</div>
-      <div class="upload-sub">카카오뱅크·국민은행 잔액이 보이는 화면으로 캡처해주세요</div>
-    </div>
-    <div id="ocrLoad" class="loading-row hidden"><div class="spinner"></div> Google AI가 잔액을 읽는 중...</div>
-    <div id="ocrRes" style="margin-top:11px;"></div>
-    <button class="btn btn-primary hidden" id="applyBtn" onclick="applyBal()" style="margin-top:11px;">잔액 반영하기</button>
+    <div class="card-title">계좌 잔액</div>
+    <div id="accBal"></div>
   </div>
   <div class="card">
-    <div class="card-title">입출금 알림</div>
+    <div class="card-title">거래</div>
     <div id="txStatus" style="font-size:11px;color:var(--text3);margin-bottom:8px"></div>
     <div id="txList"></div>
-  </div>
-  <div class="card">
-    <div class="card-title">캡처 기록</div>
-    <div id="capList"><div style="text-align:center;color:var(--text3);padding:22px 0;font-size:13px">아직 캡처 기록이 없어요</div></div>
   </div>
 </div>
 
@@ -473,9 +427,10 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
       <button type="button" id="fxTypeExpense" onclick="setFxType('expense')" style="flex:1;padding:9px;border-radius:9px;border:1px solid var(--border);background:var(--orange);color:#fff;font-weight:800;font-size:13px;cursor:pointer">지출 −</button>
       <button type="button" id="fxTypeIncome" onclick="setFxType('income')" style="flex:1;padding:9px;border-radius:9px;border:1px solid var(--border);background:transparent;color:var(--text2);font-weight:800;font-size:13px;cursor:pointer">입금 +</button>
     </div>
+    <div class="fx-add-row"><input class="fx-inp" type="text" id="fxName" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="항목명" style="flex:1;min-width:0"/></div>
     <div class="fx-add-row">
-      <input class="fx-inp" type="text" id="fxName" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="항목명 (예: 넷플릭스 / 용돈)" style="flex:2"/>
-      <input class="fx-inp" type="text" id="fxAmt" placeholder="금액" inputmode="numeric" oninput="onMoneyInput(this)" autocomplete="off" autocorrect="off" autocapitalize="off" style="flex:1"/>
+      <input class="fx-inp" type="text" id="fxKw" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="알림 이름" style="flex:1;min-width:0"/>
+      <input class="fx-inp" type="text" id="fxAmt" placeholder="금액" inputmode="numeric" oninput="onMoneyInput(this)" autocomplete="off" autocorrect="off" autocapitalize="off" style="flex:1;min-width:0"/>
     </div>
     <button class="btn btn-primary" onclick="addFixed()" style="display:flex;align-items:center;justify-content:center;gap:5px;"><svg width="16" height="16" style="stroke:currentColor;fill:none"><use href="#ic-plus"></use></svg>추가하기</button>
   </div>
@@ -484,7 +439,6 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
       <div class="card-title" style="margin:0">이번 달 고정지출</div>
       <div style="font-size:12px;color:var(--text2)" id="fxMonthLabel"></div>
     </div>
-    <div style="font-size:11px;color:var(--text3);margin-bottom:12px">체크하면 빠져나간 날짜가 기록돼요 · 새 예산 주기가 되면 자동으로 해제돼요(납부 기록은 보관)</div>
     <div id="fxList"><div style="text-align:center;color:var(--text3);padding:22px 0;font-size:13px">아직 고정지출이 없어요</div></div>
     <div id="fxSummary" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);display:none">
       <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px"><span style="color:var(--text2)">총 고정지출</span><span class="num" style="font-weight:800" id="fxTotal">0원</span></div>
@@ -494,97 +448,26 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
   </div>
 </div>
 
-<!-- AI -->
-<div id="tab-ai" class="sec hidden">
-  <div class="card">
-    <div class="card-title">AI 지출 분석</div>
-    <div class="csug-wrap">
-      <button class="csug" onclick="askAI('이번 달 지출 분석해줘')">이번 달 분석</button>
-      <button class="csug" onclick="askAI('지금 페이스 괜찮아?')">페이스 체크</button>
-      <button class="csug" onclick="askAI('남은 기간 동안 얼마씩 써야 해?')">하루 예산</button>
-      <button class="csug" onclick="askAI('남은 예산으로 주간 예산 분배해줘')">주간 예산 분배</button>
-    </div>
-    <div class="chat-wrap" id="chatWrap">
-      <div class="cb ai">안녕하세요! 궁금한 거 물어보거나, "오늘 점심 8천원 커피 4500원"처럼 쓴 돈을 말해주면 달력에 바로 기록해드려요 😊</div>
-    </div>
-    <div class="cinp-wrap">
-      <input class="cinp" type="text" id="chatInp" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="질문하거나 오늘 쓴 돈을 말해주세요..." onkeydown="if(event.key==='Enter')sendChat()"/>
-      <button class="csend" onclick="sendChat()"><svg width="17" height="17" style="stroke:currentColor;fill:none"><use href="#ic-send"></use></svg></button>
-    </div>
-  </div>
-
-  <!-- 일간 코멘트 -->
-  <div class="card">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-      <div class="card-title" style="margin:0">📝 일간 코멘트</div>
-      <button class="btn btn-sm btn-primary" onclick="genTodayComment(true)" id="genCmtBtn">오늘 코멘트 생성</button>
-    </div>
-    <div style="font-size:11px;color:var(--text3);margin-bottom:12px">매일 앱을 열면 자동으로 그날 코멘트가 생성돼요 · 소진 현황 + 메모를 종합해 조언해드려요</div>
-    <div id="cmtList"><div style="text-align:center;color:var(--text3);padding:22px 0;font-size:13px">아직 코멘트가 없어요</div></div>
-  </div>
-</div>
-
 <!-- SETTINGS -->
 <div id="tab-settings" class="sec hidden">
-  <div class="sgt">예산 설정</div>
-  <div class="sg">
-    <div class="sr"><div><div class="slbl">월 예산</div><div class="sdesc">한 달 총 예산</div></div><input type="text" class="sinp" id="sBudget" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="700,000" inputmode="numeric" oninput="onMoneyInput(this)"/></div>
-    <div class="sr"><div><div class="slbl">주간 예산</div><div class="sdesc">일주일 쓸 금액 (월~일)</div></div><input type="text" class="sinp" id="sWeekly" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="200,000" inputmode="numeric" oninput="onMoneyInput(this)"/></div>
-    <div class="sr"><div><div class="slbl">예산 시작일</div><div class="sdesc">월급 받는 날</div></div><input type="date" class="sinp" id="sStart"/></div>
-    <div class="sr"><div><div class="slbl">예산 종료일</div><div class="sdesc">다음 월급 전날</div></div><input type="date" class="sinp" id="sEnd"/></div>
+  <div class="sg" style="margin-top:14px">
+    <div class="sr"><div class="slbl">회사명</div><input type="text" class="sinp" id="sPayer" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="오피엠에스"/></div>
+    <div class="sr"><div class="slbl">월급날</div><input type="text" class="sinp" id="sPayDay" inputmode="numeric" autocomplete="off" placeholder="25" style="max-width:70px"/></div>
   </div>
-  <div class="sgt">알림 설정</div>
-  <div class="sg">
-    <div class="sr"><div><div class="slbl">알림 시간</div><div class="sdesc">매일 리포트 시간</div></div><input type="time" class="sinp" id="sAlarm" value="09:00"/></div>
-    <div class="sr"><div><div class="slbl">푸시 알림</div><div class="sdesc" id="notifDesc">알림을 허용해주세요</div></div><button class="btn btn-sm btn-primary" id="notifBtn" onclick="reqNotif()">허용</button></div>
-    <div class="sr"><div><div class="slbl">테스트 알림</div><div class="sdesc">미리보기</div></div><button class="btn btn-sm" onclick="testNotif()" style="background:var(--bg);color:var(--text2)">보내기</button></div>
-  </div>
-  <div class="sgt">API 설정</div>
-  <div class="sg">
-    <div class="sr"><div><div class="slbl">Google Vision API 키</div><div class="sdesc">이미지 잔액 인식용</div></div></div>
-    <div style="padding:0 18px 14px;position:relative;"><input type="text" class="sinp sinp-full masked" id="sVision" placeholder="AIza..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore data-form-type="other"/><button type="button" class="eye-btn" onclick="toggleEye('sVision',this)">👁</button></div>
-    <div class="sr"><div><div class="slbl">Gemini API 키</div><div class="sdesc">AI 분석 기능용 (무료)</div></div></div>
-    <div style="padding:0 18px 14px;position:relative;"><input type="text" class="sinp sinp-full masked" id="sClaude" placeholder="AIza..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore data-form-type="other"/><button type="button" class="eye-btn" onclick="toggleEye('sClaude',this)">👁</button></div>
-  </div>
-
-  <div class="sgt">클라우드 저장 (Supabase)</div>
-  <div class="sg">
-    <div class="sr"><div><div class="slbl">Supabase URL</div><div class="sdesc">데이터 영구 저장용</div></div></div>
-    <div style="padding:0 18px 14px;"><input type="text" class="sinp sinp-full" id="sSbUrl" placeholder="https://xxxx.supabase.co" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/></div>
-    <div class="sr"><div><div class="slbl">anon 키</div><div class="sdesc">eyJ... 로 시작하는 키</div></div></div>
-    <div style="padding:0 18px 14px;position:relative;"><input type="text" class="sinp sinp-full masked" id="sSbKey" placeholder="eyJ..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore data-form-type="other"/><button type="button" class="eye-btn" onclick="toggleEye('sSbKey',this)">👁</button></div>
-    <div class="sr">
-      <div><div class="slbl">클라우드에서 불러오기</div><div class="sdesc">다른 기기 데이터 가져오기</div></div>
-      <button class="btn btn-sm" onclick="manualLoad()" style="background:var(--bg);color:var(--text2)">불러오기</button>
-    </div>
-  </div>
-
-  <div class="sgt">입출금 알림 자동 기록</div>
-  <div class="sg">
-    <div class="sr"><div><div class="slbl">읽기 키</div><div class="sdesc">은행 알림으로 기록된 거래를 읽는 키 (이 기기에만 저장)</div></div></div>
-    <div style="padding:0 18px 14px;position:relative;"><input type="text" class="sinp sinp-full masked" id="sTxKey" placeholder="설정 안내 문서의 읽기 키" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore data-form-type="other"/><button type="button" class="eye-btn" onclick="toggleEye('sTxKey',this)">👁</button></div>
-    <div class="sr"><div><div class="slbl">내 이름</div><div class="sdesc">내 계좌끼리 옮긴 돈을 지출에서 빼는 데 써요 (여러 개면 쉼표)</div></div></div>
-    <div style="padding:0 18px 14px;"><input type="text" class="sinp sinp-full" id="sOwner" placeholder="예: 홍길동" autocomplete="off" autocorrect="off" spellcheck="false"/></div>
-  </div>
-
-  <div style="padding:0 0 8px;"><button class="btn btn-primary" onclick="saveSets()">저장하기</button></div>
-  <div class="sgt">데이터</div>
-  <div class="sg">
-    <div class="sr"><div><div class="slbl">백업으로 되돌리기</div><div class="sdesc" id="backupInfo">동기화가 겹칠 때 자동으로 백업돼요</div></div><button class="btn btn-sm" onclick="restoreLatestBackup()" style="background:var(--bg);color:var(--text2)">되돌리기</button></div>
-  </div>
+  <div style="padding:6px 0 0;"><button class="btn btn-primary" onclick="saveSets()">저장하기</button></div>
 </div>
 
 <div class="bnav">
   <button class="nb active" onclick="showTab('home')" id="nav-home"><svg class="ni"><use href="#ic-home"></use></svg><span class="nl">홈</span></button>
-  <button class="nb" onclick="showTab('add')" id="nav-add"><svg class="ni"><use href="#ic-cal"></use></svg><span class="nl">지출</span></button>
-  <button class="nb" onclick="showTab('capture')" id="nav-capture"><svg class="ni"><use href="#ic-wallet"></use></svg><span class="nl">잔액</span></button>
+  <button class="nb" onclick="showTab('capture')" id="nav-capture"><svg class="ni"><use href="#ic-wallet"></use></svg><span class="nl">거래</span></button>
   <button class="nb" onclick="showTab('fixed')" id="nav-fixed"><svg class="ni"><use href="#ic-pin"></use></svg><span class="nl">고정지출</span></button>
-  <button class="nb" onclick="showTab('ai')" id="nav-ai"><svg class="ni"><use href="#ic-ai"></use></svg><span class="nl">AI</span></button>
   <button class="nb" onclick="showTab('settings')" id="nav-settings"><svg class="ni"><use href="#ic-set"></use></svg><span class="nl">설정</span></button>
 </div>
 <div class="toast" id="toast"></div>
 
 <script src="txparse.js"></script>
+<script src="payday.js"></script>
+<script src="category.js"></script>
 <script>
 const CATS=[
   {n:'식비',e:'🍚'},{n:'카페',e:'☕'},{n:'교통',e:'🚌'},
@@ -645,15 +528,14 @@ function restoreLatestBackup(){
   const prevS=S;
   S={...defState(),...data,...local};delete S.rev;
   if(!save()){S=prevS;render();return;}
-  render();renderBackupInfo();showToast('백업으로 되돌렸어요 ✓');
+  render();showToast('백업으로 되돌렸어요 ✓');
 }
-function renderBackupInfo(){const el=document.getElementById('backupInfo');if(el)el.textContent=`이 기기 백업 ${listBackups().length}개 (최근 5개 보관)`;}
 // 이 기기에 저장하고 성공 여부를 돌려준다(실패하면 호출한 쪽이 '완료' 표시를 하지 않는다).
 function save(){
   syncMeta.seq=(syncMeta.seq||0)+1;saveSyncMeta();
   let stored=true;
   try{localStorage.setItem('mp_v6',JSON.stringify(S));}
-  catch(e){stored=false;if(syncTimer){clearTimeout(syncTimer);syncTimer=null;}showToast('이 기기 저장 공간이 부족해 저장하지 못했어요. 캡처 기록을 정리해주세요');}
+  catch(e){stored=false;if(syncTimer){clearTimeout(syncTimer);syncTimer=null;}showToast('이 기기 저장 공간이 부족해 저장하지 못했어요');}
   // Supabase 동기화는 0.8초 디바운스 (연속 저장 시 마지막 것만 업로드). 이 기기 저장에 실패했으면 올리지 않는다.
   if(stored&&S.supabaseUrl&&S.supabaseKey){
     if(syncTimer)clearTimeout(syncTimer);
@@ -743,7 +625,7 @@ async function syncToCloud(){
 // 다른 기기 변경이 더 새로우면 그걸 쓰고, 이 기기의 못 올린 변경은 따로 보관한다.
 // 보관에 실패하면(저장 공간 부족 등) 아무것도 바꾸지 않고 알린다.
 async function takeCloudKeepLocalBackup(){
-  if(!backupLocal()){updateSyncBadge('error');showToast('다른 기기 변경과 겹쳤는데 백업 공간이 부족해요. 설정에서 클라우드 불러오기로 정리해주세요');return false;}
+  if(!backupLocal()){updateSyncBadge('error');showToast('다른 기기 변경과 겹쳤는데 백업 공간이 부족해요');return false;}
   const ok=await loadFromCloud();
   if(ok){render();showToast('다른 기기에서 바뀐 내용을 불러왔어요. 이 기기 변경은 백업해뒀어요');}
   return ok;
@@ -827,7 +709,10 @@ async function loadFromCloud(){
   }
 }
 
+let lastSyncStatus=null;
 function updateSyncBadge(status){
+  lastSyncStatus=status;
+  if(typeof renderBell==='function')renderBell();
   const el=document.getElementById('syncBadge');
   if(!el)return;
   const map={saving:'☁️ 저장 중...',saved:'☁️ 저장됨',loading:'☁️ 불러오는 중...',error:'⚠️ 동기화 실패',off:''};
@@ -838,9 +723,14 @@ function updateSyncBadge(status){
 const ACCOUNTS=[{id:'kakao',n:'카카오뱅크',c:'#FFEB00'},{id:'kb',n:'국민은행',c:'#FFB800'}];
 const sumAcc=b=>ACCOUNTS.reduce((a,x)=>a+((b&&b[x.id])||0),0);
 const won=n=>Math.abs(Math.round(n)).toLocaleString('ko-KR')+'원';
-// 한국시간(KST) 기준 오늘 날짜 YYYY-MM-DD. toISOString()은 UTC라 자정~오전9시에 전날로 밀리므로 사용 금지.
-const toStr=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Seoul'}).format(new Date());
-// "오전/오후 h:mm" 문자열을 자정 기준 분(0~1439)으로 변환. 문자열 그대로 비교하면
+// 가계부 하루는 한국시간 새벽 6시에 시작한다(2026-09-25 사용자: 새벽 3~4시 결제도 전날 지출로).
+// 00:00~05:59의 결제·캡처는 전날로 센다. 모든 '가계부 날짜'는 실제 시각에서 6시간을 뺀 KST 날짜다.
+const DAY_START_HOUR=6;
+const LEDGER_FMT=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Seoul'});
+const ledgerDate=ms=>LEDGER_FMT.format(new Date(ms-DAY_START_HOUR*3600e3));
+// 오늘(가계부 기준) 날짜 YYYY-MM-DD. toISOString()은 UTC라 사용 금지.
+const toStr=()=>ledgerDate(Date.now());
+// "오전/오후 h:mm" 문자열을 자정 기준 분(0~1439)으로 변환(실제 시각이 없는 예전 캡처용). 문자열 그대로 비교하면
 // "오후 12:32"가 "오후 11:00"보다 커져서(문자 '2'>'1') 실제로는 더 이른 정오가 늦은 11시로 오인되는 버그가 있어
 // 같은 날 캡처 중 진짜 최신을 고르려면 반드시 이 숫자로 비교해야 한다.
 function timeToMinutes(t){
@@ -852,6 +742,12 @@ function timeToMinutes(t){
   if(!isPM&&h===12)h=0;
   return h*60+parseInt(m[3],10);
 }
+// 캡처가 찍힌 실제 시각(ms). 새 캡처는 at, 예전 캡처(at 없음)는 기록된 날짜·시각(한국시간, 자정 기준)으로 해석.
+// 예전 기록의 날짜는 옮기지 않고(다른 기기·옛 버전 앱과 어긋나지 않게), 순서 비교만 실제 시각으로 통일한다.
+const capMs=c=>c.at?Date.parse(c.at):Date.parse(c.date+'T00:00:00+09:00')+timeToMinutes(c.time)*60000;
+// 계산에 쓰는 캡처 날짜 = 찍은 실제 시각의 가계부 날짜(예전 새벽 캡처도 전날로 계산). 가계부 d일 시작 = d일 06:00 KST.
+const capDate=c=>ledgerDate(capMs(c));
+const ledgerStartMs=d=>Date.parse(d+'T00:00:00+09:00')+DAY_START_HOUR*3600e3;
 
 // 고정 항목 부호: 지출은 +금액(예산 차감), 입금(type:'income')은 −금액(예산 가산).
 // type 없으면 지출로 취급(기존 저장 데이터 하위호환).
@@ -862,10 +758,23 @@ const totFixed=()=>(S.fixed||[]).reduce((a,f)=>a+fxSigned(f),0);
 const totFixedExpense=()=>(S.fixed||[]).filter(f=>f.type!=='income').reduce((a,f)=>a+(f.amount||0),0);
 const totFixedIncome=()=>(S.fixed||[]).filter(f=>f.type==='income').reduce((a,f)=>a+(f.amount||0),0);
 // 실제 사용 가능 월 예산 = 월 예산 - 고정지출 + 예정입금 (= 월예산 - 순액)
-const effectiveBudget=()=>Math.max(0, S.budget - totFixed());
+// 쓸 수 있는 돈 = (월급 + 지난 주기 이월) − 고정지출 − 이번 주기 저축
+const effectiveBudget=()=>Math.max(0, S.budget - totFixed() - cycleSavings());
 // 미납(아직 안 빠져나간 지출 / 아직 안 들어온 입금)의 순액 = 잔액엔 아직 미반영이지만 곧 반영될 돈.
 // 입금은 음수라 여기서 빼면(usableBal) 예정입금만큼 쓸 수 있는 돈이 늘어난다(A방식: 즉시 반영).
 const unpaidFixed=()=>(S.fixed||[]).filter(f=>!f.paid).reduce((a,f)=>a+fxSigned(f),0);
+// d일 시작 시점에 아직 안 나간 고정비(오늘·이후 납부로 표시된 것 포함) — 하루 시작 잔액과 같은 시점으로 맞춘다
+// 단, 납부일 d인 고정비가 전날 새벽(실제 d일 0~6시)에 이미 빠져나갔으면 시작 잔액에 반영돼 있으니 빼지 않는다(fixedMatchedOn ①과 같은 짝)
+const unpaidFixedAt=d=>{
+  const prev=dayBefore(d);
+  const early=S.txSince?(txDerived().byDate.get(prev)||[]).filter(r=>r.type==='out'&&!r.isTransfer&&isEarlyOf(r,prev)).map(r=>r.amount):[];
+  return (S.fixed||[]).filter(f=>{
+    if(!f.paid)return true;
+    if(!(f.paidDate&&f.paidDate>=d))return false;
+    if(f.paidDate===d&&f.type!=='income'&&f.affectsBalance!==false){const j=early.indexOf(f.amount||0);if(j>=0){early.splice(j,1);return false;}}
+    return true;
+  }).reduce((a,f)=>a+fxSigned(f),0);
+};
 // 기간(from~to, 포함) 중 실제로 빠져나간(paid) 고정지출 합계.
 // 고정지출은 unpaidFixed()로 이미 예산에서 선차감돼 있으므로, 실제 빠져나간 날의 잔액 감소분에서
 // 이 금액을 다시 빼줘야 일별/주간 "쓴 돈"에 이중으로 잡히지 않는다.
@@ -886,51 +795,128 @@ function addMonthsKeepDay(dateStr,n){
 }
 const dayAfter=d=>{const[y,m,dd]=d.split('-').map(Number);return new Date(Date.UTC(y,m-1,dd+1)).toISOString().slice(0,10);};
 const dayBefore=d=>{const[y,m,dd]=d.split('-').map(Number);return new Date(Date.UTC(y,m-1,dd-1)).toISOString().slice(0,10);};
-function rollBudgetCycle(){
-  if(!S.budgetStart||!S.budgetEnd)return false;
-  const today=toStr();
-  // 기준일(예: 25일, 31일)을 따로 기억한다. 짧은 달을 지나도 다음 달에 원래 날짜로 돌아오게.
-  if(!S.budgetAnchorDay)S.budgetAnchorDay=Number(S.budgetStart.slice(8,10));
-  let rolled=false,guard=0;
-  while(today>S.budgetEnd&&guard++<240){
-    const start=S.budgetStart,end=S.budgetEnd;
-    // 지난 주기 안에 납부한 것만 기록으로 옮기고 체크를 푼다. 새 주기에 이미 납부한 것은 그대로 둔다.
-    const paid=(S.fixed||[]).filter(f=>f.paid&&f.paidDate&&f.paidDate<=end);
-    S.cycles=[...(S.cycles||[]),{start,end,budget:S.budget,effective:effectiveBudget(),spent:sumSpentInRange(start,end),closedAt:today}].slice(-24);
-    // 납부 기록은 캡처 보관 기간(3개월)만큼 둔다. 그보다 오래된 날짜는 보정할 캡처가 없다.
-    S.fixedPaidLog=[...(S.fixedPaidLog||[]),...paid.map(f=>({name:f.name,amount:f.amount,type:f.type||'expense',paidDate:f.paidDate,affectsBalance:f.affectsBalance}))]
-      .filter(f=>f.paidDate>=addMonthsKeepDay(today,-3));
-    paid.forEach(f=>{f.paid=false;f.paidDate='';});
-    S.budgetStart=dayAfter(end);
-    S.budgetEnd=dayBefore(anchorDateInMonth(S.budgetStart,1,S.budgetAnchorDay));
-    rolled=true;
-  }
-  return rolled;
-}
-// start가 속한 달에서 n달 뒤, 기준일(그 달에 없으면 말일)의 날짜
-function anchorDateInMonth(start,n,day){
-  const[y,m]=start.split('-').map(Number);
-  const last=new Date(Date.UTC(y,m-1+n+1,0)).getUTCDate();
-  return new Date(Date.UTC(y,m-1+n,Math.min(day,last))).toISOString().slice(0,10);
-}
-// 앱을 켜둔 채 종료일을 넘겨도 전환되도록: 화면으로 돌아올 때와 30분마다 확인
-function checkBudgetRollover(){if(rollBudgetCycle()){save();render();showToast(`새 예산 주기 시작: ${S.budgetStart} ~ ${S.budgetEnd}`);}}
 // 모든 경로에서 '거래를 먼저 받고, 받기에 성공했을 때만' 주기를 마감한다(미수신 출금이 지난 주기 결산에서 빠지지 않게).
 // 알림을 안 쓰면(읽기 키 없음) 바로 마감한다. 받기 실패면 다음 기회로 미룬다.
-async function refreshAndRoll(){
-  const ok=await fetchTx();
-  // 받기가 계속 실패해도(예: Supabase 정지) 종료일 3일 뒤에는 마감한다(주기가 영영 안 넘어가지 않게)
-  const overdue=!!S.budgetEnd&&toStr()>dayAfter(dayAfter(dayAfter(S.budgetEnd)));
-  if(ok)checkBudgetRollover();
-  else if(overdue){
-    const before=new Set((S.cycles||[]).map(c=>c.start));
-    checkBudgetRollover();
-    // 거래를 못 받은 채 마감했으면 불완전 표시 → 나중에 받으면 applyTxToState가 다시 계산.
-    // 한 번에 여러 주기가 마감돼도 새로 생긴 주기 전부에 표시(결산 기록은 최근 24개만이라 개수 대신 시작일로 구분)
-    const added=(S.cycles||[]).filter(c=>!before.has(c.start));
-    if(S.txReadSecret&&added.length){added.forEach(c=>{c.incomplete=true;});save();}
-  }
+// ═══ 월급으로 예산 주기 자동(2026-09-26) ═══
+// 월급 = 입금 + 보낸 곳에 S.payer(기본 '오피엠에스') 포함 + 200만 원 이상 + 예상 월급일(연휴 반영) ±7일. payday.js 참고.
+// 같은 달 후보가 둘 이상이면 자동으로 정하지 않고 벨에서 고르게 한다. 잘못 잡으면 벨의 '월급 아님'으로 되돌린다.
+const SALARY_MIN=2000000;
+function salaryCandidates(){
+  if(!window.Payday||!S.txSince&&!TX.rows.length)return[];
+  // 월급 계좌(기본 카카오)로 들어온 입금만 후보(2026-09-26 사용자: 월급은 카카오로 들어옴)
+  const bank=S.payBank||'kakao';
+  const rows=txWithFlags().filter(r=>!bank||r.bank===bank).map(r=>({id:r.id,type:r.type,amount:r.amount,counterparty:r.counterparty,method:r.method,date:r.date}));
+  // 회사명(기본 오피엠에스) 또는 '급여'로 들어온 200만 원 이상
+  return Payday.findSalaries(rows,{payer:[S.payer??'오피엠에스','급여'],min:SALARY_MIN,payDay:S.payDay||25,rejected:new Set(S.salaryReject||[])})
+    .map(f=>{
+      const pickId=(S.salaryPick||{})[f.month];
+      // 후보가 둘 이상이면 사용자가 고른 것만(이미 자동 반영한 달에 두 번째 후보가 늦게 와도 다시 묻는다)
+      const row=f.picks.length===1?f.picks[0]:f.picks.find(p=>p.id===pickId);
+      return row?{month:f.month,row}:{month:f.month,ambiguous:f.picks};
+    });
 }
+const salaryIds=()=>new Set(salaryCandidates().filter(c=>c.row).map(c=>c.row.id));
+function syncSalaryCycle(){
+  let changed=false;
+  for(const c of salaryCandidates()){
+    if(!c.row)continue;
+    if(S.salaryMonth&&c.month<=S.salaryMonth)continue; // 이미 반영한 달(또는 그 전)
+    // 월급으로 시작한 적이 없는(직접 정한) 주기면, 그 시작일보다 이른 월급은 과거 기록이므로 무시
+    if(!S.salaryMonth&&S.budgetStart&&c.row.date<S.budgetStart)continue;
+    startSalaryCycle(c.row,c.month);changed=true;
+  }
+  return changed;
+}
+// 새 주기 시작: 지난 주기를 마감(남은 돈·적자는 이월)하고, 월급+이월로 새 예산, 종료일은 다음 예상 월급일 전날
+function startSalaryCycle(r,month){
+  linkFixedTx(); // 마감 전에 지난 주기 고정지출 연결부터(저축·고정지출 이중 계산 방지)
+  const fixedState=(S.fixed||[]).map(f=>({id:f.id,paid:f.paid,paidDate:f.paidDate,txId:f.txId,actual:f.actual}));
+  S.salaryUndo=JSON.parse(JSON.stringify({budget:S.budget,budgetStart:S.budgetStart,budgetEnd:S.budgetEnd,salaryTxId:S.salaryTxId,salaryMonth:S.salaryMonth,
+    salaryAmount:S.salaryAmount,carry:S.carry,cycles:S.cycles||[],fixedState,fixedPaidLog:S.fixedPaidLog||[],txId:r.id}));
+  let carry=S.carry||0;
+  if(S.budgetStart&&r.date>S.budgetStart){
+    const end=dayBefore(r.date);
+    const spent=sumSpentInRange(S.budgetStart,end),savings=cycleSavings(S.budgetStart,end);
+    // 지난 주기 기간 안의 저축만, 적자도 그대로(0으로 자르지 않음)
+    const effective=S.budget-totFixed()-savings;
+    S.cycles=[...(S.cycles||[]),{start:S.budgetStart,end,budget:S.budget,effective,spent,savings,closedAt:toStr()}].slice(-24);
+    carry=effective-spent;
+    // 지난 주기에 낸 고정지출은 기록으로 옮기고 체크를 푼다(새 주기에 이미 낸 것은 그대로)
+    const paid=(S.fixed||[]).filter(f=>f.paid&&f.paidDate&&f.paidDate<r.date);
+    S.fixedPaidLog=[...(S.fixedPaidLog||[]),...paid.map(f=>({name:f.name,amount:f.amount,type:f.type||'expense',paidDate:f.paidDate,affectsBalance:f.affectsBalance,txId:f.txId,actual:f.actual}))]
+      .filter(f=>f.paidDate>=addMonthsKeepDay(r.date,-3));
+    paid.forEach(f=>{f.paid=false;f.paidDate='';delete f.txId;delete f.actual;});
+  }
+  S.carry=carry;S.salaryAmount=r.amount;S.salaryTxId=r.id;S.salaryMonth=month;
+  S.budget=r.amount+carry;S.budgetStart=r.date;S.budgetEnd=Payday.cycleEndFor(month,S.payDay||25);
+  S.salaryNotice=r.id;
+  linkFixedTx(); // 새 주기 고정지출 연결
+}
+// '월급 아님'(reject) 또는 다른 후보로 바꾸기: 방금 시작한 주기를 되돌린다.
+// 고정지출은 전환이 바꾼 체크·연결만 되돌리고, 그 뒤 사용자가 추가·수정한 항목·이름·금액은 그대로 둔다.
+function revertSalaryStart(reject){
+  const u=S.salaryUndo;if(!u)return false;
+  if(reject)S.salaryReject=[...(S.salaryReject||[]),u.txId];
+  Object.assign(S,{budget:u.budget,budgetStart:u.budgetStart,budgetEnd:u.budgetEnd,salaryTxId:u.salaryTxId,salaryMonth:u.salaryMonth,salaryAmount:u.salaryAmount,carry:u.carry,cycles:u.cycles,fixedPaidLog:u.fixedPaidLog});
+  const before=new Map((u.fixedState||[]).map(x=>[x.id,x]));
+  (S.fixed||[]).forEach(f=>{const b=before.get(f.id);if(!b)return;f.paid=b.paid;f.paidDate=b.paidDate;if(b.txId!=null)f.txId=b.txId;else delete f.txId;if(b.actual!=null)f.actual=b.actual;else delete f.actual;});
+  delete S.salaryUndo;delete S.salaryNotice;
+  return true;
+}
+function undoSalary(){
+  if(!revertSalaryStart(true))return;
+  syncSalaryCycle();linkFixedTx();save();render();showToast('월급이 아닌 걸로 되돌렸어요');
+}
+// 후보 고르기. 이미 다른 입금으로 이 달을 시작했으면 되돌린 뒤 고른 것으로 다시 시작
+function pickSalary(month,id){
+  if(S.salaryMonth&&month<S.salaryMonth)return; // 이미 지난 달은 바꿀 수 없음(마감·이월이 꼬이지 않게)
+  S.salaryPick={...(S.salaryPick||{}),[month]:id};
+  if(S.salaryMonth===month&&S.salaryTxId!==id&&S.salaryUndo)revertSalaryStart(false);
+  applyTxToState(null);
+}
+
+// ═══ 고정지출 자동 체크: 알림에 뜨는 이름(kw)이 들어간 출금이 이번 주기에 오면 연결 ═══
+// 금액은 예정액의 ±20%(최소 1,000원) 안이어야 한다(같은 이름의 다른 결제와 구분). 거래 하나는 항목 하나에만.
+const normKw=x=>String(x||'').replace(/\s/g,'').toLowerCase();
+function linkFixedTx(){
+  if(!S.budgetStart||!S.txSince)return false;
+  const rows=txWithFlags().filter(r=>r.type==='out'&&!r.isTransfer&&r.date>=S.budgetStart);
+  const used=new Set((S.fixed||[]).filter(f=>f.txId!=null).map(f=>f.txId));
+  let changed=false;
+  (S.fixed||[]).forEach(f=>{
+    if(f.type==='income'||f.txId!=null||!f.kw)return;
+    const kw=normKw(f.kw);
+    const hit=rows.find(r=>!used.has(r.id)&&normKw(r.counterparty).includes(kw)&&Math.abs(r.amount-(f.amount||0))<=Math.max(1000,(f.amount||0)*0.2));
+    if(!hit)return;
+    f.paid=true;f.paidDate=hit.date;f.txId=hit.id;f.actual=hit.amount;used.add(hit.id);changed=true;
+  });
+  return changed;
+}
+// 이름으로 못 찾았지만 금액이 같은 출금(확인 필요 후보)
+function fixedCandidates(){
+  if(!S.budgetStart||!S.txSince)return[];
+  const used=new Set((S.fixed||[]).filter(f=>f.txId!=null).map(f=>f.txId));
+  const rows=txWithFlags().filter(r=>r.type==='out'&&!r.isTransfer&&r.date>=S.budgetStart&&!used.has(r.id));
+  const out=[];
+  (S.fixed||[]).forEach(f=>{
+    if(f.type==='income'||f.txId!=null||f.paid)return;
+    const r=rows.find(x=>x.amount===(f.amount||0)&&!(S.fixedNo||[]).includes(f.id+':'+x.id));
+    if(r)out.push({f,r});
+  });
+  return out;
+}
+function confirmFixed(fid,txId,yes){
+  const f=(S.fixed||[]).find(x=>x.id===fid);const r=txWithFlags().find(x=>x.id===txId);
+  if(!f||!r)return;
+  if(yes){f.paid=true;f.paidDate=r.date;f.txId=r.id;f.actual=r.amount;}
+  else S.fixedNo=[...(S.fixedNo||[]),fid+':'+txId];
+  save();render();
+}
+// 주간 몫: 쓸 수 있는 돈 ÷ 주기 일수 × 7(주간 예산 입력 없음)
+const weeklyShare=()=>{const{total}=getBD();return total>0?Math.round(effectiveBudget()*7/total):0;};
+
+// 예산 주기는 날짜가 아니라 '월급 입금 알림'으로 넘어간다(applyTxToState → syncSalaryCycle). 월급이 늦으면 주기가 이어진다.
+async function refreshAndRoll(){await fetchTx();}
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshAndRoll();});
 setInterval(refreshAndRoll,30*60*1000);
 
@@ -939,56 +925,80 @@ setInterval(refreshAndRoll,30*60*1000);
 // 알림이 시작된 다음 날(txSince)부터는 지출을 '출금 − 내 계좌끼리 이동 − 그날 빠져나간 고정지출'로 계산하고,
 // 그 전 날짜는 예전처럼 캡처 잔액 차이로 계산한다.
 const TX_STORE='mp_tx';
+// 서버(tx-read)는 최근 45일만 준다 → 주기 시작 전날이 44일 안이어야 다시 받아 확정할 수 있다
+const txRecoverable=c=>Date.parse(dayBefore(c.start)+'T00:00:00+09:00')>=Date.now()-44*86400e3;
 let TX=(()=>{try{return JSON.parse(localStorage.getItem(TX_STORE)||'{}');}catch(e){return{};}})();
 TX.rows=TX.rows||[];
 // 포맷터는 한 번만 만든다(매번 만들면 거래가 많을 때 매우 느림)
 const KST_DATE_FMT=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Seoul'});
 const KST_TIME_FMT=new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',hour:'2-digit',minute:'2-digit',hour12:false});
-const txDate=at=>KST_DATE_FMT.format(new Date(at));
+const txDate=at=>ledgerDate(Date.parse(at)); // 가계부 날짜(새벽 6시 전 거래는 전날)
 const txTime=at=>KST_TIME_FMT.format(new Date(at));
+// 목록 표시: 가계부 날짜 + 시각. 새벽(6시 전) 거래는 실제 날짜를 같이 적어 헷갈리지 않게: '09-23 · 24일 새벽 03:00'
+const txWhen=at=>{const d=txDate(at),real=KST_DATE_FMT.format(new Date(at));return real===d?`${d.slice(5)} ${txTime(at)}`:`${d.slice(5)} · ${Number(real.slice(8))}일 새벽 ${txTime(at)}`;};
 const ownerNameList=()=>String(S.ownerNames||'').split(',').map(x=>x.trim()).filter(Boolean);
 // 거래마다 '내 계좌끼리 이동' 여부: 사용자가 직접 정한 값이 있으면 그걸, 없으면 자동 판정(짝+본인 이름)
 function txWithFlags(){return txDerived().flags;}
 // 거래 파생값을 한 번만 계산해 둔다: 거래 목록·내 이름·사용자 지정이 바뀔 때만 다시 계산
 let txMemo=null;
+// KB Pay 승인 알림(힌트)의 실제 가게 이름을 국민은행 카드 출금과 짝짓기: 같은 금액, 시각 차 3분 이내, 1:1.
+// 이체는 후보에서 뺀다. 같은 금액이 여러 번이면 시간 순서대로(앞 힌트 ↔ 앞 출금).
+function matchCardHints(rows){
+  const m=new Map(),used=new Set();
+  const outs=rows.filter(r=>r.type==='out'&&r.bank==='kb'&&!r.transfer&&!r.transferGuess&&(!r.method||/카드/.test(r.method)))
+    .sort((a,b)=>Date.parse(a.at)-Date.parse(b.at));
+  [...(TX.hints||[])].sort((a,b)=>Date.parse(a.at)-Date.parse(b.at)).forEach(h=>{
+    const ht=Date.parse(h.at);
+    const r=outs.find(r=>!used.has(r.id)&&r.amount===h.amount&&Math.abs(Date.parse(r.at)-ht)<=3*60e3);
+    if(r){used.add(r.id);m.set(r.id,String(h.merchant||'').slice(0,60));}
+  });
+  return m;
+}
 function txDerived(){
   const ov=JSON.stringify(S.txOverrides||{}),own=S.ownerNames||'';
-  if(txMemo&&txMemo.rows===TX.rows&&txMemo.ov===ov&&txMemo.own===own)return txMemo;
+  if(txMemo&&txMemo.rows===TX.rows&&txMemo.hints===TX.hints&&txMemo.ov===ov&&txMemo.own===own)return txMemo;
   const marked=(window.TxParse&&window.TxParse.markTransfers)?window.TxParse.markTransfers(TX.rows,ownerNameList()):TX.rows.map(r=>({...r,transfer:false,transferGuess:false}));
   const overrides=S.txOverrides||{};
-  const flags=marked.map(r=>{const o=overrides[r.id];return{...r,date:txDate(r.at),isTransfer:o&&typeof o.transfer==='boolean'?o.transfer:!!r.transfer};});
+  // 저축: 본인 이름으로 나갔는데 국민·카카오로 들어온 짝이 없는 돈(토스증권·신한 등 내 다른 계좌). 사용자가 직접 지정하면 그 값.
+  const hintOf=matchCardHints(marked);
+  const flags=marked.map(r=>{const o=overrides[r.id],set=o&&typeof o.transfer==='boolean';return{...r,merchant:hintOf.get(r.id)||r.counterparty,date:txDate(r.at),isTransfer:set?o.transfer:!!r.transfer,savings:!set&&!r.transfer&&!!r.transferGuess&&r.type==='out'};});
   const byDate=new Map();flags.forEach(r=>{if(!byDate.has(r.date))byDate.set(r.date,[]);byDate.get(r.date).push(r);});
   const perBank={},gaps=[];
   ACCOUNTS.forEach(a=>{
     const all=flags.filter(r=>r.bank===a.id).sort((x,y)=>Date.parse(x.at)-Date.parse(y.at)||x.id-y.id);
-    perBank[a.id]=all.filter(r=>r.balance!=null);
-    // 잔액 없는 거래는 예상 잔액에만 반영하고, 다음 잔액 있는 거래에서 비교(같은 돈을 누락으로 다시 세지 않게)
+    // 잔액 없는 거래는 예상 잔액에만 반영하고, 다음 잔액 있는 거래에서 비교(같은 돈을 누락으로 다시 세지 않게).
+    // perBank: 거래 후 잔액(알림에 없으면 마지막 확인 잔액 ± 이후 거래로 추정, estimated 표시). 확인 잔액이 한 번도 없으면 제외.
+    perBank[a.id]=[];
     let expected=null;
     all.forEach(r=>{
       const signed=r.type==='in'?r.amount:-r.amount;
-      if(r.balance==null){if(expected!=null)expected+=signed;return;}
+      if(r.balance==null){if(expected!=null){expected+=signed;perBank[a.id].push({...r,balance:expected,estimated:true});}return;}
+      perBank[a.id].push(r);
       if(expected!=null&&expected+signed!==r.balance)gaps.push({bank:a.id,date:r.date,afterId:r.id,amount:expected+signed-r.balance});
       expected=r.balance;
     });
   });
   const missingByDate=new Map();gaps.forEach(g=>{if(g.amount>0)missingByDate.set(g.date,(missingByDate.get(g.date)||0)+g.amount);});
-  txMemo={rows:TX.rows,ov,own,flags,byDate,perBank,gaps,missingByDate};
+  txMemo={rows:TX.rows,hints:TX.hints,ov,own,flags,byDate,perBank,gaps,missingByDate};
   return txMemo;
 }
 const txMode=d=>!!S.txSince&&d>=S.txSince;
-// KST 기준 '날짜 시각' 비교용 값(분 단위)
-const txKstKey=at=>txDate(at)+' '+String(Math.floor(((Date.parse(at)/60000)+540)%1440)).padStart(4,'0');
-const capKey=c=>c.date+' '+String(timeToMinutes(c.time)).padStart(4,'0');
+// 가계부 기준 '날짜 시각' 비교용 값(분 단위, 하루 시작 새벽 6시부터)
+
 // 그날 0시 직전 총잔액: 계좌마다 그 전 마지막 거래 잔액과 마지막 캡처 중 더 늦은 것
+// 한 계좌라도 그 전 잔액을 알 수 없으면 null(모르는 잔액을 0원으로 치지 않는다)
 function balanceBefore(d){
   const perBank=txDerived().perBank;
-  return ACCOUNTS.reduce((sum,a)=>{
+  let sum=0;
+  for(const a of ACCOUNTS){
     const rs=perBank[a.id];let lastTx=null;
     for(let i=rs.length-1;i>=0;i--){if(rs[i].date<d){lastTx=rs[i];break;}}
-    const cap=(S.captures||[]).filter(c=>c.date<d&&c.balances&&c.balances[a.id]!=null).sort((x,y)=>capKey(y).localeCompare(capKey(x)))[0];
-    if(lastTx&&(!cap||txKstKey(lastTx.at)>=capKey(cap)))return sum+lastTx.balance;
-    return sum+((cap&&cap.balances[a.id])||0);
-  },0);
+    const cap=(S.captures||[]).filter(c=>capMs(c)<ledgerStartMs(d)&&c.balances&&c.balances[a.id]!=null).sort((x,y)=>capMs(y)-capMs(x))[0];
+    if(lastTx&&(!cap||Date.parse(lastTx.at)>=capMs(cap)))sum+=lastTx.balance;
+    else if(cap)sum+=cap.balances[a.id];
+    else return null;
+  }
+  return sum;
 }
 // 알림 누락 감지: 같은 계좌의 앞 거래 잔액 ± 이번 금액이 이번 잔액과 다르면 그 사이 거래가 빠진 것.
 // 빠진 돈이 나간 쪽(+)이면 그날 지출로 센다(비관적으로), 들어온 쪽(−)이면 표시만.
@@ -997,21 +1007,47 @@ function txGaps(){return txDerived().gaps;}
 const isRefund=r=>r.type==='in'&&/취소|환불/.test(String(r.method||'')+String(r.counterparty||''));
 // 그날 빠져나간 고정'지출' 중 같은 금액의 실제 출금과 짝지어지는 것만(고정입금은 제외: 알림 기간엔 입금이 지출 계산에 안 들어감).
 // 납부 표시만 있고 출금 알림이 없는 고정비는 차감하지 않는다(일반 지출이 사라지지 않게).
+// 새벽(6시 전) 자동이체: 가계부상 전날 거래지만 납부 표시는 실제 날짜로 했을 수 있다.
+// 납부일 P인 고정지출은 ① P-1일의 새벽 출금(실제 P일 0~6시)을 먼저, 없으면 ② P일 출금과 짝짓는다.
+// 과거·당일 거래만 보므로 나중에 들어온 거래가 이미 마감된 날의 결과를 바꾸지 않는다. 한 출금·한 고정지출은 한 번만.
+const isEarlyOf=(r,d)=>KST_DATE_FMT.format(new Date(r.at))===dayAfter(d); // 가계부 d일의 새벽(실제 d+1일) 거래
 function fixedMatchedOn(d,outs){
-  const pool=outs.map(r=>r.amount);let sum=0;
-  [...(S.fixed||[]).filter(f=>f.paid),...(S.fixedPaidLog||[])].filter(f=>f.type!=='income'&&f.paidDate===d&&f.affectsBalance!==false).forEach(f=>{
-    const i=pool.indexOf(f.amount||0);if(i>=0){sum+=pool[i];pool.splice(i,1);}
+  const paidFixed=[...(S.fixed||[]).filter(f=>f.paid),...(S.fixedPaidLog||[])].filter(f=>f.type!=='income'&&f.affectsBalance!==false&&f.txId==null); // 거래가 연결된 건 txDailySpent에서 처리
+  const pool=outs.map(r=>({a:r.amount,early:isEarlyOf(r,d)}));let sum=0;
+  const take=(f,cond)=>{const i=pool.findIndex(p=>cond(p)&&p.a===(f.amount||0));if(i<0)return false;sum+=pool[i].a;pool.splice(i,1);return true;};
+  // ① 다음 날 납부로 표시된 것 ↔ 오늘의 새벽 출금
+  paidFixed.filter(f=>f.paidDate===dayAfter(d)).forEach(f=>take(f,p=>p.early));
+  // ② 오늘 납부로 표시된 것: 어제 새벽 출금과 이미 짝지어졌으면 건너뜀(어제 계산과 같은 순서로 재현)
+  const prev=dayBefore(d);
+  const prevEarly=(txDerived().byDate.get(prev)||[]).filter(r=>r.type==='out'&&!r.isTransfer&&isEarlyOf(r,prev)).map(r=>r.amount);
+  paidFixed.filter(f=>f.paidDate===d).forEach(f=>{
+    const j=prevEarly.indexOf(f.amount||0);if(j>=0){prevEarly.splice(j,1);return;}
+    take(f,()=>true);
   });
   return sum;
+}
+// 고정지출에 자동 연결된 거래: 거래 id → 예정 금액(예정액은 주기 시작 때 이미 예산에서 빠져 있음)
+function fixedLinks(){
+  const m=new Map();
+  [...(S.fixed||[]),...(S.fixedPaidLog||[])].forEach(f=>{if(f.txId!=null&&f.type!=='income')m.set(f.txId,f.amount||0);});
+  return m;
+}
+// 저축 합계(가계부 날짜 from~to). 고정지출로 연결된 저축(예: 신한 2만 원)은 고정지출로만 센다.
+function cycleSavings(from=S.budgetStart,to=toStr()){
+  if(!from||!S.txSince)return 0;
+  const linked=fixedLinks();
+  return txWithFlags().filter(r=>r.savings&&!linked.has(r.id)&&r.date>=from&&r.date<=to).reduce((a,r)=>a+r.amount,0);
 }
 function txDailySpent(d){
   const m=txDerived();
   const rows=m.byDate.get(d)||[];
-  const outs=rows.filter(r=>r.type==='out'&&!r.isTransfer);
+  const linked=fixedLinks();
+  const outs=rows.filter(r=>r.type==='out'&&!r.isTransfer&&!r.savings&&!linked.has(r.id));
   const out=outs.reduce((a,r)=>a+r.amount,0);
+  const linkedDiff=rows.filter(r=>r.type==='out'&&linked.has(r.id)).reduce((a,r)=>a+(r.amount-linked.get(r.id)),0);
   const refunds=rows.filter(r=>isRefund(r)&&!r.isTransfer).reduce((a,r)=>a+r.amount,0);
   const missing=m.missingByDate.get(d)||0;
-  const spent=out+missing-fixedMatchedOn(d,outs)-refunds;
+  const spent=out+missing-fixedMatchedOn(d,outs)-refunds+linkedDiff;
   return{spent,missing,todayDate:d,prevTotal:balanceBefore(d),todayTotal:null,source:'tx'};
 }
 // 받은 거래로 상태 갱신: 시작일(txSince)과 계좌별 최신 잔액.
@@ -1019,18 +1055,25 @@ function txDailySpent(d){
 function applyTxToState(coveredFromMs){
   let changed=false;
   if(!S.txSince){
-    // 두 계좌 모두 알림이 한 번 이상 온 뒤, 늦게 시작한 계좌의 다음 날부터(그날은 알림 전 거래가 빠져 있을 수 있음)
-    const firsts=ACCOUNTS.map(a=>TX.rows.filter(r=>r.bank===a.id).map(r=>txDate(r.at)).sort()[0]);
-    if(firsts.every(Boolean)){S.txSince=dayAfter(firsts.sort().pop());changed=true;}
+    // 첫 알림이 온 다음 날부터 알림으로 집계(그날은 알림 전 거래가 빠져 있을 수 있음).
+    // 캡처가 없어져서 두 은행을 모두 기다리면 그동안 아무것도 안 잡힌다 → 먼저 온 은행 기준, 아직 안 온 은행은 벨·잔액 카드로 안내.
+    const firsts=ACCOUNTS.map(a=>TX.rows.filter(r=>r.bank===a.id).map(r=>txDate(r.at)).sort()[0]).filter(Boolean);
+    if(firsts.length){S.txSince=dayAfter(firsts.sort()[0]);changed=true;}
   }
   S.balanceAt={...(S.balanceAt||{})};S.balanceTxId={...(S.balanceTxId||{})};
+  S.balanceEst={...(S.balanceEst||{})};
+  const pb=txDerived().perBank;
   ACCOUNTS.forEach(a=>{
-    const last=TX.rows.filter(r=>r.bank===a.id&&r.balance!=null).sort((x,y)=>Date.parse(y.at)-Date.parse(x.at)||y.id-x.id)[0];
+    // 마지막 거래 후 잔액(알림에 잔액이 없었으면 추정). 추정이면 표시에 '추정'을 붙인다.
+    const last=[...pb[a.id]].sort((x,y)=>Date.parse(y.at)-Date.parse(x.at)||y.id-x.id)[0];
     if(!last)return;
     const prevAt=S.balanceAt[a.id]?Date.parse(S.balanceAt[a.id]):-Infinity,lastAt=Date.parse(last.at);
     // 더 늦은 시각이거나, 같은 분이면 더 나중에 저장된 거래(id가 큰 것)가 최신. 캡처로 맞춘 뒤엔 balanceTxId가 비어 있음.
     const newer=lastAt>prevAt||(lastAt===prevAt&&S.balanceTxId[a.id]!=null&&last.id>S.balanceTxId[a.id]);
-    if(newer){
+    // 같은 마지막 거래라도 그 사이 빠졌던 거래가 늦게 들어오면 추정 잔액이 바뀐다 → 값·추정 표시를 다시 맞춘다
+    const same=S.balanceTxId[a.id]!=null&&S.balanceTxId[a.id]===last.id;
+    if(newer||same){
+      if(!!S.balanceEst[a.id]!==!!last.estimated){S.balanceEst[a.id]=!!last.estimated;changed=true;}
       if(S.balances[a.id]!==last.balance){S.balances={...S.balances,[a.id]:last.balance};changed=true;}
       if(S.balanceAt[a.id]!==last.at||S.balanceTxId[a.id]!==last.id){S.balanceAt[a.id]=last.at;S.balanceTxId[a.id]=last.id;changed=true;}
     }
@@ -1042,12 +1085,15 @@ function applyTxToState(coveredFromMs){
       c.spent=sumSpentInRange(c.start,c.end);delete c.incomplete;changed=true;
     }
   });
+  if(linkFixedTx())changed=true; // 마감 전 연결
+  if(syncSalaryCycle())changed=true;
+  if(linkFixedTx())changed=true;
   if(changed)save();
   render();
 }
 // 새 거래만 받는다(after=마지막 id−20으로 겹쳐 읽어 동시에 들어온 거래 누락 방지). 하루 한 번은 최근 7일 전체로 빈 곳을 채운다.
 // 실패하면 다시 시도하지 않고 다음에 앱을 열거나 화면으로 돌아올 때 받는다. (Supabase 월 5GB 한도)
-let txFetching=false;
+let txFetching=false,txRefetchPending=false; // 받는 중에 다시 받기 요청이 오면 끝난 뒤 한 번 더
 // 돌려주는 값: 주기를 마감해도 되는지(알림 미사용·방금 받음·받기 성공 → true, 진행 중·실패 → false)
 async function fetchTx(){
   if(!S.supabaseUrl||!S.txReadSecret)return true;
@@ -1062,14 +1108,14 @@ async function fetchTx(){
     const kstDay0=d=>Date.parse(d+'T00:00:00+09:00');
     const needFrom=[];
     if(!TX.rows.length&&S.budgetStart)needFrom.push(kstDay0(dayBefore(S.budgetStart)));
-    (S.cycles||[]).filter(c=>c.incomplete).forEach(c=>needFrom.push(kstDay0(dayBefore(c.start)))); // 불완전 주기 전부
+    (S.cycles||[]).filter(c=>c.incomplete&&txRecoverable(c)).forEach(c=>needFrom.push(kstDay0(dayBefore(c.start)))); // 다시 받을 수 있는 불완전 주기
     if(TX.lastFull&&Date.now()-TX.lastFull>7*86400e3)needFrom.push(TX.lastFull-86400e3);
     const backfill=needFrom.length>0;
     const sinceMs=Math.max(backfill?Math.min(...needFrom):Date.now()-7*86400e3,Date.now()-45*86400e3);
     const q=(full||backfill)?`since=${encodeURIComponent(new Date(sinceMs).toISOString())}`:`after=${Math.max(0,(TX.maxId||0)-3)}`;
     // 응답이 15초 안에 안 오면 끊는다(무한 대기로 주기 마감이 막히지 않게)
     const ctl=new AbortController();const to=setTimeout(()=>ctl.abort(),15000);
-    let res,rows=[],truncated=false;
+    let res,rows=[],truncated=false,appliedSince=NaN;
     try{
       // 한 번에 최대 500건 → 500건이 오면 마지막 id 뒤를 이어서(최대 20쪽) 읽는다. 본문 읽기까지 15초 안에.
       let after=null;
@@ -1077,13 +1123,14 @@ async function fetchTx(){
         const qq=after==null?q:(q.startsWith('since=')?`${q}&after=${after}`:`after=${after}`);
         res=await fetch(`${S.supabaseUrl}/functions/v1/tx-read?${qq}`,{headers:{'x-read-secret':S.txReadSecret},signal:ctl.signal});
         if(!res.ok)break;
+        if(page===0)appliedSince=Date.parse(res.headers.get('x-since-applied')||'');
         const part=await res.json();rows.push(...part);
         if(part.length<500)break;
         after=part[part.length-1].id;
         if(page===19)truncated=true; // 20쪽(1만 건)을 다 채웠으면 끝까지 못 받은 것
       }
     }finally{clearTimeout(to);}
-    if(!res.ok){TX.error=res.status===401?'읽기 키가 맞지 않아요':`오류 ${res.status}`;renderTx();return false;}
+    if(!res.ok){TX.error=res.status===401?'읽기 키가 맞지 않아요':`오류 ${res.status}`;saveTxCache();renderTx();renderBell();return false;}
     const byId=new Map(TX.rows.map(r=>[r.id,r]));rows.forEach(r=>byId.set(r.id,r));
     const cut=Date.now()-100*86400e3; // 이 기기엔 최근 100일만(캡처 보관 3개월보다 길게)
     TX.rows=[...byId.values()].filter(r=>Date.parse(r.at)>=cut).sort((a,b)=>a.id-b.id);
@@ -1093,12 +1140,168 @@ async function fetchTx(){
     TX.error=truncated?'거래가 너무 많아 일부만 받았어요':null;
     try{localStorage.setItem(TX_STORE,JSON.stringify(TX));}catch(e){}
     // 끝까지 받은 전체 범위(since)만 '확인된 범위'로 넘긴다 → 불완전 주기는 그 범위가 주기 시작을 덮을 때만 확정
-    applyTxToState(sinceRead?sinceMs:null);
+    // 서버가 알려준 실제 시작점이 있으면 그걸로(없으면 요청값과 45일 중 늦은 쪽)
+    applyTxToState(sinceRead?(Number.isFinite(appliedSince)?Math.max(appliedSince,sinceMs):sinceMs):null);
+    TX.lastOk=Date.now();
+    await fetchTxStatus();
+    renderBell();
     return !truncated;
-  }catch(e){TX.error='연결 안 됨';console.error('tx fetch',e);renderTx();return false;}
-  finally{txFetching=false;}
+  }catch(e){TX.error='연결 안 됨';console.error('tx fetch',e);saveTxCache();renderTx();renderBell();return false;}
+  finally{
+    txFetching=false;
+    if(txRefetchPending){txRefetchPending=false;TX.lastFetch=0;setTimeout(()=>refreshAndRoll(),0);}
+  }
+}
+const saveTxCache=()=>{try{localStorage.setItem(TX_STORE,JSON.stringify(TX));}catch(e){}};
+// 알림센터용 수집 상태(생존 신호·미해석·은행별 마지막 거래). 실패하면 이전 값을 두고 '확인 못 함'으로 표시.
+// KB Pay 가게 이름 힌트: 마지막으로 받은 id 뒤만(행당 수십 바이트). 실패해도 거래·상태엔 영향 없음.
+async function fetchCardHints(signal){
+  try{
+    const have=new Map((TX.hints||[]).map(h=>[h.id,h]));let after=TX.hintMax||0;
+    for(let page=0;page<5;page++){
+      const res=await fetch(`${S.supabaseUrl}/functions/v1/tx-read?hints=1&after=${after}`,{headers:{'x-read-secret':S.txReadSecret},signal});
+      if(!res.ok)break;
+      const part=await res.json();if(!Array.isArray(part))break;
+      part.forEach(h=>{if(h&&h.id!=null&&typeof h.merchant==='string')have.set(h.id,{id:h.id,at:h.at,amount:h.amount,merchant:h.merchant});});
+      if(part.length<500)break;after=part[part.length-1].id;
+    }
+    const cut=Date.now()-100*86400e3;
+    const next=[...have.values()].filter(h=>Date.parse(h.at)>=cut).sort((a,b)=>a.id-b.id);
+    const changed=next.length!==(TX.hints||[]).length||next.some((h,i)=>h.id!==TX.hints[i].id);
+    TX.hintMax=Math.max(TX.hintMax||0,...next.map(h=>h.id));
+    if(changed){TX.hints=next;renderTx();renderCatCard();}
+  }catch(e){}
+}
+async function fetchTxStatus(){
+  const ctl=new AbortController();const to=setTimeout(()=>ctl.abort(),10000);
+  try{
+    const res=await fetch(`${S.supabaseUrl}/functions/v1/tx-read?status=1`,{headers:{'x-read-secret':S.txReadSecret},signal:ctl.signal});
+    if(!res.ok)throw new Error('status '+res.status);
+    TX.status=await res.json();TX.statusAt=Date.now();TX.statusError=null;
+    await fetchCardHints(ctl.signal);
+  }catch(e){TX.statusError='상태 확인 실패';}
+  finally{clearTimeout(to);}
+  try{localStorage.setItem(TX_STORE,JSON.stringify(TX));}catch(e){}
 }
 const bankName=id=>(ACCOUNTS.find(a=>a.id===id)||{n:id}).n;
+// 계좌 잔액: 은행 알림(거래 후 잔액)으로만 갱신. 언제 알림 기준인지 같이 보여준다(오래된 값을 '현재'처럼 보이지 않게).
+const fromTx=id=>!!(S.balanceTxId&&S.balanceTxId[id]!=null&&S.balanceAt&&S.balanceAt[id]);
+function balWhen(id){return fromTx(id)?txWhen(S.balanceAt[id]):null;}
+function renderBalTile(){
+  const el=document.getElementById('balTotal'),sub=document.getElementById('balSub');if(!el)return;
+  const known=ACCOUNTS.filter(a=>fromTx(a.id));
+  const waiting=ACCOUNTS.filter(a=>!fromTx(a.id)).map(a=>a.n);
+  // 모든 계좌 잔액을 알 때만 합계. 가장 오래된 계좌 기준으로 '언제 값인지' 표시, 추정이 섞였으면 표시.
+  el.textContent=waiting.length?'—':won(ACCOUNTS.reduce((s,a)=>s+(S.balances[a.id]||0),0));
+  const oldest=known.length?Math.min(...known.map(a=>Date.parse(S.balanceAt[a.id]))):0;
+  const est=known.some(a=>S.balanceEst&&S.balanceEst[a.id]);
+  sub.textContent=waiting.length?`${waiting.join('·')} 대기`:(est?'일부 추정':'');
+}
+function renderAccBal(){
+  const el=document.getElementById('accBal');if(!el)return;
+  el.innerHTML=ACCOUNTS.map(a=>{
+    const w=balWhen(a.id);
+    return `<div class="acc2"><div style="width:8px;height:8px;border-radius:50%;background:${a.c};flex:none"></div><div class="acc2-n">${a.n}<div class="acc2-s">${w?w+(S.balanceEst&&S.balanceEst[a.id]?' · 추정':''):'대기'}</div></div><div class="acc2-v num">${w?won(S.balances[a.id]||0):'—'}</div></div>`;
+  }).join('');
+}
+
+// ── 알림센터(벨) ──
+// 텔레그램·서버 크론 없이, 앱을 열거나 새로고침할 때 이 기기에서 계산한다(서버 호출은 거래 받기 때 상태 한 번뿐).
+// 앱을 열지 않으면 알 수 없으므로 '마지막으로 확인한 시각'을 함께 보여준다.
+// 확인 표시는 이 기기에만 저장(기기 간 덮어쓰기 충돌 없음). 알림 id에 발생 시각을 넣어 같은 문제가 다시 생기면 새 알림이 된다.
+const NOTICE_SEEN_KEY='mp_notice_seen';
+let noticeSeen=(()=>{try{return JSON.parse(localStorage.getItem(NOTICE_SEEN_KEY)||'[]');}catch(e){return[];}})();
+const HOUR_MS=3600e3;
+const agoText=ms=>{const h=Math.floor((Date.now()-ms)/HOUR_MS);return h<1?'방금':h<48?`${h}시간 전`:`${Math.floor(h/24)}일 전`;};
+// 계속되는 장애(동기화·거래 받기·상태 확인)는 '정상→장애'로 바뀐 순간을 사건 시작으로 기억한다.
+// 장애가 이어지는 동안은 같은 알림(날짜가 바뀌어도), 복구 뒤 다시 나면 새 알림.
+const INCIDENT_KEY='mp_incidents';
+let incidents=(()=>{try{return JSON.parse(localStorage.getItem(INCIDENT_KEY)||'{}');}catch(e){return{};}})();
+function incidentStart(key,active,resolved){
+  const was=incidents[key]||null;let now=was;
+  if(active&&!was)now=Date.now();
+  else if(resolved&&was&&!active)now=null;
+  if(now!==was){if(now)incidents[key]=now;else delete incidents[key];try{localStorage.setItem(INCIDENT_KEY,JSON.stringify(incidents));}catch(e){}}
+  return now;
+}
+function computeNotices(){
+  // 설명은 첫 문장만(부가 문구 없이, 2026-09-26 사용자)
+  const out=[];const add=(id,level,title,body,tab,acts)=>out.push({id,level,title,body:String(body||'').split(/(?<=[요다]). /)[0].replace(/.$/,''),tab,acts});
+  // 월급·주기
+  salaryCandidates().filter(c=>c.ambiguous&&(!S.salaryMonth||c.month>=S.salaryMonth)).forEach(c=>add('salpick-'+c.month,'warn','어느 입금이 월급이에요?',
+    `${c.month.replace('-','년 ')}월 월급 후보가 ${c.ambiguous.length}건이에요(200만 원 이상). 월급을 골라 주세요.`,null,
+    c.ambiguous.map(p=>({t:`${p.date.slice(5).replace('-','/')} ${won(p.amount)}`,js:`pickSalary('${c.month}',${Number(p.id)})`}))));
+  if(S.salaryNotice&&S.salaryUndo){const r=txWithFlags().find(x=>x.id===S.salaryNotice);
+    if(r)add('salnew-'+r.id,'info',`${r.date.slice(5).replace('-','/')} 월급으로 새 주기를 시작했어요`,`${escapeHtml(r.counterparty||'')} ${won(r.amount)} · ${S.budgetStart.slice(5).replace('-','/')}~${S.budgetEnd.slice(5).replace('-','/')}(예상)${S.carry?' · 지난 주기 '+(S.carry<0?'적자 ':'남은 돈 ')+won(S.carry)+' 이월':''}`,null,[{t:'월급 아님',js:'undoSalary()'}]);}
+  if(S.budgetEnd&&toStr()>S.budgetEnd&&S.txSince)add('sallate-'+S.budgetEnd,'info','월급이 아직 안 들어왔어요',`예상 월급일(${dayAfter(S.budgetEnd).slice(5).replace('-','/')})이 지났어요. 들어오면 새 주기가 시작되고, 그때까지 남은 날은 1일로 계산해요.`,'home');
+  if(S.budgetEnd&&window.Payday&&!Payday.holidayKnown(dayAfter(S.budgetEnd)))add('holi-'+S.budgetEnd.slice(0,4),'info','공휴일 자료가 없는 해예요','예상 종료일은 주말만 반영한 추정이에요. 앱을 업데이트하면 반영돼요.','home');
+  fixedCandidates().forEach(({f,r})=>add(`fxc-${f.id}-${r.id}`,'info',`고정지출 '${escapeHtml(f.name)}' 출금 맞아요?`,`${r.date.slice(5).replace('-','/')} ${escapeHtml(r.counterparty||'')} ${won(r.amount)} — 금액이 같아요. 맞으면 자동 체크하고, 다음부터 알림 이름을 고정지출에 적어 두면 바로 체크돼요.`,'fixed',
+    [{t:'맞아요',js:`confirmFixed('${f.id}',${Number(r.id)},true)`},{t:'아니에요',js:`confirmFixed('${f.id}',${Number(r.id)},false)`}]));
+  const bk=listBackups().find(b=>!b.k.includes('prerestore_'));
+  if(bk&&Date.now()-bk.t<7*86400e3)add('bk-'+bk.t,'info','동기화가 겹쳐 백업해 뒀어요','',null,[{t:'되돌리기',js:'restoreLatestBackup()'}]);
+  const syncErr=incidentStart('sync',lastSyncStatus==='error',lastSyncStatus==='saved');
+  if(syncErr)add('sync-'+syncErr,'warn','동기화 실패',`${agoText(syncErr)}부터 이 기기 변경이 클라우드에 저장되지 않았어요. 연결을 확인하고 앱을 다시 열어 주세요. 계속되면 설정에서 클라우드 불러오기로 정리해요.`,'settings');
+  (S.cycles||[]).filter(c=>c.incomplete).forEach(c=>add('cyc-'+c.start,'info','지난 예산 주기 결산이 임시값이에요',txRecoverable(c)?`${c.start.slice(5)}~${c.end.slice(5)} 주기는 거래를 다 받지 못했거나 고정지출 납부 표시가 바뀌었어요. 거래를 다시 받으면 자동으로 계산돼요.`:`${c.start.slice(5)}~${c.end.slice(5)} 주기는 서버 보관 기간(45일)이 지나 다시 계산할 수 없어요. 기존 결산을 그대로 둬요.`,'home'));
+  const useTx=!!S.txReadSecret;
+  // 거래 받기: 오류가 보이면 시작, 받기 성공(오류 없음)이면 해제. 상태 조회: 상태 조회가 성공해야 해제(거래 받기 실패로는 해제 안 함)
+  const txErr=incidentStart('tx',useTx&&!!TX.error,!TX.error&&(TX.lastOk||0)>(incidents.tx||0));
+  const stErr=incidentStart('status',useTx&&!!TX.statusError,!TX.statusError&&(TX.statusAt||0)>(incidents.status||0));
+  if(!useTx)return out; // 입출금 알림을 안 쓰면 여기까지
+  if(txErr)add('txerr-'+txErr,'warn','거래를 받지 못했어요',`${TX.error||'연결 확인 중'}. 마지막 성공: ${TX.lastOk?agoText(TX.lastOk):'없음'}. 그동안의 지출은 반영되지 않았을 수 있어요.`,'capture');
+  // 한 은행만 알림이 오고 있으면: 다른 은행 지출은 아직 안 잡힌다
+  if(TX.rows.length){const none=ACCOUNTS.filter(a=>!TX.rows.some(r=>r.bank===a.id));
+    none.forEach(a=>add('wait-'+a.id,'info',`${a.n} 지출은 아직 집계되지 않아요`,`${a.n} 알림을 한 번도 받지 못했어요. 첫 알림이 오면 그때부터 자동으로 잡혀요(MacroDroid 매크로·은행 앱 알림 확인).`,'capture'));}
+  // 로컬에 받아 둔 거래로 계산하는 알림(상태 조회와 무관)
+  const since=S.budgetStart||toStr();
+  const rows=txWithFlags().filter(r=>txDate(r.at)>=since);
+  const review=rows.filter(r=>r.needs_review);
+  if(review.length)add('rev-'+review[review.length-1].id,'info',`확인이 필요한 거래 ${review.length}건`,'알림 내용이 애매해서 금액·방향을 확인해야 하는 거래가 있어요.','capture');
+  // 서버 수집 상태(마지막으로 확인한 시점 기준으로 판정)
+  if(stErr)add('sterr-'+stErr,'warn','자동화 상태를 확인하지 못했어요',`폰 자동화 상태를 못 읽었어요. 마지막 확인: ${TX.statusAt?agoText(TX.statusAt):'없음'}. 아래 상태 알림은 그 시점 기준이에요.`,'capture');
+  const st=TX.status;
+  if(!st||!TX.statusAt){if(!stErr&&!txErr)add('st-none','info','자동화 상태를 아직 확인하지 못했어요','거래를 한 번 받으면 폰 자동화 상태가 표시돼요.','capture');return out;}
+  const asOf=TX.statusAt;
+  if(!st.heartbeatAt)add('hb-none','info','폰 자동화 생존 신호가 설정되지 않았어요','MacroDroid에 하루 한 번 생존 신호 매크로를 추가하면, 폰 쪽 자동화가 멈췄을 때 여기서 알려줘요(설정 가이드 참고).','settings');
+  else{
+    const hb=Date.parse(st.heartbeatAt);
+    if(asOf-hb>30*HOUR_MS)add('hb-'+st.heartbeatAt,'warn','폰 자동화가 멈춘 것 같아요',`마지막 생존 신호가 ${agoText(hb)}에 왔어요. MacroDroid 실행·알림 접근 권한·배터리 최적화를 확인해 주세요. 그동안 거래 알림이 빠졌을 수 있어요.`,'capture');
+  }
+  if(st.unparsed&&st.unparsed.count>0)add('unp-'+st.unparsed.newest,'warn',`해석하지 못한 은행 알림 ${st.unparsed.count}건`,`최근 45일 동안 은행 알림 형식을 읽지 못한 게 있어요(마지막 ${agoText(Date.parse(st.unparsed.newest))}). 이 거래들은 지출에 빠졌을 수 있어 해석기 수정이 필요해요.`,'capture');
+  const lastTx=st.lastTx||{};
+  const anyCollected=!!st.heartbeatAt||ACCOUNTS.some(a=>lastTx[a.id]);
+  ACCOUNTS.forEach(a=>{
+    const at=lastTx[a.id];
+    if(at&&asOf-Date.parse(at)>14*24*HOUR_MS)add(`quiet-${a.id}-${at}`,'info',`${a.n} 알림이 14일 넘게 없어요`,'거래가 없었다면 괜찮아요. 아니라면 은행 앱 알림 설정을 확인해 주세요.','capture');
+    // 자동화는 돌고 있는데 이 은행 알림은 한 번도 안 왔으면(처음부터 설정이 빠졌을 수 있음)
+    if(!at&&anyCollected&&!out.some(n=>n.id==='wait-'+a.id))add(`never-${a.id}`,'info',`${a.n} 알림을 아직 한 번도 받지 못했어요`,`MacroDroid에 ${a.n} 매크로가 있는지, 은행 앱 알림이 켜져 있는지 확인해 주세요(설정 가이드 참고).`,'settings');
+  });
+  return out;
+}
+function renderBell(){
+  const list=computeNotices();
+  const unseen=list.filter(n=>!noticeSeen.includes(n.id));
+  document.querySelectorAll('[data-bell]').forEach(b=>{
+    let d=b.querySelector('.bell-dot');
+    if(!unseen.length){if(d)d.remove();b.setAttribute('aria-label','알림');return;}
+    if(!d){d=document.createElement('span');d.className='bell-dot';b.appendChild(d);}
+    d.classList.toggle('warn',unseen.some(n=>n.level==='warn'));
+    b.setAttribute('aria-label',`알림 ${unseen.length}건`);
+  });
+  return list;
+}
+function openNotices(){
+  const list=renderBell();
+  const el=document.getElementById('noticeList');
+  el.innerHTML=list.length?list.map(n=>`<div class="nt-item ${n.level}${noticeSeen.includes(n.id)?' seen':''}"><span class="nt-mark"></span><div><div class="nt-t">${escapeHtml(n.title)}</div><div class="nt-b">${escapeHtml(n.body)}</div>${(n.acts||[]).map(a=>`<button class="nt-go" style="margin-right:12px" onclick="closeNotices();${a.js}">${escapeHtml(a.t)}</button>`).join('')}${n.tab?`<button class="nt-go" onclick="closeNotices();showTab('${n.tab}')">보러 가기</button>`:''}</div></div>`).join(''):'<div class="nt-empty">확인할 알림이 없어요</div>';
+  const checked=S.txReadSecret?(TX.statusAt?`자동화 상태 확인: ${agoText(TX.statusAt)}${TX.statusError?' (최근 확인 실패)':''}`:'자동화 상태 확인 전'):'';
+  document.getElementById('noticeFoot').textContent='';void checked;
+  document.getElementById('noticeModal').classList.remove('hidden');
+  // 열어서 본 것은 확인 처리(지금 목록에 없는 오래된 id는 정리)
+  const ids=new Set(list.map(n=>n.id));
+  noticeSeen=[...new Set([...noticeSeen.filter(id=>ids.has(id)),...list.map(n=>n.id)])];
+  try{localStorage.setItem(NOTICE_SEEN_KEY,JSON.stringify(noticeSeen));}catch(e){}
+}
+function closeNotices(){document.getElementById('noticeModal').classList.add('hidden');renderBell();}
 function renderTx(){
   const el=document.getElementById('txList'),st=document.getElementById('txStatus');
   if(!el||!st)return;
@@ -1107,21 +1310,96 @@ function renderTx(){
   const last=rows[rows.length-1];
   const gaps=txGaps();const gapByAfter=new Map(gaps.map(g=>[g.afterId,g.amount]));
   const waiting=ACCOUNTS.filter(a=>!rows.some(r=>r.bank===a.id)).map(a=>a.n);
-  st.textContent=(TX.error?`불러오기 실패: ${TX.error} · `:'')+(last?`마지막 거래 ${txDate(last.at).slice(5)} ${txTime(last.at)} · 이 기기에 ${rows.length}건`:'아직 받은 거래가 없어요')+(S.txSince?` · ${S.txSince.slice(5)}부터 지출 자동 계산`:(waiting.length?` · ${waiting.join('·')} 알림을 기다리는 중`:''))+(gaps.some(g=>g.amount>0)?' · 누락 의심 거래는 지출로 셌어요':'');
+  st.textContent=TX.error?`불러오기 실패: ${TX.error}`:'';
   el.innerHTML=rows.slice(-30).reverse().map(r=>{
     const a=ACCOUNTS.find(x=>x.id===r.bank)||{c:'#ccc'};
     const gap=gapByAfter.get(r.id);
-    const tags=(r.isTransfer?'<span class="tx-tag">내 계좌 이동</span>':'')+(!r.isTransfer&&r.transferGuess?'<span class="tx-tag warn">이동?</span>':'')+(r.needs_review?'<span class="tx-tag warn">확인 필요</span>':'')+(isRefund(r)?'<span class="tx-tag">환불</span>':'')
+    const tags=(r.isTransfer?'<span class="tx-tag">내 계좌 이동</span>':'')+(r.savings?'<span class="tx-tag">저축</span>':'')+(r.type==='out'&&!r.isTransfer&&!r.savings?`<span class="tx-tag">${txCategory(r)}</span>`:'')+(salaryIds().has(r.id)?'<span class="tx-tag">월급</span>':'')+(r.needs_review?'<span class="tx-tag warn">확인 필요</span>':'')+(isRefund(r)?'<span class="tx-tag">환불</span>':'')
       +(gap?`<span class="tx-tag warn">앞에 ${gap>0?'출금':'입금'} ${won(Math.abs(gap))} 누락?</span>`:'');
-    return `<div class="tx-row" onclick="toggleTxTransfer(${Number(r.id)})"><div style="width:7px;height:7px;border-radius:50%;background:${a.c};flex:none"></div><div class="tx-main"><div class="tx-cp">${escapeHtml(r.counterparty||r.method||'')}</div><div class="tx-sub">${txDate(r.at).slice(5)} ${txTime(r.at)} · ${bankName(r.bank)}${tags}</div></div><div class="tx-amt ${r.type==='in'?'in':''}">${r.type==='in'?'+':'−'}${won(r.amount)}</div></div>`;
+    return `<div class="tx-row" onclick="openTxSheet(${Number(r.id)})"><div style="width:7px;height:7px;border-radius:50%;background:${a.c};flex:none"></div><div class="tx-main"><div class="tx-cp">${escapeHtml(r.merchant||r.counterparty||r.method||'')}</div><div class="tx-sub">${txWhen(r.at)} · ${bankName(r.bank)}${tags}</div></div><div class="tx-amt ${r.type==='in'?'in':''}">${r.type==='in'?'+':'−'}${won(r.amount)}</div></div>`;
   }).join('');
 }
 // 거래를 눌러 '내 계좌끼리 이동'인지 직접 정한다(지출 계산에 반영, 다른 기기에도 동기화)
 function toggleTxTransfer(id){
   const r=txWithFlags().find(x=>x.id===id);if(!r)return;
-  const next=!r.isTransfer;
-  if(!confirm(next?`${r.counterparty||''} ${won(r.amount)}\n내 계좌끼리 옮긴 돈으로 볼까요? (지출에서 빠져요)`:`${r.counterparty||''} ${won(r.amount)}\n지출·입금으로 다시 셀까요?`))return;
-  S.txOverrides={...(S.txOverrides||{}),[id]:{transfer:next}};
+  S.txOverrides={...(S.txOverrides||{}),[id]:{transfer:!r.isTransfer}};
+  save();render();
+}
+// ═══ 카테고리(2026-09-26): 가맹점 이름 규칙(category.js) → 사용자가 정한 가게(S.catMap) → 이 거래만(S.txCat) 순으로 우선 ═══
+const CAT_COLORS={식비:'#4F46E5',카페:'#8B6CF6',편의점:'#14B8A6',쇼핑:'#F59E0B',병원:'#EF6A7B',배달:'#38BDF8',피시방:'#64748B',기타:'#CBD5E1'};
+const ownCat=(o,k)=>o&&Object.prototype.hasOwnProperty.call(o,k)&&Category.CATS.includes(o[k])?o[k]:null; // 상속 속성·엉뚱한 값 무시
+function txCategory(r){
+  const t=ownCat(S.txCat,r.id);if(t)return t;
+  // 환불은 원래 구매(같은 가게·같은 금액, 먼저 나간 출금)와 같은 카테고리
+  if(r.type==='in'&&isRefund(r)){const o=txWithFlags().filter(x=>x.type==='out'&&(x.counterparty===r.counterparty||x.merchant===r.counterparty)&&x.amount===r.amount&&x.id<r.id).pop();if(o)return txCategory(o);}
+  const name=r.merchant||r.counterparty;
+  const key=Category.key(name);const m=key&&ownCat(S.catMap,key);if(m)return m;
+  return Category.categorize(name);
+}
+// 이번 월급 주기 카테고리별 지출. 저축·내 계좌 이동·고정지출 연결 출금은 빼고, 환불은 그 가게 카테고리에서 뺀다.
+// 합계가 이번 달 막대(totSpent: 누락 의심·고정비 차이 포함)와 같도록 차이는 '기타'에 둔다.
+function cycleCategoryTotals(){
+  const out=Object.fromEntries(Category.CATS.map(c=>[c,0]));
+  if(!S.budgetStart||!S.txSince)return{out,total:0};
+  const today=toStr(),linked=fixedLinks();
+  txWithFlags().forEach(r=>{
+    if(r.date<S.budgetStart||r.date>today||r.date<S.txSince||r.isTransfer||r.savings||linked.has(r.id))return;
+    if(r.type==='out')out[txCategory(r)]+=r.amount;
+    else if(isRefund(r))out[txCategory(r)]-=r.amount;
+  });
+  // 합계는 항상 이번 달 막대(totSpent)와 같다. 환불이 더 커서 음수인 카테고리는 0으로 보이고, 나머지 차이는 기타.
+  const total=Math.max(0,totSpent());
+  const named=Category.CATS.filter(c=>c!=='기타').reduce((a,c)=>a+out[c],0);
+  out['기타']+=total-named-out['기타'];
+  Category.CATS.forEach(c=>{if(out[c]<0)out[c]=0;});
+  return{out,total};
+}
+let catSel=null;
+function renderCatCard(){
+  const el=document.getElementById('catCard');if(!el)return;
+  const{out,total}=cycleCategoryTotals();
+  const m=S.budgetStart?Number(S.budgetStart.slice(5,7)):Number(toStr().slice(5,7));
+  const list=Category.CATS.map(c=>({c,v:out[c]})).filter(x=>x.v>0).sort((a,b)=>b.v-a.v);
+  if(!list.length){el.innerHTML=`<div class="cat-hd"><span class="t">${m}월 지출</span><span class="v num">0원</span></div><div class="cat-empty">아직 지출이 없어요</div>`;return;}
+  if(catSel&&!list.some(x=>x.c===catSel))catSel=null;
+  const R=52,C=2*Math.PI*R;let acc=0;const pos=list.reduce((a,x)=>a+x.v,0)||1;
+  const arcs=list.map(x=>{const len=C*x.v/pos;const a=`<circle cx="66" cy="66" r="${R}" fill="none" stroke="${CAT_COLORS[x.c]}" stroke-width="${catSel===x.c?22:18}" stroke-dasharray="${Math.max(0,len-1.5)} ${C}" stroke-dashoffset="${-acc}" style="opacity:${catSel&&catSel!==x.c?.35:1}" onclick="selCat('${x.c}')"></circle>`;acc+=len;return a;}).join('');
+  const sel=catSel?list.find(x=>x.c===catSel):null;
+  const pct=v=>Math.round(v/pos*100);
+  el.innerHTML=`<div class="cat-hd"><span class="t">${m}월 지출</span><span class="v num">${won(total)}</span></div>
+    <div class="cat-body">
+      <div class="cat-pie"><svg width="132" height="132" viewBox="0 0 132 132"><circle cx="66" cy="66" r="${R}" fill="none" stroke="var(--bar-l)" stroke-width="18"></circle>${arcs}</svg>
+        <div class="cat-mid">${sel?`<div class="n">${sel.c}</div><div class="a num">${won(sel.v)}</div><div class="p num">${pct(sel.v)}%</div>`:`<div class="n">${list[0].c}</div><div class="p num">${pct(list[0].v)}%</div>`}</div></div>
+      <div class="cat-list">${list.map(x=>`<div class="cat-row${catSel===x.c?' on':''}" onclick="selCat('${x.c}')"><i style="background:${CAT_COLORS[x.c]}"></i><span class="nm">${x.c}</span><span class="pc num">${pct(x.v)}%</span><span class="am num">${won(x.v)}</span></div>`).join('')}</div>
+    </div>${sel?catTxHtml(sel.c,sel.v):''}`;
+}
+// 고른 카테고리의 이번 주기 거래(최근 순). 누르면 카테고리 바꾸기. 알림 누락 추정분은 기타에만 한 줄.
+function catTxHtml(cat,catTotal){
+  const today=toStr(),linked=fixedLinks();
+  const rows=txWithFlags().filter(r=>r.date>=S.budgetStart&&r.date<=today&&r.date>=S.txSince&&!r.isTransfer&&!r.savings&&!linked.has(r.id)
+    &&(r.type==='out'||isRefund(r))&&txCategory(r)===cat).sort((a,b)=>Date.parse(b.at)-Date.parse(a.at));
+  const sum=rows.reduce((a,r)=>a+(r.type==='out'?r.amount:-r.amount),0);
+  const extra=cat==='기타'?catTotal-sum:0;
+  return`<div class="cat-tx">${rows.map(r=>`<div class="cat-tx-row" onclick="openTxSheet(${Number(r.id)})"><span class="d num">${txDate(r.at).slice(5).replace('-','/')}</span><span class="m">${escapeHtml(r.merchant||r.counterparty||r.method||'')}</span><span class="a num">${r.type==='in'?'+':''}${won(r.amount)}</span></div>`).join('')}${extra>0?`<div class="cat-tx-row"><span class="d"></span><span class="m" style="color:var(--text3)">누락 추정</span><span class="a num">${won(extra)}</span></div>`:''}</div>`;
+}
+function selCat(c){catSel=catSel===c?null:c;renderCatCard();}
+// 거래 누르면: 카테고리 고르기(같은 가게 기억) + 내 계좌 이동 표시
+function openTxSheet(id){
+  const r=txWithFlags().find(x=>x.id===id);if(!r)return;
+  const cur=txCategory(r);
+  document.getElementById('txmTitle').textContent=`${r.merchant||r.counterparty||r.method||''} ${r.type==='in'?'+':'−'}${won(r.amount)}`;
+  document.getElementById('txmChips').innerHTML=(r.type==='out'&&!r.isTransfer&&!r.savings||r.type==='in'&&isRefund(r))?Category.CATS.map(c=>`<button type="button" class="${c===cur?'on':''}" onclick="setTxCat(${Number(id)},'${c}')">${c}</button>`).join(''):'';
+  const mv=document.getElementById('txmMove');
+  mv.textContent=r.isTransfer?'지출로 표시':'내 계좌 이동으로';
+  mv.onclick=()=>{document.getElementById('txModal').classList.add('hidden');toggleTxTransfer(id);};
+  document.getElementById('txModal').classList.remove('hidden');
+}
+function setTxCat(id,cat){
+  const r=txWithFlags().find(x=>x.id===id);if(!r)return;
+  const all=document.getElementById('txmAll').checked,key=Category.key(r.merchant||r.counterparty);
+  if(all&&key){S.catMap={...(S.catMap||{}),[key]:cat};const t={...(S.txCat||{})};delete t[id];S.txCat=t;}
+  else S.txCat={...(S.txCat||{}),[id]:cat};
+  document.getElementById('txModal').classList.add('hidden');
   save();render();
 }
 
@@ -1183,7 +1461,7 @@ function getWeeklySpent(){
   const {weekStartStr}=getWeekInfo();
   const today=toStr();
   // 이번 주(월~오늘) 안에 캡처도 알림 기간도 없으면 계산 불가 → null ("캡처 올리면 계산돼요" 표시)
-  const hasCap=(S.captures||[]).some(c=>c.date>=weekStartStr&&c.date<=today);
+  const hasCap=(S.captures||[]).some(c=>capDate(c)>=weekStartStr&&capDate(c)<=today);
   if(!hasCap&&!txMode(today))return null;
   // 순잔액차이 대신 '실제 하루지출 합산'(입금 무시). 예산 시작일 등에 입금이 들어와도
   // 주간 지출이 0으로 뭉개지지 않고 진짜 쓴 돈만 잡힌다(막대그래프와 동일 소스).
@@ -1199,8 +1477,8 @@ function getDailySpent(dateStr){
   const todayStr=dateStr||toStr();
   // 각 캡처에 총잔액 추가 후, 날짜별로 그룹화(같은 날이면 시간 최신 것만 남김)
   const withTotal=S.captures.map(c=>({
-    date:c.date,
-    minutes:timeToMinutes(c.time),
+    date:capDate(c),
+    minutes:capMs(c), // 실제 시각(ms): 같은 날 캡처 중 가장 늦은 것
     total:sumAcc(c.balances)
   }));
   const byDate={};
@@ -1228,7 +1506,7 @@ function getDailySpent(dateStr){
 // getDailySpent가 '직전 캡처'와 비교하므로 텔레스코핑으로 총액이 보존된다.
 function sumSpentInRange(fromStr, toStr){
   // 캡처가 있는 날 + 알림 기간(txSince 이후)의 모든 날
-  const days=new Set((S.captures||[]).map(c=>c.date));
+  const days=new Set((S.captures||[]).map(capDate));
   if(S.txSince){for(let d=S.txSince>fromStr?S.txSince:fromStr;d<=toStr;d=dayAfter(d))days.add(d);}
   if(!days.size)return 0;
   const dates=[...days].filter(d=>d>=fromStr&&d<=toStr).sort();
@@ -1243,16 +1521,22 @@ function sumSpentInRange(fromStr, toStr){
 
 // 오늘 쓸 수 있는 돈 = 오늘 하루치 배정액(어제 마감 잔액 기준 남은예산÷남은일수) - 오늘 실제 지출.
 // 남은 날짜 전체에 오늘 지출을 나눠 스며들게 하지 않고, 오늘 배정액에서 바로 차감해 마이너스도 그대로 보여준다.
+// 오늘 쓴 돈: 알림 기간이면 순지출(환불로 음수 가능), 캡처 기간이면 양수만
+const spentTodayOf=ds=>!ds?0:ds.source==='tx'?ds.spent:(!ds.noCaptureToday&&ds.spent>0?ds.spent:0);
 function getTodayBudget(){
   const eff=effectiveBudget();
   const{remaining:dl}=getBD();
   const ds=getDailySpent();
+  // 오늘 시작 시점의 남은 예산 = 사용 예산 − 어제까지 쓴 돈. 통장 잔액(−미납 고정비)이 더 적으면 그만큼만.
+  // (예전엔 예산 전체를 잔액으로만 눌러서, 잔액이 예산보다 많으면 이미 쓴 돈이 하루 몫에 반영되지 않았다)
+  const today=toStr();
+  const spentBefore=S.budgetStart&&today>S.budgetStart?sumSpentInRange(S.budgetStart,dayBefore(today)):0;
+  const budgetLeft=eff-spentBefore;
   const remainAtDayStart=(ds&&ds.prevTotal!=null)
-    ?Math.min(eff, Math.max(0, ds.prevTotal-unpaidFixed()))
-    :(eff-totSpent());
+    ?Math.min(budgetLeft, Math.max(0, ds.prevTotal-unpaidFixedAt(today)))
+    :budgetLeft;
   const baseline=dl>0?Math.floor(Math.max(0,remainAtDayStart)/dl):0;
-  const spentToday=(ds&&!ds.noCaptureToday&&ds.spent>0)?ds.spent:0;
-  return baseline-spentToday;
+  return baseline-spentTodayOf(ds);
 }
 
 // 범용 페이스 계산: 예산, 쓴돈, 경과/총일수를 받아 5단계 판정
@@ -1273,180 +1557,30 @@ function getPace(){
 }
 
 function render(){
-  const tb=totBal();
-  document.getElementById('heroTotal').textContent=tb>0?won(tb):'잔액을 업로드해주세요';
-  ACCOUNTS.map(a=>a.id).forEach(k=>{
-    document.getElementById('bal-'+k).textContent=S.balances[k]>0?won(S.balances[k]):'—';
-  });
-  const eff=effectiveBudget();          // 사용 가능 예산 (월예산 - 고정지출 + 예정입금)
-  const fixedTot=totFixedExpense();     // 표시용: 지출만
-  const fixedInc=totFixedIncome();      // 표시용: 예정입금만
-  const spent=totSpent();
-  const remain=eff-spent;                // 남은 예산 (음수면 초과)
-  const isOver=remain<0;
-  const overAmt=isOver?Math.abs(remain):0;
-  const{remaining:dl,elapsed:mElapsed,total:mTotal}=getBD();
-  const realPct=Math.round(spent/Math.max(eff,1)*100);
-  const ringPctVal=Math.min(100,realPct);
-  // 오늘까지 원래 썼어야 할 금액 (기준선)
-  const shouldSpend=Math.round(eff*(mElapsed/mTotal));
-
-  // 오늘 쓸 수 있는 돈 (오늘 배정액에서 오늘 지출을 바로 차감, 초과 시 마이너스로 표시)
-  const todayBudget=getTodayBudget();
-  const tbOver=todayBudget<0;
-  document.getElementById('dailyBudget').textContent=eff>0?(tbOver?'-':'')+won(todayBudget):'—';
-  document.getElementById('dailyBudget').style.color=tbOver?'var(--red)':'var(--blue)';
-  document.getElementById('dailySub').textContent=S.budgetStart&&S.budgetEnd
-    ?`${won(Math.max(0,remain))} ÷ ${dl}일`
-    :'설정에서 예산 기간을 입력해주세요';
-
-  // 월간 소진율 링
-  document.getElementById('ringPct').textContent=realPct+'%';
-  const circ=195;
-  document.getElementById('ringCircle').style.strokeDashoffset=circ-(circ*ringPctVal/100);
-  document.getElementById('ringCircle').style.stroke=realPct>=100?'var(--red)':realPct>=80?'var(--orange)':'var(--blue)';
-
-  // 월간 소진 현황 카드 (B방식: 월예산/고정지출/사용가능 모두 표시)
-  document.getElementById('bTotal').textContent=S.budget>0?won(S.budget):'—';
-  document.getElementById('bFixed').textContent=fixedTot>0?'-'+won(fixedTot):'0원';
-  document.getElementById('bIncomeRow').style.display=fixedInc>0?'':'none';
-  document.getElementById('bIncome').textContent='+'+won(fixedInc);
-  document.getElementById('bEffective').textContent=won(eff);
-  document.getElementById('bSpent').textContent=won(spent)+(isOver?` (${realPct}%)`:'');
-  document.getElementById('bSpent').style.color='var(--red)';
-  document.getElementById('bRemain').textContent=isOver?`${won(overAmt)} 초과`:won(remain);
-  document.getElementById('bRemain').style.color=isOver?'var(--red)':'var(--green)';
-
-  // 월간 기준선 박스
-  if(S.budgetStart&&S.budgetEnd){
-    const diff=spent-shouldSpend;
-    const status=diff<=0?`<b style="color:var(--green)">${won(Math.abs(diff))} 여유</b>`:`<b style="color:var(--red)">${won(diff)} 초과</b>`;
-    const shouldRemain=Math.max(0,eff-shouldSpend);
-    document.getElementById('mBaseline').innerHTML=`${mTotal}일 중 ${mElapsed}일 경과 · 지금쯤 <b>${won(shouldSpend)}</b> 써야 정상 (${status})<br>📍 지금쯤 <b>${won(shouldRemain)}</b> 남아있어야 정상 (현재 ${won(Math.max(0,remain))})`;
-  } else {
-    document.getElementById('mBaseline').innerHTML='설정에서 예산 기간을 입력하면 기준선이 표시돼요';
-  }
-
-  // 어제 대비 오늘 쓴 돈 (날짜는 항상 실제 오늘 기준, 00시 지나면 자동 전환)
+  renderBell();
+  renderBalTile();
+  renderTodayTile();
+  const setv=(id,v)=>{const e=document.getElementById(id);if(e&&document.activeElement!==e)e.value=v;};
+  setv('sPayer',S.payer??'오피엠에스');setv('sPayDay',S.payDay||25);
+  renderAccBal();renderTx();renderFixed();renderHeroSeg();renderWeekBars();renderCatCard();
+}
+// 어제 대비 오늘 타일
+function renderTodayTile(){
   const ds=getDailySpent();
-  const tsEl=document.getElementById('todaySpent');
-  const tsSub=document.getElementById('todaySpentSub');
-  if(ds&&ds.noCaptureToday){
-    tsEl.textContent=won(0);
-    tsEl.style.color='var(--text3)';
-    tsSub.textContent=`${won(ds.prevTotal)} → 오늘 캡처 전`;
-  } else if(ds){
-    if(ds.spent>=0){
-      tsEl.textContent=won(ds.spent);
-      tsEl.style.color='var(--red)';
-      tsSub.textContent=`${won(ds.prevTotal)} → ${won(ds.todayTotal)}`;
-    } else {
-      // 잔액이 늘어남 = 입금/충전
-      tsEl.textContent='+'+won(Math.abs(ds.spent));
-      tsEl.style.color='var(--green)';
-      tsSub.textContent=`${won(ds.prevTotal)} → ${won(ds.todayTotal)}`;
-    }
-  } else {
-    tsEl.textContent='—';
-    tsEl.style.color='var(--text3)';
-    tsSub.textContent='캡처를 이틀 이상 올리면 계산돼요';
-  }
-  const pace=getPace();
-  const badge=document.getElementById('paceBadge');
-  badge.style.background=pace.item.bg;badge.style.color=pace.item.cl;
-  document.getElementById('paceEmoji').textContent=pace.item.em;
-  document.getElementById('paceText').textContent=pace.item.txt;
-  const pbEl=document.getElementById('paceBars');pbEl.innerHTML='';
-  for(let i=0;i<10;i++){
-    const b=document.createElement('div');b.className='pbar';
-    if(pace.isSurplus&&i<=4&&(4-i)<=pace.idx)b.style.background=pace.item.cl;
-    else if(!pace.isSurplus&&i>=5&&(i-5)<=pace.idx)b.style.background=pace.item.cl;
-    pbEl.appendChild(b);
-  }
-  document.getElementById('pdtl').textContent=`예상 지출: ${won(Math.round(pace.expected))} / 실제: ${won(pace.spent)}`;
-  const prev=S.lastPace;const cur=(pace.isSurplus?'S':'D')+pace.idx;
-  const cmtEl=document.getElementById('pcmt');
-  if(prev&&prev!==cur){
-    const imp=(pace.isSurplus&&!prev.startsWith('S'))||(pace.isSurplus&&prev.startsWith('S')&&pace.idx>parseInt(prev.slice(1)))||(!pace.isSurplus&&!prev.startsWith('S')&&pace.idx<parseInt(prev.slice(1)));
-    cmtEl.textContent=imp?'📈 어제보다 페이스가 좋아지고 있어요!':'📉 어제보다 지출이 늘었어요. 조금 아껴볼까요?';
-    cmtEl.classList.remove('hidden');
-  }else cmtEl.classList.add('hidden');
-
-  // ── 주간 소진 현황 + 페이스 ──
-  const wInfo=getWeekInfo();
-  const wBudget=S.weeklyBudget||0;
-  const ws=getWeeklySpent();
-  const wSpentVal=ws?ws.spent:0;
-  const wRemain=wBudget-wSpentVal;
-  const wOver=wRemain<0;
-  const wPct=Math.round(wSpentVal/Math.max(wBudget,1)*100);
-  const wRingVal=Math.min(100,wPct);
-  const wShould=Math.round(wBudget*(wInfo.elapsed/wInfo.total));
-
-  document.getElementById('wRingPct').textContent=wBudget>0?wPct+'%':'—';
-  document.getElementById('wRingCircle').style.strokeDashoffset=195-(195*wRingVal/100);
-  document.getElementById('wRingCircle').style.stroke=wPct>=100?'var(--red)':wPct>=80?'var(--orange)':'var(--green)';
-  document.getElementById('wTotal').textContent=wBudget>0?won(wBudget):'미설정';
-  document.getElementById('wSpent').textContent=ws?won(wSpentVal):'—';
-  document.getElementById('wRemain').textContent=wBudget>0?(wOver?`${won(Math.abs(wRemain))} 초과`:won(wRemain)):'—';
-  document.getElementById('wRemain').style.color=wOver?'var(--red)':'var(--green)';
-  document.getElementById('wDays').textContent=wInfo.remaining+'일';
-
-  if(wBudget>0&&ws){
-    const wdiff=wSpentVal-wShould;
-    const wstat=wdiff<=0?`<b style="color:var(--green)">${won(Math.abs(wdiff))} 여유</b>`:`<b style="color:var(--red)">${won(wdiff)} 초과</b>`;
-    const wShouldRemain=Math.max(0,wBudget-wShould);
-    document.getElementById('wBaseline').innerHTML=`이번 주 ${wInfo.elapsed}일째 · 지금쯤 <b>${won(wShould)}</b> 써야 정상 (${wstat})<br>📍 지금쯤 <b>${won(wShouldRemain)}</b> 남아있어야 정상 (현재 ${won(Math.max(0,wRemain))})`;
-  } else if(wBudget<=0){
-    document.getElementById('wBaseline').innerHTML='설정에서 주간 예산을 입력해주세요';
-  } else {
-    document.getElementById('wBaseline').innerHTML='이번 주 캡처를 올리면 계산돼요';
-  }
-
-  // 주간 페이스
-  if(wBudget>0&&ws){
-    const wPace=calcPace(wBudget, wSpentVal, wInfo.elapsed, wInfo.total);
-    const wb=document.getElementById('wPaceBadge');
-    wb.style.background=wPace.item.bg;wb.style.color=wPace.item.cl;
-    document.getElementById('wPaceEmoji').textContent=wPace.item.em;
-    document.getElementById('wPaceText').textContent=wPace.item.txt;
-    const wpb=document.getElementById('wPaceBars');wpb.innerHTML='';
-    for(let i=0;i<10;i++){
-      const b=document.createElement('div');b.className='pbar';
-      if(wPace.isSurplus&&i<=4&&(4-i)<=wPace.idx)b.style.background=wPace.item.cl;
-      else if(!wPace.isSurplus&&i>=5&&(i-5)<=wPace.idx)b.style.background=wPace.item.cl;
-      wpb.appendChild(b);
-    }
-    document.getElementById('wPdtl').textContent=`예상 지출: ${won(Math.round(wPace.expected))} / 실제: ${won(wPace.spent)}`;
-  } else {
-    document.getElementById('wPaceText').textContent='주간 예산 미설정';
-    document.getElementById('wPaceEmoji').textContent='⚙️';
-    document.getElementById('wPaceBars').innerHTML='';
-    document.getElementById('wPdtl').textContent='';
-  }
-
-  document.getElementById('sBudget').value=S.budget?S.budget.toLocaleString('ko-KR'):'';
-  document.getElementById('sWeekly').value=S.weeklyBudget?S.weeklyBudget.toLocaleString('ko-KR'):'';
-  document.getElementById('sStart').value=S.budgetStart||'';
-  document.getElementById('sEnd').value=S.budgetEnd||'';
-  document.getElementById('sAlarm').value=S.alarmTime||'09:00';
-  document.getElementById('sVision').value=S.visionKey||'';
-  document.getElementById('sClaude').value=S.claudeKey||'';
-  const sbU=document.getElementById('sSbUrl'); if(sbU)sbU.value=S.supabaseUrl||'';
-  const txK=document.getElementById('sTxKey'); if(txK)txK.value=S.txReadSecret||'';
-  const own=document.getElementById('sOwner'); if(own)own.value=S.ownerNames||'';
-  const sbK=document.getElementById('sSbKey'); if(sbK)sbK.value=S.supabaseKey||'';
-  renderCaps();renderTx();renderCalendar();renderFixed();renderComments();updateNotif();
-  renderHeroSeg();renderWeekBars();
+  const tsEl=document.getElementById('todaySpent'),tsSub=document.getElementById('todaySpentSub');
+  if(!tsEl)return;
+  if(ds&&ds.source==='tx'){
+    const yd=getDailySpent(dayBefore(toStr()));
+    tsEl.textContent=(ds.spent<0?'+':'')+won(ds.spent);
+    tsEl.style.color=ds.spent>0?'var(--red)':ds.spent<0?'var(--green)':'var(--text3)';
+    tsSub.textContent=yd?`어제 ${won(yd.spent)}`:'';
+  }else if(ds&&!ds.noCaptureToday){
+    tsEl.textContent=(ds.spent<0?'+':'')+won(ds.spent);tsEl.style.color=ds.spent>0?'var(--red)':'var(--green)';
+    tsSub.textContent=`${won(ds.prevTotal)} → ${won(ds.todayTotal)}`;
+  }else{tsEl.textContent='—';tsEl.style.color='var(--text3)';tsSub.textContent='은행 알림이 들어오면 계산돼요';}
 }
 
-// ═══ 홈 히어로 카드 세그먼트(월간/주간/오늘) ═══
-let curHomeSeg='month';
-function setHomeSeg(seg){
-  curHomeSeg=seg;
-  document.querySelectorAll('#homeSeg .seg2-item').forEach(el=>el.classList.toggle('active',el.dataset.seg===seg));
-  renderHeroSeg();
-}
+// ═══ 홈 히어로 카드(A안): 오늘 권장 지출 + 오늘·이번 주·이번 달 막대 ═══
 const fmtSigned=n=>(n<0?'-':'')+won(Math.abs(n));
 // 소진 페이스에 따라 히어로 카드 배경색 5단계 전환 (예산 대비 |편차|% 기준):
 //   초록(good) 여유50%+ · 파랑(blue) 여유30~50% · 보라(기본) ±30% 순항 · 주황(orange) 초과30~50% · 빨강(bad) 초과50%+
@@ -1467,77 +1601,50 @@ function setHeroState(pace){
     // else 초과<30% → 기본(보라) 순항
   }
 }
+// 막대 하나: 사용/예산, 남은(또는 초과) 금액, 세로 눈금(기간 균등 참고선, 없으면 생략)
+function gaugeHtml(label,spent,budget,tickPct,leftMeta){
+  const over=spent>budget;
+  const pct=budget>0?Math.max(0,Math.min(100,spent/budget*100)):(spent>0?100:0);
+  const rest=budget-spent;
+  const right=over?`<span class="gg-over">${won(-rest)} 초과</span>`:`<span class="num">${won(rest)} 남음</span>`;
+  return `<div class="gg-top"><span>${label}</span><span class="r num">${spent<0?'−':''}${won(spent).replace('원','')}<em>/ ${won(budget)}</em></span></div>
+    <div class="gg-track"><div class="gg-fill" style="width:${pct}%"></div>${tickPct!=null?`<div class="gg-tick" style="left:${Math.max(0,Math.min(100,tickPct))}%"></div>`:''}</div>
+    <div class="gg-meta"><span>${leftMeta}</span>${right}</div>`;
+}
+function setGauge(id,html,over){const el=document.getElementById(id);if(!el)return;el.innerHTML=html;el.classList.toggle('over',!!over);}
 function renderHeroSeg(){
-  const lbl=document.getElementById('hero2Lbl'),amtEl=document.getElementById('hero2Amt'),
-    ring=document.getElementById('hero2Ring'),pctEl=document.getElementById('hero2Pct'),
-    badgeText=document.getElementById('heroBadgeText'),cap=document.getElementById('hero2Cap'),
-    m1=document.getElementById('mini1'),m2=document.getElementById('mini2'),m3=document.getElementById('mini3');
-  if(!lbl)return;
-  const circ=201;
-  const setRing=pct=>{ring.style.strokeDashoffset=circ-(circ*Math.max(0,Math.min(100,pct))/100);};
-
-  if(curHomeSeg==='month'){
-    const eff=effectiveBudget(),spent=totSpent(),remain=eff-spent;
-    const{total,elapsed}=getBD();
-    const realPct=Math.round(spent/Math.max(eff,1)*100);
-    const pace=getPace();
-    lbl.textContent='이번 달 남은 금액';
-    amtEl.textContent=fmtSigned(remain);
-    pctEl.textContent=realPct+'%';
-    setRing(realPct);
-    badgeText.textContent=pace.item.txt;
-    setHeroState(eff>0?pace:null);
-    m1.textContent=won(eff);m2.textContent=won(spent);m3.textContent=fmtSigned(remain);
-    const shouldSpend=Math.round(eff*(elapsed/total));
-    const diff=spent-shouldSpend;
-    cap.textContent=`${elapsed}일째 · 지금쯤 ${won(shouldSpend)} 써야 정상 (${diff<=0?won(Math.abs(diff))+' 여유':won(diff)+' 초과'})`;
-  }else if(curHomeSeg==='week'){
-    const wBudget=S.weeklyBudget||0,wInfo=getWeekInfo(),ws=getWeeklySpent();
-    const wSpentVal=ws?ws.spent:0,wRemain=wBudget-wSpentVal;
-    const wPct=Math.round(wSpentVal/Math.max(wBudget,1)*100);
-    lbl.textContent='이번 주 남은 금액';
-    if(wBudget>0){
-      amtEl.textContent=fmtSigned(wRemain);
-      pctEl.textContent=(ws?wPct:0)+'%';
-      setRing(ws?wPct:0);
-      m1.textContent=won(wBudget);m2.textContent=ws?won(wSpentVal):'0원';m3.textContent=fmtSigned(wRemain);
-    }else{
-      amtEl.textContent='—';pctEl.textContent='—';setRing(0);
-      m1.textContent='—';m2.textContent='—';m3.textContent='—';
-    }
-    if(wBudget>0&&ws){
-      const wPace=calcPace(wBudget,wSpentVal,wInfo.elapsed,wInfo.total);
-      badgeText.textContent=wPace.item.txt;
-      setHeroState(wPace);
-      const wShould=Math.round(wBudget*(wInfo.elapsed/wInfo.total));
-      const wdiff=wSpentVal-wShould;
-      cap.textContent=`이번 주 ${wInfo.elapsed}일째 · 지금쯤 ${won(wShould)} 써야 정상 (${wdiff<=0?won(Math.abs(wdiff))+' 여유':won(wdiff)+' 초과'})`;
-    }else{
-      badgeText.textContent=wBudget>0?'캡처를 올리면 계산돼요':'주간 예산 미설정';
-      setHeroState(null);
-      cap.textContent=wBudget>0?'이번 주 캡처를 올리면 계산돼요':'설정에서 주간 예산을 입력해주세요';
-    }
-  }else{
-    const ds=getDailySpent();
-    const spentToday=(ds&&!ds.noCaptureToday&&ds.spent>0)?ds.spent:0;
-    const todayBudget=getTodayBudget();
-    const todayBaseline=todayBudget+spentToday;
-    const pct=todayBaseline>0?Math.round(spentToday/todayBaseline*100):0;
-    lbl.textContent='오늘 남은 금액';
-    amtEl.textContent=fmtSigned(todayBudget);
-    pctEl.textContent=todayBaseline>0?pct+'%':'—';
-    setRing(pct);
-    m1.textContent=won(todayBaseline);m2.textContent=won(spentToday);m3.textContent=fmtSigned(todayBudget);
-    if(todayBaseline>0){
-      const tPace=calcPace(todayBaseline,spentToday,1,1);
-      badgeText.textContent=tPace.item.txt;
-      setHeroState(tPace);
-    }else{
-      badgeText.textContent='예산 미설정';
-      setHeroState(null);
-    }
-    cap.textContent=S.budgetStart&&S.budgetEnd?`오늘 배정액 ${won(todayBaseline)} 중 ${won(spentToday)} 사용`:'설정에서 예산 기간을 입력해주세요';
+  const amtEl=document.getElementById('hero2Amt'),sub=document.getElementById('hero2Sub'),badgeText=document.getElementById('heroBadgeText');
+  if(!amtEl)return;
+  const eff=effectiveBudget();
+  const hasPeriod=!!(S.budgetStart&&S.budgetEnd);
+  // 월 페이스 → 배지·카드 색
+  const pace=getPace();
+  badgeText.textContent=hasPeriod?pace.item.txt:'예산 미설정';
+  setHeroState(hasPeriod?pace:null);
+  if(!hasPeriod){
+    amtEl.textContent='—';sub.textContent='설정에서 예산 기간(시작일·종료일)을 입력해주세요';
+    ['ggToday','ggWeek','ggMonth'].forEach(id=>setGauge(id,'',false));
+    return;
   }
+  // 오늘: 하루 몫(오늘 시작 시점 남은 예산 ÷ 오늘 포함 남은 날) − 오늘 쓴 돈
+  const ds=getDailySpent();
+  const spentToday=spentTodayOf(ds);
+  const todayLeft=getTodayBudget();
+  const share=todayLeft+spentToday;
+  const{remaining:dl,elapsed,total}=getBD();
+  amtEl.textContent=todayLeft<0?'−'+won(-todayLeft):won(todayLeft);
+  sub.textContent=''; // 부가 문구 없음(2026-09-26 사용자)
+  setGauge('ggToday',gaugeHtml('오늘',spentToday,share,null,''),spentToday>share);
+  // 이번 주(월요일 시작)
+  const wBudget=weeklyShare(),wInfo=getWeekInfo();
+  if(wBudget>0){
+    const ws=getWeeklySpent();const wSpent=ws?ws.spent:0;
+    const dayNames=['월','화','수','목','금','토','일'];
+    setGauge('ggWeek',gaugeHtml('이번 주',wSpent,wBudget,wInfo.elapsed/wInfo.total*100,`${wInfo.elapsed}/7일`),wSpent>wBudget);
+  }else setGauge('ggWeek','<div class="gg-top"><span>이번 주</span></div>',false);
+  // 이번 달(예산 주기)
+  const spent=totSpent();
+  setGauge('ggMonth',gaugeHtml('이번 달',spent,eff,elapsed/total*100,`${S.budgetStart.slice(5).replace('-','/')}~${S.budgetEnd.slice(5).replace('-','/')} · ${elapsed}/${total}일`),spent>eff);
 }
 
 // ═══ 주간 소진 추이 막대 (이번 주 월~일, 잔액 캡처 기반 일별 지출 — getDailySpent와 동일한 소스) ═══
@@ -1564,7 +1671,7 @@ function renderWeekBars(){
   const maxAmt=Math.max(1,...days.map(d=>d.amt));
   const wkSpent=getWeeklySpent();
   const weekTotal=wkSpent?wkSpent.spent:days.reduce((a,d)=>a+(d.isIncome?-d.amt:d.amt),0);
-  const wBudget=S.weeklyBudget||0;
+  const wBudget=weeklyShare();
   const rangeEl=document.getElementById('wk2Range');
   if(rangeEl)rangeEl.textContent=`${weekTotal.toLocaleString('ko-KR')} / ${wBudget.toLocaleString('ko-KR')}원`;
   wrap.innerHTML=days.map((d,i)=>{
@@ -1590,209 +1697,15 @@ function showWeekBarInfo(idx){
   });
 }
 
-// ═══ 한 번에 지출 기록하기 — 이번 주(월~오늘) 캡처 기반 지출/입금을 달력 메모로 일괄 반영 ═══
-// 자동 기록된 카드는 id를 "auto-날짜-expense/income"으로 고정해서, 버튼을 여러 번 눌러도
-// 같은 날은 이미 기록된 카드가 있으면 건너뛰어 중복 등록되지 않는다.
-function bulkRecordWeek(){
-  const{weekStartStr}=getWeekInfo();
-  const[sy,sm,sd]=weekStartStr.split('-').map(Number);
-  const todayS=toStr();
-  let added=0,skipped=0;
-  for(let i=0;i<7;i++){
-    const dt=new Date(Date.UTC(sy,sm-1,sd+i));
-    const ds=dt.toISOString().slice(0,10);
-    if(ds>todayS)break; // 아직 안 지난 날은 캡처가 있을 수 없음
-    const daily=getDailySpent(ds);
-    if(!daily||daily.noCaptureToday||!daily.spent)continue;
-    const isIncome=daily.spent<0;
-    const amt=Math.abs(daily.spent);
-    const autoId='auto-'+ds+'-'+(isIncome?'income':'expense');
-    const cards=getMemos(ds);
-    if(cards.some(c=>c.id===autoId)){skipped++;continue;}
-    cards.push({id:autoId,category:'',amt,text:'',type:isIncome?'income':'expense'});
-    S.memos[ds]=cards;
-    added++;
-  }
-  if(added>0){save();renderCalendar();renderWeekBars();showToast(`${added}일치 기록했어요 ✓`);}
-  else if(skipped>0)showToast('이미 다 기록되어 있어요');
-  else showToast('이번 주에 기록할 지출이 없어요');
-}
-
-// ═══ 달력 (지출 탭) ═══
-let calYear, calMonth; // 현재 보고 있는 달력 년/월
-(function(){const n=new Date();calYear=n.getFullYear();calMonth=n.getMonth();})();
-
-function calMove(dir){
-  calMonth+=dir;
-  if(calMonth<0){calMonth=11;calYear--;}
-  if(calMonth>11){calMonth=0;calYear++;}
-  renderCalendar();
-}
-function calToday(){const n=new Date();calYear=n.getFullYear();calMonth=n.getMonth();renderCalendar();}
-
-function renderCalendar(){
-  const titleEl=document.getElementById('calTitle');
-  if(titleEl)titleEl.textContent=`${calYear}년 ${calMonth+1}월`;
-  // 요일 헤더
-  const dowEl=document.getElementById('calDow');
-  if(dowEl){
-    const dows=['일','월','화','수','목','금','토'];
-    dowEl.innerHTML=dows.map((d,i)=>`<div class="cal-dow ${i===0?'cal-sun':i===6?'cal-sat':''}">${d}</div>`).join('');
-  }
-  const grid=document.getElementById('calGrid');
-  if(!grid)return;
-  const firstDay=new Date(calYear,calMonth,1).getDay();
-  const daysInMonth=new Date(calYear,calMonth+1,0).getDate();
-  const todayS=toStr();
-  let html='';
-  for(let i=0;i<firstDay;i++)html+='<div class="cal-cell empty"></div>';
-  for(let d=1;d<=daysInMonth;d++){
-    const dateStr=`${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-    const cards=getMemos(dateStr); // 그 날의 메모 카드 배열
-    const isToday=dateStr===todayS;
-    const dow=new Date(calYear,calMonth,d).getDay();
-    const dayCls=dow===0?'cal-sun':dow===6?'cal-sat':'';
-    let inner='';
-    if(cards.length){
-      inner+='<div class="cal-dot"></div>';
-      const expenseAmt=cards.filter(c=>c.type!=='income').reduce((a,c)=>a+(c.amt||0),0);
-      const incomeAmt=cards.filter(c=>c.type==='income').reduce((a,c)=>a+(c.amt||0),0);
-      if(expenseAmt>0)inner+=`<div class="cal-amt">${expenseAmt.toLocaleString('ko-KR')}</div>`;
-      if(incomeAmt>0)inner+=`<div class="cal-amt" style="color:var(--green)">+${incomeAmt.toLocaleString('ko-KR')}</div>`;
-      const firstText=(cards.find(c=>c.text)||{}).text;
-      if(cards.length>1){
-        inner+=`<div class="cal-memo">${cards.length}건${firstText?' · '+escapeHtml(firstText):''}</div>`;
-      }else if(firstText){
-        inner+=`<div class="cal-memo">${escapeHtml(firstText)}</div>`;
-      }else if(cards[0]&&cards[0].category){
-        // 메모(텍스트) 없이 카테고리+금액만 입력한 경우엔 카테고리라도 보여줘서 뭘 썼는지 알 수 있게
-        inner+=`<div class="cal-memo">${escapeHtml(cards[0].category)}</div>`;
-      }
-    }
-    html+=`<div class="cal-cell${isToday?' today':''}" onclick="openMemo('${dateStr}')">
-      <div class="cal-day ${dayCls}">${d}</div>
-      ${inner}
-    </div>`;
-  }
-  grid.innerHTML=html;
-}
-
-const MEMO_CATS=['식비','카페/간식','교통','옷','생활용품','데이트','취미/문화','기타'];
-
-// 그 날의 메모를 항상 카드 배열로 반환 (옛날 문자열/단일객체 메모도 1장짜리 카드로 변환)
+// 예전 메모 기록 읽기(과거 날짜 '어제 지출' 보조용). 새로 쓰는 화면은 없다.
 function getMemos(dateStr){
-  const m=S.memos[dateStr];
-  if(!m)return [];
+  const m=(S.memos||{})[dateStr];
+  if(!m)return[];
   if(Array.isArray(m))return m;
   if(typeof m==='string')return m?[{id:'legacy',category:'',amt:0,text:m}]:[];
-  return (m.amt>0||m.text)?[{id:'legacy',category:'',amt:m.amt||0,text:m.text||''}]:[];
+  return(m.amt>0||m.text)?[{id:'legacy',category:'',amt:m.amt||0,text:m.text||''}]:[];
 }
-
 function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-
-// ═══ 메모 모달 (날짜 1개 = 카드 여러 장) ═══
-let memoDate=null;
-let memoEditId=null; // 수정 중인 카드 id (null이면 새 카드 추가 모드)
-
-function openMemo(dateStr){
-  memoDate=dateStr;
-  const d=new Date(dateStr);
-  document.getElementById('memoModalTitle').textContent=d.toLocaleDateString('ko-KR',{month:'long',day:'numeric',weekday:'short'})+' 메모';
-  const sel=document.getElementById('memoCat');
-  sel.innerHTML=MEMO_CATS.map(c=>`<option value="${c}">${c}</option>`).join('');
-  resetMemoForm();
-  renderMemoCards();
-  document.getElementById('memoModal').classList.remove('hidden');
-}
-function closeMemo(){document.getElementById('memoModal').classList.add('hidden');memoDate=null;memoEditId=null;}
-
-let memoType='expense'; // 'expense'(지출, 기본) | 'income'(입금/+)
-function toggleMemoType(){
-  memoType=memoType==='expense'?'income':'expense';
-  updateMemoTypeUI();
-}
-function updateMemoTypeUI(){
-  const btn=document.getElementById('memoTypeToggle');
-  if(!btn)return;
-  const isIncome=memoType==='income';
-  btn.textContent=isIncome?'입금(+) ✓':'입금(+)';
-  btn.style.background=isIncome?'var(--green-light)':'transparent';
-  btn.style.color=isIncome?'var(--green)':'var(--text2)';
-  btn.style.borderColor=isIncome?'var(--green)':'var(--border)';
-}
-function resetMemoForm(){
-  document.getElementById('memoCat').value=MEMO_CATS[0];
-  document.getElementById('memoAmt').value='';
-  document.getElementById('memoInput').value='';
-  memoEditId=null;
-  memoType='expense';
-  updateMemoTypeUI();
-  const btn=document.getElementById('memoSaveBtn');
-  if(btn)btn.textContent='카드 추가';
-}
-
-function renderMemoCards(){
-  const el=document.getElementById('memoCardList');
-  if(!el)return;
-  const cards=getMemos(memoDate);
-  if(!cards.length){
-    el.innerHTML='<div style="text-align:center;color:var(--text3);padding:8px 0;font-size:12px">아직 입력한 카드가 없어요</div>';
-    return;
-  }
-  el.innerHTML=cards.map(c=>{
-    const isIncome=c.type==='income';
-    const amtTxt=c.amt>0?(isIncome?'+'+c.amt.toLocaleString('ko-KR')+'원':c.amt.toLocaleString('ko-KR')+'원'):'';
-    return`
-    <div style="display:flex;align-items:center;gap:8px;background:var(--bg);border-radius:var(--r-xs);padding:9px 11px;">
-      <div style="flex:1;min-width:0;cursor:pointer;" onclick="editMemoCard('${c.id}')">
-        <div style="font-size:11px;font-weight:700;color:${isIncome?'var(--green)':'var(--text3)'}">${isIncome?'입금':(c.category||'기타')}${amtTxt?' · '+amtTxt:''}</div>
-        ${c.text?`<div style="font-size:13px;color:var(--text);margin-top:2px;">${escapeHtml(c.text)}</div>`:''}
-      </div>
-      <button type="button" onclick="delMemoCard('${c.id}')" style="background:none;border:none;color:var(--text3);font-size:15px;line-height:1;cursor:pointer;padding:4px;">✕</button>
-    </div>`;
-  }).join('');
-}
-
-function addMemoCard(){
-  if(!memoDate)return;
-  const category=document.getElementById('memoCat').value;
-  const amt=parseInt((document.getElementById('memoAmt').value||'').replace(/[^0-9]/g,''))||0;
-  const text=document.getElementById('memoInput').value.trim();
-  const type=memoType;
-  if(amt<=0&&!text){showToast('금액이나 메모를 입력해주세요');return;}
-  let cards=getMemos(memoDate);
-  if(memoEditId){
-    cards=cards.map(c=>c.id===memoEditId?{...c,category,amt,text,type}:c);
-  }else{
-    cards=[...cards,{id:Date.now().toString()+Math.random().toString(36).slice(2,6),category,amt,text,type}];
-  }
-  S.memos[memoDate]=cards;
-  const wasEdit=!!memoEditId;
-  save();renderCalendar();renderMemoCards();resetMemoForm();
-  showToast(wasEdit?'카드가 수정됐어요 ✓':'카드가 추가됐어요 ✓');
-}
-
-function editMemoCard(id){
-  const c=getMemos(memoDate).find(x=>x.id===id);
-  if(!c)return;
-  memoEditId=id;
-  document.getElementById('memoCat').value=c.category||MEMO_CATS[0];
-  document.getElementById('memoAmt').value=c.amt>0?c.amt.toLocaleString('ko-KR'):'';
-  document.getElementById('memoInput').value=c.text||'';
-  memoType=c.type||'expense';
-  updateMemoTypeUI();
-  const btn=document.getElementById('memoSaveBtn');
-  if(btn)btn.textContent='수정 완료';
-}
-
-function delMemoCard(id){
-  const cards=getMemos(memoDate).filter(c=>c.id!==id);
-  if(cards.length)S.memos[memoDate]=cards;
-  else delete S.memos[memoDate];
-  if(memoEditId===id)resetMemoForm();
-  save();renderCalendar();renderMemoCards();
-  showToast('카드가 삭제됐어요');
-}
 
 // ═══ 고정지출 ═══
 // 예산기간이 달력상 매월 1일과 무관하게 사용자가 설정한 시작일~종료일 기준이라
@@ -1811,17 +1724,37 @@ function addFixed(){
   const amt=parseInt(document.getElementById('fxAmt').value.replace(/[^0-9]/g,''));
   if(!name){showToast('항목명을 입력해주세요');return;}
   if(!amt||amt<=0){showToast('금액을 입력해주세요');return;}
-  S.fixed.push({id:Date.now().toString(),name,amount:amt,type:fxAddType,paid:false,paidDate:''});
-  document.getElementById('fxName').value='';
+  const kw=(document.getElementById('fxKw')||{value:''}).value.trim();
+  S.fixed.push({id:Date.now().toString(),name,kw,amount:amt,type:fxAddType,paid:false,paidDate:''});
+  document.getElementById('fxName').value='';if(document.getElementById('fxKw'))document.getElementById('fxKw').value='';
   document.getElementById('fxAmt').value='';
   save();renderFixed();render();showToast(fxAddType==='income'?'예정 입금이 추가됐어요 ✓':'고정지출이 추가됐어요 ✓');
 }
 
 function toggleFixed(id){
   const f=S.fixed.find(x=>x.id===id);if(!f)return;
+  const before=f.paidDate;
   f.paid=!f.paid;
   f.paidDate=f.paid?toStr():'';
+  recomputeClosedCycles([before,f.paidDate]);
   save();renderFixed();render();
+}
+// 마감된 주기 결산(spent)은 저장값이라, 그 기간의 고정비 납부 표시가 바뀌면 다시 계산해야 한다.
+// 바로 덮어쓰지 않고 '불완전'으로 표시만 한다 → 곧바로 그 주기 범위를 서버에서 끝까지 다시 받고,
+// 빠짐없이 받았을 때만 applyTxToState가 다시 계산해 확정한다(이 기기 캐시에 빈 곳이 있어도 결산이 틀어지지 않게).
+// 거래 알림 기간과 겹치고 서버 보관 기간(45일) 안인 주기만. 그보다 오래된 주기는 다시 받을 수 없어 기존 값 유지.
+function recomputeClosedCycles(paidDates){
+  if(!S.txSince)return;
+  const days=new Set();paidDates.filter(Boolean).forEach(p=>{days.add(p);days.add(dayBefore(p));});
+  let marked=false;
+  (S.cycles||[]).forEach(c=>{
+    if(c.end<S.txSince||![...days].some(d=>c.start<=d&&d<=c.end)||!txRecoverable(c))return;
+    c.incomplete=true;marked=true;
+  });
+  if(marked&&S.txReadSecret){
+    if(txFetching)txRefetchPending=true; // 지금 받는 중이면(그 읽기엔 이 주기 범위가 없을 수 있음) 끝난 뒤 다시
+    else{TX.lastFetch=0;setTimeout(()=>refreshAndRoll(),0);}
+  }
 }
 
 // 체크된 고정지출의 빠져나간 날짜 수정 (연필 클릭 → 달력)
@@ -1837,7 +1770,7 @@ function editFixedDate(id){
   let done=false;
   const cleanup=()=>{if(!done){done=true;if(inp.parentNode)inp.parentNode.removeChild(inp);}};
   inp.addEventListener('change',()=>{
-    if(inp.value){f.paidDate=inp.value;save();renderFixed();render();showToast('빠져나간 날짜를 수정했어요 ✓');}
+    if(inp.value){const before=f.paidDate;f.paidDate=inp.value;recomputeClosedCycles([before,f.paidDate]);save();renderFixed();render();showToast('빠져나간 날짜를 수정했어요 ✓');}
     cleanup();
   });
   inp.addEventListener('blur',()=>setTimeout(cleanup,250));
@@ -1855,7 +1788,7 @@ function delFixed(id){
 function renderFixed(){
   const el=document.getElementById('fxList');
   const mLabel=document.getElementById('fxMonthLabel');
-  if(mLabel){const n=new Date();mLabel.textContent=`${n.getMonth()+1}월`;}
+  if(mLabel){mLabel.textContent=`${Number(toStr().slice(5,7))}월`;}
   if(!el)return;
   if(!S.fixed.length){
     el.innerHTML='<div style="text-align:center;color:var(--text3);padding:22px 0;font-size:13px">아직 등록된 항목이 없어요</div>';
@@ -1864,10 +1797,12 @@ function renderFixed(){
   }
   el.innerHTML=S.fixed.map(f=>{
     const isInc=f.type==='income';
-    const doneWord=isInc?'들어옴':'빠져나감', pendWord=isInc?'아직 안 들어옴':'아직 안 빠져나감';
-    const meta=f.paid&&f.paidDate
-      ?`<span class="fx-date" onclick="editFixedDate('${f.id}')">${f.paidDate.slice(5).replace('-','/')} ${doneWord}</span>`
-      :pendWord;
+    const doneWord=isInc?'들어옴':'빠져나감', pendWord='대기';
+    const auto=f.txId!=null&&f.actual&&f.actual!==f.amount?` · 실제 ${won(f.actual)}`:'';
+    const kw=f.kw?` · ${escapeHtml(f.kw)}`:'';
+    const meta=(f.paid&&f.paidDate
+      ?`<span class="fx-date" onclick="editFixedDate('${f.id}')">${f.paidDate.slice(5).replace('-','/')} ${doneWord}</span>${auto}`
+      :pendWord)+kw;
     return`
     <div class="fx-item">
       <div class="fx-check${f.paid?' on':''}" onclick="toggleFixed('${f.id}')">${f.paid?'✓':''}</div>
@@ -1892,536 +1827,6 @@ function renderFixed(){
   document.getElementById('fxSummary').style.display='block';
 }
 
-let capReqId=0;
-async function handleCap(ev){
-  const file=ev.target.files[0];
-  if(!file)return;
-  pendingCap=null;
-  const reqId=++capReqId;
-  const reader=new FileReader();
-  reader.onerror=()=>{document.getElementById('ocrLoad').classList.add('hidden');document.getElementById('ocrRes').innerHTML='<div style="color:var(--red);font-size:12px">이미지를 읽지 못했어요</div>';};
-  reader.onload=async(e)=>{
-    const dataUrl=e.target.result;
-    document.getElementById('ocrLoad').classList.remove('hidden');
-    document.getElementById('ocrRes').innerHTML='';
-    document.getElementById('applyBtn').classList.add('hidden');
-    if(!S.visionKey){
-      document.getElementById('ocrLoad').classList.add('hidden');
-      document.getElementById('ocrRes').innerHTML='<div style="background:var(--orange-light);color:var(--orange);padding:12px;border-radius:8px;font-size:12px">설정에서 Google Vision API 키를 저장해주세요</div>';
-      showManual();return;
-    }
-    try{
-      const b64=dataUrl.split(',')[1];
-      const res=await fetch(`https://vision.googleapis.com/v1/images:annotate?key=${S.visionKey}`,{
-        method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({requests:[{image:{content:b64},features:[{type:'TEXT_DETECTION',maxResults:1}]}]})
-      });
-      const data=await res.json();
-      if(reqId!==capReqId)return; // 그 사이 다른 캡처를 올렸으면 이 결과는 버린다
-      document.getElementById('ocrLoad').classList.add('hidden');
-      if(data.error){
-        document.getElementById('ocrRes').innerHTML='<div style="background:var(--red-light);color:var(--red);padding:12px;border-radius:8px;font-size:12px;word-break:break-all">⚠️ '+(data.error.message||JSON.stringify(data.error))+'</div>';
-        showManual();return;
-      }
-      const text=data.responses?.[0]?.fullTextAnnotation?.text||'';
-      if(!text){
-        document.getElementById('ocrRes').innerHTML='<div style="background:var(--orange-light);color:var(--orange);padding:12px;border-radius:8px;font-size:12px">글자를 인식하지 못했어요. 직접 입력해주세요.</div>';
-        showManual();return;
-      }
-      const bals=parseText(text);
-      const thumb=await makeThumb(dataUrl);
-      if(reqId!==capReqId)return;
-      pendingCap={thumb};
-      showOCRRes(bals);document.getElementById('applyBtn').classList.remove('hidden');
-    }catch(err){
-      document.getElementById('ocrLoad').classList.add('hidden');
-      document.getElementById('ocrRes').innerHTML='<div style="background:var(--red-light);color:var(--red);padding:12px;border-radius:8px;font-size:12px;word-break:break-all">⚠️ 오류: '+err.message+'</div>';
-      showManual();
-    }
-  };
-  reader.readAsDataURL(file);
-}
-
-// 공유로 받은 이미지를 완전 자동 처리: OCR → 인식 → 바로 잔액 반영
-async function autoProcessSharedImage(dataUrl){
-  if(!S.visionKey){showToast('설정에서 Vision API 키를 먼저 저장해주세요');showTab('settings');return;}
-  showTab('capture');
-  document.getElementById('ocrLoad').classList.remove('hidden');
-  document.getElementById('ocrRes').innerHTML='<div style="font-size:12px;color:var(--text2)">📤 공유받은 캡처를 자동 처리 중...</div>';
-  try{
-    const b64=dataUrl.split(',')[1];
-    const res=await fetch(`https://vision.googleapis.com/v1/images:annotate?key=${S.visionKey}`,{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({requests:[{image:{content:b64},features:[{type:'TEXT_DETECTION',maxResults:1}]}]})
-    });
-    const data=await res.json();
-    document.getElementById('ocrLoad').classList.add('hidden');
-    if(data.error)throw new Error(data.error.message||'API 오류');
-    const text=data.responses?.[0]?.fullTextAnnotation?.text||'';
-    if(!text)throw new Error('글자 인식 실패');
-    const bals=parseText(text);
-    const thumb=await makeThumb(dataUrl);
-    pendingCap={thumb};
-    // 두 계좌를 모두 읽었을 때만 바로 반영한다. 하나라도 못 읽으면 0원으로 저장하지 않고 확인 화면을 띄운다
-    // (0원으로 저장하면 그 계좌 잔액 전체가 그날 지출로 잡힌다).
-    if(ACCOUNTS.every(a=>bals[a.id]>0)){
-      if(!commitBalances(bals,'ocr'))return;
-      showTab('home');
-      showToast(`자동 반영 완료! 총 ${won(totBal())} ✓`);
-    }else{
-      showOCRRes(bals);document.getElementById('applyBtn').classList.remove('hidden');
-      showToast('못 읽은 계좌가 있어요. 확인 후 반영해주세요');
-    }
-  }catch(err){
-    document.getElementById('ocrLoad').classList.add('hidden');
-    document.getElementById('ocrRes').innerHTML='<div style="background:var(--red-light);color:var(--red);padding:12px;border-radius:8px;font-size:12px;word-break:break-all">⚠️ 자동 처리 실패: '+err.message+'<br>아래에서 직접 입력해주세요</div>';
-    showManual();
-  }
-}
-
-// 공유로 들어온 이미지 확인 (Service Worker가 IndexedDB에 저장한 걸 읽음)
-async function checkSharedImage(){
-  try{
-    const params=new URLSearchParams(location.search);
-    if(params.get('shared')!=='1')return;
-    // IndexedDB에서 공유 이미지 꺼내기
-    const img=await getSharedFromDB();
-    if(img){
-      await clearSharedDB();
-      // 페이지 URL 정리 (새로고침 시 중복 방지)
-      history.replaceState({},'',location.pathname);
-      await autoProcessSharedImage(img);
-    }
-  }catch(e){console.log('shared check error',e);}
-}
-
-// IndexedDB 헬퍼 (Service Worker와 공유)
-function openShareDB(){
-  return new Promise((resolve,reject)=>{
-    const req=indexedDB.open('mp_share',1);
-    req.onupgradeneeded=()=>{req.result.createObjectStore('files');};
-    req.onsuccess=()=>resolve(req.result);
-    req.onerror=()=>reject(req.error);
-  });
-}
-async function getSharedFromDB(){
-  const db=await openShareDB();
-  return new Promise((resolve,reject)=>{
-    const tx=db.transaction('files','readonly');
-    const r=tx.objectStore('files').get('shared');
-    r.onsuccess=()=>resolve(r.result||null);
-    r.onerror=()=>reject(r.error);
-  });
-}
-async function clearSharedDB(){
-  const db=await openShareDB();
-  return new Promise((resolve)=>{
-    const tx=db.transaction('files','readwrite');
-    tx.objectStore('files').delete('shared');
-    tx.oncomplete=()=>resolve();
-  });
-}
-
-// 각 계좌 이름과 매칭되는 키워드 (토스 화면에 표시되는 계좌 별칭)
-const ACCOUNT_KEYWORDS={
-  kakao:['입출금통장','입출금'],          // 카카오 = 입출금통장
-  kb:['KB','국민','나라사랑','우대통장']    // 국민은행
-};
-
-function parseAmount(str){
-  const n=parseInt(str.replace(/,/g,''));
-  return (n>=100&&n<1000000000)?n:null;
-}
-
-function parseText(text){
-  const lines=text.split('\n').map(l=>l.trim()).filter(l=>l);
-  const amtPat=/(\d{1,3}(?:,\d{3})+|\d{3,})\s*원?/;  // 3자리 금액(예: 780원)도 인식 — 안 그러면 계좌-금액 짝짓기가 어긋나 엉뚱한 숫자를 끌어옴
-  const result={kakao:0,kb:0};
-  const EXCLUDE=['쓴 돈','쓴돈','포인트','지원금','신용','대출','보험','적립','이번 달','이번달','번','연금','수령액','미리보기'];
-  const isExcluded=(line)=>EXCLUDE.some(w=>line.includes(w));
-
-  // 1) 금액이 들어있는 줄들의 위치를 먼저 수집 (제외 줄 제거)
-  const amountLines=[]; // {idx, value}
-  // "쓴 돈"류 라벨: 이 라벨 바로 위/아래 숫자는 잔액이 아니라 지출합계이므로 후보에서 제외.
-  // (토스는 "1,373,774원" 다음 줄에 "7월에 쓴 돈" 라벨이 옴)
-  const SPENT_LABEL=['쓴 돈','쓴돈'];
-  const nearSpentLabel=i=>SPENT_LABEL.some(w=>(lines[i]||'').includes(w));
-  lines.forEach((line,idx)=>{
-    if(isExcluded(line))return;
-    if(nearSpentLabel(idx-1)||nearSpentLabel(idx+1))return;
-    const m=line.match(amtPat);
-    if(m){
-      const n=parseInt(m[1].replace(/,/g,''));
-      if(n>=100&&n<100000000)amountLines.push({idx,value:n});
-    }
-  });
-
-  // 2) 각 계좌 이름 줄을 찾고, 그 줄에서 "가장 가까운" 금액 줄을 연결
-  const usedAmtIdx=new Set();
-  for(const [bankId,keywords] of Object.entries(ACCOUNT_KEYWORDS)){
-    let nameIdx=-1;
-    for(let i=0;i<lines.length;i++){
-      if(keywords.some(k=>lines[i].includes(k)) && !isExcluded(lines[i]) && !amtPat.test(lines[i])){
-        nameIdx=i;break;
-      }
-    }
-    if(nameIdx<0)continue;
-    // 이름 줄과 가장 가까운(아직 안 쓴) 금액 줄 찾기
-    let best=null,bestDist=999;
-    for(const a of amountLines){
-      if(usedAmtIdx.has(a.idx))continue;
-      const dist=Math.abs(a.idx-nameIdx);
-      if(dist<bestDist){bestDist=dist;best=a;}
-    }
-    if(best){result[bankId]=best.value;usedAmtIdx.add(best.idx);}
-  }
-
-  return result;
-}
-
-function fmtComma(n){return (parseInt(n)||0).toLocaleString('ko-KR');}
-function onOcrInput(el){
-  const raw=el.value.replace(/[^0-9]/g,'');
-  el.dataset.raw=raw;
-  el.value=raw?parseInt(raw).toLocaleString('ko-KR'):'';
-}
-// 확인을 기다리는 캡처(사진 썸네일). '잔액 반영하기'를 눌러야 캡처 기록으로 저장된다.
-let pendingCap=null;
-// 잔액 입력 줄: 값이 없으면(못 읽음) 지난 잔액을 채우고 '못 읽음' 표시
-function balRows(v,title){
-  return `<div style="font-size:12px;color:var(--text2);margin-bottom:8px">${title}</div>`+ACCOUNTS.map(b=>{
-    const got=v&&v[b.id]>0;
-    const val=got?v[b.id]:(S.balances[b.id]||0);
-    const tag=got?'':`<div style="font-size:10px;color:var(--orange);margin-top:2px">${v?'못 읽음 · ':''}지난 잔액</div>`;
-    return `<div class="ocr-row"><div class="ocr-bank"><div style="width:7px;height:7px;border-radius:50%;background:${b.c}"></div><div>${b.n}${tag}</div></div><input class="ocr-inp" type="text" inputmode="numeric" autocomplete="off" autocorrect="off" id="ocr-${b.id}" data-raw="${val}" value="${val?fmtComma(val):''}" placeholder="0" oninput="onOcrInput(this)"/></div>`;
-  }).join('');
-}
-function showOCRRes(v){
-  document.getElementById('ocrRes').innerHTML=balRows(v,'인식된 잔액이에요. 틀렸으면 수정한 뒤 반영해주세요.');
-}
-function showManual(){
-  if(!pendingCap)pendingCap={thumb:null};
-  document.getElementById('ocrRes').innerHTML=balRows(null,'잔액을 직접 입력해주세요 (지난 잔액이 채워져 있어요)');
-  document.getElementById('applyBtn').classList.remove('hidden');
-}
-// 확정한 잔액을 현재 잔액과 캡처 기록에 함께 저장한다. 지출 계산은 캡처 기록을 쓰므로
-// 사용자가 고친 값, 직접 입력한 값도 반드시 여기로 들어와야 한다.
-function commitBalances(bals,source){
-  const b={};ACCOUNTS.forEach(a=>{b[a.id]=bals[a.id]||0;});
-  const prevBal=S.balances,prevCaps=[...(S.captures||[])]; // 복사본(아래 unshift가 원래 배열을 바꾸므로)
-  S.balances={...S.balances,...b};
-  const nowIso=new Date().toISOString();S.balanceAt={...(S.balanceAt||{})};S.balanceTxId={...(S.balanceTxId||{})};ACCOUNTS.forEach(a=>{S.balanceAt[a.id]=nowIso;delete S.balanceTxId[a.id];});
-  S.captures.unshift({id:Date.now().toString(),date:toStr(),time:new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}),thumb:(pendingCap&&pendingCap.thumb)||null,source,balances:b});
-  pendingCap=null;
-  pruneCaptures();
-  if(!save()){S.balances=prevBal;S.captures=prevCaps;render();return false;}
-  render();
-  return true;
-}
-function applyBal(){
-  const getRaw=id=>{const el=document.getElementById(id);if(!el)return 0;return parseInt((el.dataset.raw||el.value||'0').replace(/[^0-9]/g,''))||0;};
-  const bals={};ACCOUNTS.forEach(a=>{bals[a.id]=getRaw('ocr-'+a.id);});
-  if(!commitBalances(bals,pendingCap&&pendingCap.thumb?'ocr':'manual'))return;
-  document.getElementById('applyBtn').classList.add('hidden');
-  document.getElementById('ocrRes').innerHTML='';
-  showToast('잔액이 반영됐어요 ✓');showTab('home');
-}
-
-// 캡처 썸네일 축소 (원본 저장은 용량 폭증 → 가로 180px JPEG로)
-function makeThumb(dataUrl,maxW=180){
-  return new Promise(resolve=>{
-    const img=new Image();
-    img.onload=()=>{
-      try{
-        const scale=Math.min(1,maxW/img.width);
-        const w=Math.max(1,Math.round(img.width*scale)),h=Math.max(1,Math.round(img.height*scale));
-        const cv=document.createElement('canvas');cv.width=w;cv.height=h;
-        cv.getContext('2d').drawImage(img,0,0,w,h);
-        resolve(cv.toDataURL('image/jpeg',0.6));
-      }catch(e){resolve(dataUrl);}
-    };
-    img.onerror=()=>resolve(dataUrl);
-    img.src=dataUrl;
-  });
-}
-// 3개월보다 오래된 캡처는 정리 (+ 안전 상한)
-function pruneCaptures(){
-  const cut=new Date();cut.setMonth(cut.getMonth()-3);
-  const cutStr=cut.toISOString().slice(0,10);
-  S.captures=(S.captures||[]).filter(c=>c.date>=cutStr);
-  if(S.captures.length>200)S.captures=S.captures.slice(0,200);
-}
-
-const WD=['일','월','화','수','목','금','토'];
-let capOpen={}; // 펼침 상태 (저장 안 함)
-function toggleCapMonth(k){capOpen[k]=!capOpen[k];renderCaps();}
-
-function renderCaps(){
-  const el=document.getElementById('capList');
-  if(!el)return;
-  if(!S.captures.length){el.innerHTML='<div style="text-align:center;color:var(--text3);padding:22px 0;font-size:13px">아직 캡처 기록이 없어요</div>';return;}
-  // 월별 묶기
-  const byMonth={};
-  S.captures.forEach(c=>{const m=(c.date||'').slice(0,7);(byMonth[m]=byMonth[m]||[]).push(c);});
-  const months=Object.keys(byMonth).sort((a,b)=>b.localeCompare(a));
-  // 첫 렌더면 최신 달은 펼쳐두기
-  if(!Object.keys(capOpen).length&&months[0])capOpen[months[0]]=true;
-  el.innerHTML=months.map(m=>{
-    const caps=byMonth[m];
-    const [y,mo]=m.split('-');
-    const mOpen=!!capOpen[m];
-    const byDate={};
-    caps.forEach(c=>{(byDate[c.date]=byDate[c.date]||[]).push(c);});
-    const dates=Object.keys(byDate).sort((a,b)=>b.localeCompare(a));
-    const body=dates.map(d=>{
-      const dOpen=!!capOpen[d];
-      const wd=WD[new Date(d).getDay()];
-      const cells=byDate[d].map(c=>`<div class="cap-cell">${c.thumb?`<img src="${c.thumb}" onclick="lightbox('${c.id}')"/>`:`<div onclick="lightbox('${c.id}')" style="width:100%;aspect-ratio:9/16;display:grid;place-items:center;font-size:10px;color:var(--text3);background:var(--bg);border-radius:6px">직접 입력</div>`}<div class="cap-cell-t">${c.time||''}</div><button class="cap-del" onclick="event.stopPropagation();delCap('${c.id}')">×</button></div>`).join('');
-      return `<div class="cap-day">
-        <div class="cap-dhead" onclick="toggleCapMonth('${d}')"><span>${parseInt(d.slice(5,7))}/${parseInt(d.slice(8,10))} (${wd})</span><span class="cap-dcount">${byDate[d].length}장 ${dOpen?'▾':'▸'}</span></div>
-        <div class="cap-dbody" style="display:${dOpen?'flex':'none'}">${cells}</div>
-      </div>`;
-    }).join('');
-    return `<div class="cap-month">
-      <div class="cap-mhead" onclick="toggleCapMonth('${m}')"><span>${parseInt(y)}년 ${parseInt(mo)}월</span><span class="cap-mcount">${caps.length}장 ${mOpen?'▾':'▸'}</span></div>
-      <div class="cap-mbody" style="display:${mOpen?'block':'none'}">${body}</div>
-    </div>`;
-  }).join('');
-}
-function lightbox(id){
-  const c=S.captures.find(x=>x.id===id);if(!c)return;
-  const d=document.createElement('div');
-  d.className='lightbox';
-  d.onclick=()=>d.remove();
-  d.innerHTML=`<div class="lb-inner">${c.thumb?`<img src="${c.thumb}"/>`:''}<div class="lb-info">${c.date} ${c.time||''} · ${ACCOUNTS.map(a=>`${a.n} ${won(c.balances[a.id]||0)}`).join(' · ')}</div></div>`;
-  document.body.appendChild(d);
-}
-function delCap(id){S.captures=S.captures.filter(c=>c.id!==id);save();renderCaps();}
-
-let chatHist=[];
-function buildCtx(){
-  const{total,elapsed,remaining}=getBD();const spent=totSpent();const pace=getPace();
-  const eff=effectiveBudget();const fxExp=totFixedExpense();const fxInc=totFixedIncome();
-  const wInfo=getWeekInfo();const ws=getWeeklySpent();const wSpentVal=ws?ws.spent:0;
-  const fixedList=(S.fixed||[]).map(f=>{const isInc=f.type==='income';return`${f.name} ${isInc?'+':''}${won(f.amount)}${f.paid?'('+(isInc?'들어옴 ':'빠짐 ')+f.paidDate+')':''}`;}).join(', ')||'없음';
-  // 이번 주(월~오늘) 지출 메모 카드 전체 (카테고리+금액+내용)
-  const weekCards=Object.entries(S.memos||{})
-    .filter(([d])=>d>=wInfo.weekStartStr&&d<=toStr())
-    .flatMap(([d])=>getMemos(d).map(c=>({...c,date:d})))
-    .sort((a,b)=>b.date.localeCompare(a.date));
-  const memoList=weekCards.map(c=>{
-    const amtPart=c.amt>0?won(c.amt)+' ':'';
-    const catPart=c.category?'['+c.category+'] ':'';
-    return `${c.date.slice(5)} ${catPart}${amtPart}${c.text||''}`.trim();
-  }).join(' / ')||'없음';
-  return`[재무 현황]
-- 예산기간: ${S.budgetStart}~${S.budgetEnd}(총${total}일,경과${elapsed}일,남은${remaining}일)
-- 월예산: ${won(S.budget)} / 고정지출 -${won(fxExp)}${fxInc>0?' / 예정입금 +'+won(fxInc):''} → 사용가능 ${won(eff)}
-- 이번달 지출: ${won(spent)} (소진율 ${Math.round(spent/Math.max(eff,1)*100)}%)
-- 남은예산: ${won(eff-spent)}, 오늘 쓸 수 있는 돈: ${(()=>{const tb=getTodayBudget();return tb<0?'-'+won(tb):won(tb);})()}
-- 지금쯤 정상 지출액: ${won(Math.round(eff*(elapsed/total)))} / 월 페이스: ${pace.item.txt}
-- 주간예산: ${won(S.weeklyBudget)}, 이번주 지출: ${won(wSpentVal)} (${wInfo.elapsed}/7일)
-- 고정지출 목록: ${fixedList}
-- 이번 주 지출 메모: ${memoList}
-- 총잔액: ${won(totBal())}, ${ydSpentPhrase(getYesterdaySpent())}`;
-}
-
-async function askAI(t){document.getElementById('chatInp').value=t;await sendChat();}
-
-// Gemini 호출 공용 함수 (단발성 프롬프트)
-// Gemini 에러를 사람이 읽을 수 있는 메시지로
-function geminiErr(status,raw){
-  if(status===429)return '무료 사용 한도를 잠깐 넘었어요. 1~2분 뒤 다시 시도해주세요 🙏';
-  if(status===400&&/API[_ ]?key|key not valid/i.test(raw))return 'API 키가 올바르지 않아요. 설정을 확인해주세요';
-  if(status===403)return 'API 키 권한 문제예요. 설정에서 키를 다시 확인해주세요';
-  if(status>=500)return '구글 서버가 잠시 불안정해요. 잠시 후 다시 시도해주세요';
-  return `오류(${status}): `+(raw||'').slice(0,80);
-}
-
-// 채팅 메시지가 지출 기록인지 질문/잡담인지 Gemini가 구분해서, 기록이면 JSON으로 카테고리·금액을
-// 뽑아 달력에 바로 저장하고, 아니면 평소처럼 대화로 답한다.
-async function sendChat(){
-  const inp=document.getElementById('chatInp');const msg=inp.value.trim();
-  if(!msg)return;
-  if(!S.claudeKey){showToast('설정에서 Gemini API 키를 입력해주세요');return;}
-  inp.value='';appendChat('user',msg);chatHist.push({role:'user',content:msg});
-  const el=appendChat('ai','...');
-  try{
-    const todayStr=toStr();
-    const fixedNames=(S.fixed||[]).map(f=>f.name).join(', ')||'없음';
-    const sysPrompt=`당신은 개인 재무 관리 AI예요. 사용자 메시지를 "지출 기록"/"설정 변경"/"질문·잡담" 중 하나로 구분하세요.
-
-[규칙]
-- **바로 위 대화 기록을 항상 참고할 것**: 사용자가 "그걸로"/"그거로"/"아까 그거"/"방금 그 금액으로"처럼 지시어로 이전 turn의 금액·항목을 다시 가리키면, 새로 안 물어보고 바로 위 대화에서 해당 값을 찾아 이어서 처리할 것. 애매하면 그때만 되물어보기
-- 지출 기록으로 보이면(예: "오늘 점심 8천원, 커피 4500원", "택시비 만이천원 씀") type을 "log"로 하고, entries에 지출 하나당 카드 하나씩: category(${MEMO_CATS.join(', ')} 중 하나, 애매하면 "기타"), amt(숫자만), text(무엇을 샀는지 짧게), date(YYYY-MM-DD, 언급 없으면 오늘 ${todayStr}, "어제"면 하루 전 날짜)
-- 주간 한도/주간 예산을 특정 금액으로 바꿔달라는 말이면 type "setting", setting={"action":"set_weekly_budget","weeklyBudget":숫자} — 이 액션일 땐 fixedName/fixedAmount는 절대 채우지 말 것
-- "지금 남은 잔액으로 주간 한도 배분해줘", "그걸로 주간예산 배분해줘"(직전에 잔액을 물어봤던 경우 포함)처럼 현재 남은 잔액 기준으로 주간 한도를 다시 계산해달라는 말이면 type "setting", setting={"action":"allocate_weekly_from_balance"} — **이 액션은 사용자가 숫자를 말했든 안 했든, 대화에서 잔액을 언급한 적이 있든 없든 항상 트리거 가능** (계산은 실시간 재무 현황 기준으로 앱이 직접 하므로 대화 기록에 의존할 필요 없음). weeklyBudget 필드는 절대 채우지 말 것
-- 고정지출을 추가해달라면 type "setting", setting={"action":"add_fixed","fixedName":항목명,"fixedAmount":숫자} — 이 액션일 땐 weeklyBudget은 절대 채우지 말 것. 금액은 반드시 fixedAmount에만 넣기
-- 기존 고정지출 금액을 바꿔달라면 type "setting", setting={"action":"edit_fixed","fixedName":아래 기존 고정지출 목록(${fixedNames}) 중 정확히 일치하는 이름,"fixedAmount":새 금액} — weeklyBudget은 채우지 말 것
-- 기존 고정지출을 삭제/없애달라면 type "setting", setting={"action":"delete_fixed","fixedName":위 기존 목록 중 정확히 일치하는 이름} (fixedAmount/weeklyBudget 불필요)
-- 즉 setting 안에는 action에 해당하는 필드만 채우고 나머지 숫자 필드는 비워둘 것 — 절대 금액을 엉뚱한 필드(weeklyBudget ↔ fixedAmount)에 넣지 말 것
-- 어떤 항목을 말하는지 기존 목록에서 특정할 수 없으면 type을 "chat"으로 하고 reply에서 어떤 항목인지 되물어보기
-- 금액이나 대상이 불분명해서 기록/변경하기 애매하면 type을 "chat"으로 하고 reply에서 되물어보기
-- 질문/잡담이면 type을 "chat"으로, reply에 아래 재무 현황을 참고해 답변
-- reply는 항상 친근한 반말체로 1~4문장. type이 log/setting이면 reply는 "○○ 기록했어요 ✓" / "주간 한도 OO원으로 바꿨어요 ✓" 같은 짧은 확인 문구
-
-${buildCtx()}`;
-    const schema={
-      type:'object',
-      properties:{
-        type:{type:'string',enum:['log','setting','chat']},
-        entries:{type:'array',items:{type:'object',properties:{
-          category:{type:'string'},amt:{type:'number'},text:{type:'string'},date:{type:'string'}
-        },required:['category','amt']}},
-        setting:{type:'object',properties:{
-          action:{type:'string',enum:['set_weekly_budget','allocate_weekly_from_balance','add_fixed','edit_fixed','delete_fixed']},
-          weeklyBudget:{type:'number'},
-          fixedName:{type:'string'},
-          fixedAmount:{type:'number'}
-        }},
-        reply:{type:'string'}
-      },
-      required:['type','reply']
-    };
-    const geminiMessages=chatHist.map(m=>({
-      role:m.role==='assistant'?'model':'user',
-      parts:[{text:m.content}]
-    }));
-    const body={
-      system_instruction:{parts:[{text:sysPrompt}]},
-      contents:geminiMessages,
-      generationConfig:{maxOutputTokens:1500,responseMimeType:'application/json',responseSchema:schema,thinkingConfig:{thinkingBudget:0}}
-    };
-    const res=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key='+S.claudeKey,{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify(body)
-    });
-    if(!res.ok){const raw=await res.text();throw new Error(geminiErr(res.status,raw));}
-    const data=await res.json();
-    const raw=data.candidates?.[0]?.content?.parts?.[0]?.text;
-    let result;let allocReply=null;
-    try{result=JSON.parse(raw);}catch(e){result=null;}
-    if(!result||!result.reply){
-      el.textContent='응답을 받지 못했어요.';return;
-    }
-    if(result.type==='log'&&Array.isArray(result.entries)&&result.entries.length){
-      for(const e of result.entries){
-        const d=(e.date&&/^\d{4}-\d{2}-\d{2}$/.test(e.date))?e.date:todayStr;
-        const cards=getMemos(d);
-        cards.push({
-          id:Date.now().toString()+Math.random().toString(36).slice(2,6),
-          category:MEMO_CATS.includes(e.category)?e.category:'기타',
-          amt:parseInt(e.amt)||0,
-          text:e.text||''
-        });
-        S.memos[d]=cards;
-      }
-      save();renderCalendar();render();
-    }else if(result.type==='setting'&&result.setting){
-      const st=result.setting;
-      S.fixed=S.fixed||[];
-      // 모델이 가끔 금액을 엉뚱한 필드(weeklyBudget↔fixedAmount)에 넣는 경우 대비한 폴백
-      const fixedAmt=st.fixedAmount>0?st.fixedAmount:(st.weeklyBudget>0?st.weeklyBudget:0);
-      if(st.action==='set_weekly_budget'&&st.weeklyBudget>0){
-        S.weeklyBudget=parseInt(st.weeklyBudget)||S.weeklyBudget;
-      }else if(st.action==='allocate_weekly_from_balance'){
-        // 계산은 모델이 아니라 앱이 직접 함(암산 오류 방지) — 남은 잔액을 예산기간 잔여일 기준으로 7일치로 환산
-        const{remaining}=getBD();
-        S.weeklyBudget=Math.round(usableBal()/Math.max(1,remaining)*7);
-        allocReply=`남은 잔액 기준으로 주간 한도를 ${won(S.weeklyBudget)}으로 배분했어요 ✓`;
-      }else if(st.action==='add_fixed'&&st.fixedName&&fixedAmt>0){
-        S.fixed.push({id:Date.now().toString(),name:st.fixedName,amount:parseInt(fixedAmt)||0,paid:false,paidDate:''});
-      }else if(st.action==='edit_fixed'&&st.fixedName){
-        const f=S.fixed.find(x=>x.name===st.fixedName);
-        if(f&&fixedAmt>0)f.amount=parseInt(fixedAmt)||f.amount;
-      }else if(st.action==='delete_fixed'&&st.fixedName){
-        S.fixed=S.fixed.filter(x=>x.name!==st.fixedName);
-      }
-      save();renderFixed();render();
-    }
-    const replyText=allocReply||result.reply;
-    el.textContent=replyText;chatHist.push({role:'assistant',content:replyText});
-    if(chatHist.length>20)chatHist=chatHist.slice(-20);
-  }catch(e){el.textContent='오류: '+e.message;}
-}
-function appendChat(role,text){
-  const w=document.getElementById('chatWrap');const el=document.createElement('div');
-  el.className='cb '+role;el.textContent=text;w.appendChild(el);w.scrollTop=w.scrollHeight;return el;
-}
-
-// 핵심 5줄만 남긴 심플 요약 (AI 코멘트가 너무 길다는 피드백 반영 — 잔액 내역·일별추이·메모·페이스 라벨 등은 전부 제거, AI 호출도 안 함)
-function buildSimpleSummary(){
-  const eff=effectiveBudget();
-  const spent=totSpent();
-  const realPct=Math.round(spent/Math.max(eff,1)*100);
-  const{total,elapsed,remaining}=getBD();
-  // 말투 톤: 쓴 비율(realPct) - 시간 경과 비율(timePct). +면 과소비(빠름), -면 여유. 상황에 맞게 코멘트 뉘앙스 변경.
-  const timePct=Math.round(elapsed/Math.max(total,1)*100);
-  const paceDelta=realPct-timePct;
-  const pace=paceDelta>=15?'over':paceDelta>=6?'fast':paceDelta<=-10?'relaxed':'ok';
-  const todayBudget=getTodayBudget();
-  const wBudget=S.weeklyBudget||0;
-  const ws=getWeeklySpent();
-  const wSpentVal=ws?ws.spent:0;
-  const wPct=Math.round(wSpentVal/Math.max(wBudget,1)*100);
-  const unpaidList=(S.fixed||[]).filter(f=>!f.paid).map(f=>`${f.name} ${won(f.amount)}`);
-  const remain=eff-spent;
-  const recommendedDaily=remain>0?Math.round(remain/remaining):0;
-  const recommendedWeekly=recommendedDaily*7;
-
-  const ydActual=getYesterdaySpent();
-
-  const lines=[];
-  lines.push(`월예산 ${won(eff)} 중 ${won(spent)} 사용 (${realPct}%)`);
-  lines.push(wBudget>0?`주예산 ${won(wBudget)} 중 ${won(wSpentVal)} 사용 (${wPct}%)`:`주예산 미설정`);
-  lines.push(unpaidList.length?`미납된 고정비는 ${unpaidList.join(', ')}이 있어요`:`미납된 고정비 없음`);
-  const todayBudgetTxt=todayBudget<0?'-'+won(Math.abs(todayBudget)):won(todayBudget);
-  const ydHead=ydActual>0?`어제 ${won(ydActual)} 썼`:ydActual<0?`어제 ${won(Math.abs(ydActual))} 입금됐`:`어제 지출 없었`;
-  const ydLine=(pace==='over'||pace==='fast')?`${ydHead}어요. 페이스가 빠르니 오늘은 ${todayBudgetTxt} 안에서 막아보세요`
-    :pace==='relaxed'?`${ydHead}어요. 여유 있으니 오늘은 ${todayBudgetTxt}까지 편하게 써도 돼요`
-    :`${ydHead}으니 오늘은 ${todayBudgetTxt} 써도 괜찮아요`;
-  lines.push(ydLine);
-  const rw=won(recommendedWeekly),rd=won(recommendedDaily);
-  const lastLine=remain<=0?`이미 이번 달 예산을 초과했어요. 남은 기간은 꼭 필요한 데만 쓰는 게 좋아요`
-    :pace==='over'?`지출 페이스가 많이 빨라요. 이번 주는 주 ${rw}·일 ${rd} 안으로 바짝 조여야 해요`
-    :pace==='fast'?`조금 빠른 페이스예요. 주 ${rw}·일 ${rd} 정도로 맞춰가면 좋아요`
-    :pace==='relaxed'?`페이스에 여유가 있어요. 주 ${rw}·일 ${rd}까지 써도 되니 너무 아끼지 않아도 돼요`
-    :`페이스 적당해요. 이대로 주 ${rw}·일 ${rd} 유지하면 딱이에요`;
-  lines.push(lastLine);
-  return lines.join('\n');
-}
-// ── 일간 코멘트 ──────────────────────────────
-// force=true면 오늘 코멘트가 있어도 다시 생성
-function genTodayComment(force){
-  const today=toStr();
-  if(!S.comments)S.comments={};
-  if(S.comments[today]&&!force){renderComments();return;} // 이미 있으면 자동생성 스킵
-  // 데이터가 거의 없으면 생성 안 함 (잔액도 없을 때)
-  if(totBal()<=0&&!force)return;
-
-  // 이전 코멘트는 남기지 않고 최신 1개만 유지 (누를 때마다 덮어쓰기)
-  S.comments={[today]:buildSimpleSummary()};
-  save();renderComments();
-  if(force)showToast('오늘 코멘트가 생성됐어요 ✓');
-}
-
-function renderComments(){
-  const el=document.getElementById('cmtList');
-  if(!el)return;
-  const entries=Object.entries(S.comments||{}).sort((a,b)=>b[0].localeCompare(a[0]));
-  if(!entries.length){
-    el.innerHTML='<div style="text-align:center;color:var(--text3);padding:22px 0;font-size:13px">아직 코멘트가 없어요</div>';
-    return;
-  }
-  el.innerHTML=entries.map(([date,txt])=>{
-    const d=new Date(date);
-    const lbl=d.toLocaleDateString('ko-KR',{month:'long',day:'numeric',weekday:'short'});
-    return `<div class="cmt-item"><div class="cmt-date">${lbl}</div><div class="cmt-body">${escapeHtml(txt)}</div></div>`;
-  }).join('');
-}
-
-// 금액 입력칸 콤마 자동 포맷
 function toggleEye(id,btn){const el=document.getElementById(id);el.classList.toggle("masked");btn.style.opacity=el.classList.contains("masked")?"0.55":"1";}
 function onMoneyInput(el){
   const raw=el.value.replace(/[^0-9]/g,'');
@@ -2430,88 +1835,48 @@ function onMoneyInput(el){
 function parseMoney(id){return parseInt((document.getElementById(id).value||'').replace(/[^0-9]/g,''))||0;}
 
 function saveSets(){
-  const prevS=JSON.parse(JSON.stringify(S)),prevRev=syncMeta.rev;
-  const b=parseMoney('sBudget');
-  if(!b||b<1000){showToast('월 예산을 올바르게 입력해주세요');return;}
-  S.budget=b;
-  S.weeklyBudget=parseMoney('sWeekly');
-  const newStart=document.getElementById('sStart').value;
-  if(newStart&&newStart!==S.budgetStart)S.budgetAnchorDay=Number(newStart.slice(8,10)); // 시작일을 직접 바꾸면 기준일도 따라간다
-  S.budgetStart=newStart;S.budgetEnd=document.getElementById('sEnd').value;
-  S.alarmTime=document.getElementById('sAlarm').value;S.visionKey=document.getElementById('sVision').value.trim();S.claudeKey=document.getElementById('sClaude').value.trim();
-  const sbU=document.getElementById('sSbUrl').value.trim().replace(/\/+$/,''); // 끝 슬래시 제거
-  const sbK=document.getElementById('sSbKey').value.trim();
-  const sbChanged=(sbU!==S.supabaseUrl)||(sbK!==S.supabaseKey);
-  // 다른 Supabase 주소로 바꾸면 예전 대상의 버전을 버리고 첫 동기화(확인창·양쪽 백업)부터 한다. 키만 바뀐 건 같은 대상.
-  const urlChanged=sbU!==S.supabaseUrl;
-  S.supabaseUrl=sbU; S.supabaseKey=sbK;
-  const txK=(document.getElementById('sTxKey')||{}).value;const txChanged=txK!==undefined&&txK.trim()!==S.txReadSecret;
-  if(txK!==undefined)S.txReadSecret=txK.trim();
-  const own=(document.getElementById('sOwner')||{}).value;if(own!==undefined)S.ownerNames=own.trim();
-  if(urlChanged){delete syncMeta.rev;saveSyncMeta();}
-  if(!save()){
-    S=prevS;
-    if(prevRev===undefined)delete syncMeta.rev;else syncMeta.rev=prevRev;
-    saveSyncMeta();render();return;
+  const pay=(document.getElementById('sPayer')||{}).value;if(pay!==undefined)S.payer=pay.trim();
+  const pd=parseInt((document.getElementById('sPayDay')||{}).value,10);if(pd>=1&&pd<=31)S.payDay=pd;
+  if(!save())return;
+  applyTxToState(null);showToast('저장됐어요 ✓');
+}
+// 설정 링크: 앱 주소#setup=<base64url JSON {u:Supabase URL, k:anon 키, t:읽기 키, n:내 이름}> 를 한 번 열면 이 기기에 저장.
+// # 뒤는 서버로 전송되지 않는다. 저장 후 주소창에서 바로 지운다. 연결 값은 화면에 보이지 않는다.
+function applySetupLink(){
+  const m=/[#&]setup=([A-Za-z0-9_-]+)/.exec(location.hash||'');
+  if(!m)return false;
+  try{history.replaceState(null,'',location.pathname+location.search);}catch(e){}
+  let c;try{c=JSON.parse(decodeURIComponent(escape(atob(m[1].replace(/-/g,'+').replace(/_/g,'/')))));}catch(e){c=null;}
+  // 검사: 모든 값은 문자열, 주소는 https://*.supabase.co, 주소와 anon 키는 반드시 함께(예전 키가 다른 주소로 가지 않게)
+  const str=v=>v==null||typeof v==='string';
+  const norm=u=>String(u||'').trim().replace(/\/+$/,'');
+  if(!c||typeof c!=='object'||!['u','k','t','n'].every(k=>str(c[k]))||!c.u||!c.k||!/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(norm(c.u))){
+    showToast('설정 링크가 올바르지 않아요');return false;
   }
-  render();schedAlarm();showToast('저장됐어요 ✓');
-  // 처음 연결했으면 바로 업로드 시도
-  if(sbChanged&&sbU&&sbK)queueSync();
-  if(txChanged||urlChanged){TX={rows:[]};try{localStorage.setItem(TX_STORE,JSON.stringify(TX));}catch(e){}fetchTx();}
+  const url=norm(c.u),prev={u:S.supabaseUrl,k:S.supabaseKey,t:S.txReadSecret,n:S.ownerNames},prevRev=syncMeta.rev;
+  const urlChanged=url!==norm(S.supabaseUrl);
+  // 이미 다른 곳에 연결돼 있으면 바꾸기 전에 확인
+  if(S.supabaseUrl&&urlChanged&&!confirm('다른 저장소로 연결을 바꿀까요?'))return false;
+  S.supabaseUrl=url;S.supabaseKey=c.k.trim();
+  if(c.t!=null)S.txReadSecret=c.t.trim();else if(urlChanged)S.txReadSecret='';
+  if(c.n!=null)S.ownerNames=c.n.trim();
+  if(urlChanged){delete syncMeta.rev;saveSyncMeta();}
+  if(!save()){ // 저장 실패면 원래대로
+    S.supabaseUrl=prev.u;S.supabaseKey=prev.k;S.txReadSecret=prev.t;S.ownerNames=prev.n;
+    if(urlChanged){if(prevRev===undefined)delete syncMeta.rev;else syncMeta.rev=prevRev;saveSyncMeta();}
+    return false;
+  }
+  showToast('연결됐어요 ✓');
+  return true;
 }
 
 // 클라우드에서 수동으로 불러오기 (다른 기기 데이터 가져올 때)
-async function manualLoad(){
-  const sbU=document.getElementById('sSbUrl').value.trim().replace(/\/+$/,'');
-  const sbK=document.getElementById('sSbKey').value.trim();
-  if(!sbU||!sbK){showToast('먼저 Supabase URL과 키를 입력해주세요');return;}
-  if(!confirm('클라우드 데이터로 덮어쓸까요? 지금 이 기기 데이터는 백업해 둬요.'))return;
-  if(!backupLocal()){showToast('저장 공간이 부족해 백업하지 못했어요');return;}
-  const prevUrl=S.supabaseUrl,prevKey=S.supabaseKey,prevRev=syncMeta.rev;
-  if(sbU!==S.supabaseUrl){delete syncMeta.rev;saveSyncMeta();}
-  S.supabaseUrl=sbU; S.supabaseKey=sbK;
-  const ok=await serialSync(loadFromCloud);
-  if(ok){render();showToast('클라우드에서 불러왔어요 ✓');return;}
-  // 못 불러왔으면 접속정보·버전을 원래대로(이 기기 데이터는 그대로)
-  S.supabaseUrl=prevUrl;S.supabaseKey=prevKey;
-  if(prevRev===undefined)delete syncMeta.rev;else syncMeta.rev=prevRev;
-  saveSyncMeta();
-  showToast('클라우드에서 불러오지 못했어요');
-}
 
 
-let aTimer=null;
-async function reqNotif(){
-  if(!('Notification'in window)){showToast('알림을 지원하지 않아요');return;}
-  const p=await Notification.requestPermission();updateNotif();if(p==='granted'){showToast('알림 허용됐어요 ✓');schedAlarm();}
-}
-function updateNotif(){
-  if(!('Notification'in window))return;
-  const p=Notification.permission;
-  document.getElementById('notifBtn').textContent=p==='granted'?'허용됨 ✓':'허용';
-  document.getElementById('notifBtn').style.background=p==='granted'?'var(--green)':'var(--blue)';
-  document.getElementById('notifDesc').textContent=p==='granted'?'매일 '+S.alarmTime+'에 리포트':'알림을 허용해주세요';
-  document.getElementById('notifDot').textContent=p==='granted'?'🔔 '+S.alarmTime:'🔕';
-}
-function buildNotifBody(){
-  const spent=totSpent();const eff=effectiveBudget();const pace=getPace();
-  const tb=getTodayBudget();const dailyTxt=tb<0?'-'+won(tb):won(tb);
-  return`💰 총잔액: ${won(totBal())}\n📅 ${ydSpentPhrase(getYesterdaySpent())}\n📊 소진율: ${Math.round(spent/Math.max(eff,1)*100)}%\n📆 오늘예산: ${dailyTxt}\n${pace.item.em} ${pace.item.txt}`;
-}
-function sendNotif(){if(Notification.permission!=='granted')return;new Notification('머니페이스 일일 리포트 💸',{body:buildNotifBody(),tag:'daily-report',renotify:true});}
-function testNotif(){if(Notification.permission!=='granted'){showToast('먼저 알림을 허용해주세요');return;}sendNotif();showToast('테스트 알림 보냈어요!');}
-function schedAlarm(){
-  if(aTimer)clearTimeout(aTimer);
-  const[h,m]=S.alarmTime.split(':').map(Number);const now=new Date();const t=new Date();t.setHours(h,m,0,0);
-  if(t<=now)t.setDate(t.getDate()+1);
-  aTimer=setTimeout(()=>{sendNotif();schedAlarm();},t-now);
-}
-
-const TABS=['home','add','capture','fixed','ai','settings'];
+const TABS=['home','capture','fixed','settings'];
 // 홈은 디자인상 최상단에 타이틀 없이 바로 히어로 카드로 시작 — 나머지 탭만 화면명을 상단에 표시
-const TAB_TITLES={home:'',add:'지출',capture:'잔액',fixed:'고정지출',ai:'AI',settings:'설정'};
+const TAB_TITLES={home:'',capture:'거래',fixed:'고정지출',settings:'설정'};
 function showTab(name){
-  if(name==='settings')renderBackupInfo();
   TABS.forEach(t=>{
     document.getElementById('tab-'+t).classList.toggle('hidden',t!==name);
     const n=document.getElementById('nav-'+t);if(n)n.classList.toggle('active',t===name);
@@ -2525,9 +1890,9 @@ let tTimer;
 function showToast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');clearTimeout(tTimer);tTimer=setTimeout(()=>el.classList.remove('show'),2500);}
 
 render();
-if('Notification'in window&&Notification.permission==='granted')schedAlarm();
 
 // 앱 시작 시: 클라우드 동기화 → 공유 이미지 체크 (AI 코멘트는 자동 생성 안 함)
+applySetupLink();
 (async function initApp(){
   if(S.supabaseUrl&&S.supabaseKey){
     const ok=await serialSync(syncOnStart);
@@ -2535,8 +1900,6 @@ if('Notification'in window&&Notification.permission==='granted')schedAlarm();
   }
   // 은행 알림으로 기록된 새 거래를 먼저 받고(주기 마감 합계에 넣기 위해), 예산 주기가 끝났으면 다음 주기로 넘긴다
   await refreshAndRoll();
-  // 토스에서 공유로 들어왔으면 자동 처리
-  await checkSharedImage();
   // AI 코멘트는 여기서 자동 생성하지 않음 — '오늘 코멘트 생성' 버튼을 눌러야 생성
 })();
 </script>

@@ -85,12 +85,46 @@ let ok = 0; const t = async (n, f) => { await f(); ok++; console.log('ok -', n);
     assert.strictEqual(r.status, 200); assert.deepStrictEqual(asked, { afterId: 5, sinceIso: null, limit: 500 });
     const rs = await handleRead({ method: 'GET', headers: hdr({ 'x-read-secret': READ }), url: 'https://x/tx-read?since=2020-01-01T00:00:00Z', now: '2026-09-25T00:00:00Z' }, deps);
     assert.strictEqual(rs.status, 200); assert.strictEqual(asked.sinceIso, '2026-08-11T00:00:00.000Z', 'since는 최대 45일로 제한');
+    assert.strictEqual(rs.headers['x-since-applied'], '2026-08-11T00:00:00.000Z', '실제 적용한 시작점을 알려 줌(앱이 범위 판정에 사용)');
+    assert.ok(/x-since-applied/.test(rs.headers['Access-Control-Expose-Headers']), '브라우저가 읽을 수 있게 노출');
+    assert.strictEqual(r.headers['x-since-applied'], undefined, 'after 읽기엔 없음');
     assert.strictEqual((await handleRead({ method: 'GET', headers: hdr({ 'x-read-secret': READ }), url: 'https://x/tx-read?since=abc' }, deps)).status, 400);
     assert.strictEqual(r.headers['Access-Control-Allow-Origin'], 'https://dlgmlwns322-sys.github.io');
     const { COLUMNS } = await import('../supabase/functions/tx-read/handler.js');
     assert.ok(!/raw|account|key/.test(COLUMNS), '원문·계좌·키는 안 보냄');
     const pre = await handleRead({ method: 'OPTIONS', headers: hdr({ origin: 'https://evil.example' }), url: 'https://x/tx-read' }, deps);
     assert.strictEqual(pre.headers['Access-Control-Allow-Origin'], 'https://dlgmlwns322-sys.github.io');
+  });
+
+  await t('생존 신호: 비밀키 맞으면 시각만 저장(거래·미해석 없음), 틀리면 401', async () => {
+    const { rows, unparsed, deps } = mk(); let beats = 0; deps.heartbeat = async () => { beats++; };
+    const body = JSON.stringify({ kind: 'heartbeat' });
+    assert.strictEqual((await handleIngest(req(body), deps)).body, 'alive');
+    assert.strictEqual((await handleIngest(req('kind=heartbeat', {}, 'application/x-www-form-urlencoded'), deps)).body, 'alive');
+    assert.strictEqual((await handleIngest(req(body, { 'x-ingest-secret': 'wrong' }), deps)).status, 401);
+    assert.strictEqual(beats, 2); assert.strictEqual(rows.length, 0); assert.strictEqual(unparsed.length, 0);
+    const { deps: d2 } = mk(); // 생존 신호 저장이 연결 안 됐으면 조용히 성공한 척하지 않는다
+    assert.strictEqual((await handleIngest(req(body), d2)).status, 500);
+  });
+
+  await t('KB Pay 알림: 거래 아니라 가게 이름 힌트로만 저장, 못 읽으면 skip', async () => {
+    const { rows, unparsed, deps } = mk(); const hints = [];
+    deps.parseHint = require('../txparse.js').parseCardHint; deps.saveHint = async (h) => { hints.push(h); };
+    const ok1 = await handleIngest(req(JSON.stringify({ app: 'com.kbcard.cxh.appcard', title: 'KB Pay', text: '[KB Pay 사용 알림] 체크 0000 09/25 19:29 5,000원 쿤자PC방 승인' })), deps);
+    assert.strictEqual(ok1.body, 'hint'); assert.strictEqual(hints[0].merchant, '쿤자PC방');
+    const sk = await handleIngest(req(JSON.stringify({ app: 'com.kbcard.cxh.appcard', title: 'KB Pay', text: '광고' })), deps);
+    assert.strictEqual(sk.body, 'skip');
+    assert.strictEqual(rows.length, 0); assert.strictEqual(unparsed.length, 0, '미해석 경고도 안 띄움');
+    assert.strictEqual((await handleIngest(req(JSON.stringify({ app: 'com.kbcard.cxh.appcard', title: 'KB Pay', text: 'x' }), { 'x-ingest-secret': 'bad' }), deps)).status, 401);
+  });
+
+  await t('tx-read hints=1: after 뒤만, 최근 45일', async () => {
+    let got = null;
+    const r = await handleRead({ method: 'GET', headers: hdr({ 'x-read-secret': READ }), url: 'https://x/tx-read?hints=1&after=7', now: '2026-09-26T00:00:00Z' },
+      { secret: READ, select: async () => [], hints: async (a, f, l) => { got = [a, f, l]; return [{ id: 8, at: 'a', amount: 1, merchant: 'm' }]; } });
+    assert.strictEqual(r.status, 200); assert.deepStrictEqual(JSON.parse(r.body)[0].merchant, 'm');
+    assert.deepStrictEqual(got, [7, '2026-08-12T00:00:00.000Z', 500]);
+    assert.strictEqual((await handleRead({ method: 'GET', headers: hdr({ 'x-read-secret': 'no' }), url: 'https://x/tx-read?hints=1' }, { secret: READ })).status, 401);
   });
 
   await t('서버용 해석기 사본이 원본과 같음', async () => {

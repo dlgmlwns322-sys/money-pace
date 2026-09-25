@@ -42,3 +42,24 @@ revoke all on public.tx from anon, authenticated;
 revoke all on public.tx_unparsed from anon, authenticated;
 revoke all on sequence public.tx_id_seq from anon, authenticated;
 revoke all on sequence public.tx_unparsed_id_seq from anon, authenticated;
+
+-- MacroDroid 생존 신호(하루 한 번). 한 행만 두고 시각을 덮어쓴다. 일일 리포트가 30시간 넘게 끊기면 경고.
+create table if not exists public.ingest_heartbeat (
+  id smallint primary key default 1 check (id = 1),
+  at timestamptz not null
+);
+alter table public.ingest_heartbeat enable row level security;
+revoke all on public.ingest_heartbeat from anon, authenticated;
+
+-- KB Pay(카드 앱) 승인 알림의 실제 가게 이름(2026-09-26). 거래가 아니라 힌트: 앱이 같은 금액·몇 분 안의 통장 출금과 짝지어 이름만 쓴다.
+create table if not exists public.card_hint (
+  id bigserial primary key,
+  key text not null unique,            -- 'hint|시각|금액|가게' (같은 결제의 알림 두 개는 한 번만)
+  at timestamptz not null,
+  amount bigint not null check (amount > 0),
+  merchant text not null,
+  created_at timestamptz not null default now()
+);
+alter table public.card_hint enable row level security;
+revoke all on public.card_hint from anon, authenticated;
+revoke all on sequence public.card_hint_id_seq from anon, authenticated;

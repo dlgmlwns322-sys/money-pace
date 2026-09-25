@@ -26,7 +26,7 @@ let handler = null;
 globalThis.Deno = { env: { get: (k) => env[k] }, serve: (h) => { handler = h; } };
 
 // PostgREST 흉내(tx, tx_unparsed)
-const db = { tx: [], tx_unparsed: [], seq: 0, calls: [] };
+const db = { tx: [], tx_unparsed: [], card_hint: [], seq: 0, hseq: 0, calls: [] };
 const realFetch = globalThis.fetch;
 globalThis.fetch = async (url, init = {}) => {
   url = String(url); db.calls.push({ url, method: init.method || 'GET', headers: init.headers });
@@ -36,16 +36,32 @@ globalThis.fetch = async (url, init = {}) => {
     const u = new URL(url); const table = u.pathname.split('/').pop();
     if ((init.method || 'GET') === 'POST') {
       const row = JSON.parse(init.body);
+      if (table === 'ingest_heartbeat') {
+        assert.ok(u.searchParams.get('on_conflict') === 'id' && /merge-duplicates/.test(h.Prefer), '한 행 덮어쓰기');
+        db.hb = row; return new Response('', { status: 201 });
+      }
+      if (table === 'card_hint') {
+        assert.ok(u.searchParams.get('on_conflict') === 'key' && /ignore-duplicates/.test(h.Prefer), '같은 결제 알림은 한 번만');
+        if (!db.card_hint.some((r) => r.key === row.key)) db.card_hint.push({ id: ++db.hseq, created_at: new Date().toISOString(), ...row });
+        return new Response('', { status: 201 });
+      }
       if (table === 'tx') {
         if (db.tx.some((r) => r.key === row.key)) return new Response('[]', { status: 201 });
         const rec = { id: ++db.seq, created_at: new Date().toISOString(), ...row, at: new Date(row.at).toISOString().replace('Z', '+00:00') };
         db.tx.push(rec); return new Response(JSON.stringify([{ id: rec.id }]), { status: 201 });
       }
-      db.tx_unparsed.push(row); return new Response('', { status: 201 });
+      db.tx_unparsed.push({ created_at: new Date().toISOString(), ...row }); return new Response('', { status: 201 });
+    }
+    if (table === 'ingest_heartbeat') return new Response(JSON.stringify(db.hb ? [{ at: db.hb.at }] : []), { status: 200 });
+    if (table === 'tx_unparsed') {
+      const gte = (u.searchParams.get('created_at') || '').replace('gte.', '');
+      const list = db.tx_unparsed.filter((r) => (r.created_at || '9') >= gte).sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+      assert.ok(/count=exact/.test(h.Prefer || ''), '개수는 count=exact로');
+      return new Response(JSON.stringify(list.slice(0, 1).map((r) => ({ created_at: r.created_at }))), { status: 200, headers: { 'content-range': list.length ? `0-0/${list.length}` : '*/0' } });
     }
     // GET tx?select=...&id=gt.N 또는 created_at=gte.ISO
     const cols = u.searchParams.get('select').split(',');
-    let rows = db.tx;
+    let rows = table === 'card_hint' ? db.card_hint : db.tx;
     const idgt = u.searchParams.get('id'); const cgte = u.searchParams.get('created_at'); const bank = u.searchParams.get('bank');
     if (idgt) rows = rows.filter((r) => r.id > Number(idgt.replace('gt.', '')));
     if (cgte) rows = rows.filter((r) => r.created_at >= cgte.replace('gte.', ''));
@@ -104,39 +120,6 @@ await t('tx-read index.ts: 읽기 키·CORS·원문/계좌 미포함·after/sinc
   globalThis.__rowsForApp = rows;
 });
 
-await t('daily-report index.ts: 알람 시각 전엔 전체 조회 안 함, 발송 시각엔 거래 포함 계산·전송', async () => {
-  const sent = []; const queries = [];
-  const S = { alarmTime: '00:00', budget: 1000000, weeklyBudget: 250000, budgetStart: '2026-09-25', budgetEnd: '2026-10-24',
-    txSince: '2026-09-26', ownerNames: '홍길동', balances: { kakao: 235300, kb: 376715 }, captures: [], fixed: [], memos: {} };
-  const q = (table) => {
-    const st = { table, sel: null, filters: [] };
-    const api = {
-      select(s) { st.sel = s; return api; }, eq(a, b) { st.filters.push(['eq', a, b]); return api; }, gte(a, b) { st.filters.push(['gte', a, b]); return api; },
-      order() { return api; }, limit() { return api; },
-      insert() { queries.push({ table, op: 'insert' }); return Promise.resolve({ error: null }); },
-      delete() { return { eq: () => Promise.resolve({}) }; },
-      single() { queries.push({ table, sel: st.sel }); return Promise.resolve(st.sel.startsWith('alarm') ? { data: { alarm: S.alarmTime } } : { data: { data: S } }); },
-      then(res, rej) { queries.push({ table, sel: st.sel, filters: st.filters }); return Promise.resolve({ data: globalThis.__rowsForApp.map((r) => ({ ...r, id: r.id })), error: null }).then(res, rej); },
-    };
-    return api;
-  };
-  globalThis.__sbClient = { from: q };
-  globalThis.fetch = async (url, init) => { if (String(url).includes('api.telegram.org')) { sent.push(JSON.parse(init.body).text); return new Response('{}'); } throw new Error('unexpected ' + url); };
-  handler = null; await import(fn('daily-report')); const report = handler;
-  // 알람 시각과 다르면(현재 KST 시각으로 비교) 알람만 조회
-  S.alarmTime = '25:99';
-  let r = await report(new Request('https://x')); assert.strictEqual(await r.text(), 'not time yet');
-  assert.ok(queries.every((x) => x.sel && x.sel.startsWith('alarm')), '알람만 조회');
-  // 지금 시각으로 맞춰 발송
-  const now = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date());
-  S.alarmTime = now;
-  r = await report(new Request('https://x')); const txt = await r.text();
-  assert.strictEqual(txt, 'sent', txt);
-  assert.ok(queries.some((x) => x.table === 'tx' && x.sel.includes('balance') && !x.sel.includes('raw')), '거래는 필요한 칼럼만');
-  assert.strictEqual(sent.length, 1); assert.ok(sent[0].includes('머니페이스 일일 리포트'));
-  console.log('   리포트 미리보기:', sent[0].split('\n').slice(0, 4).join(' / '));
-});
-
 await t('② 결제→취소→같은 금액 재결제(같은 분): 3건 모두 저장, 같은 알림 재전송은 dup', async () => {
   globalThis.fetch = dbFetch; handler = ingest;
   const k = (type, bal) => ({ app: 'com.kakao.talk', title: '카카오뱅크', text: `09/26 10:00
@@ -151,6 +134,43 @@ ${type === 'in' ? '가게 → 입출금통장(0000)' : '입출금통장(0000) �
   assert.strictEqual(await send(k('out', '900')), 'ok', '취소 뒤 재결제는 새 거래');
   assert.strictEqual(await send(k('out', '900')), 'dup', '재결제 알림이 두 번 온 것');
   assert.strictEqual(db.tx.length - before, 3);
+});
+
+await t('생존 신호: tx-ingest가 한 행만 덮어쓰고 거래는 안 늘어남', async () => {
+  globalThis.fetch = dbFetch; handler = ingest;
+  const before = db.tx.length;
+  const r = await call(JSON.stringify({ kind: 'heartbeat' }), { 'x-ingest-secret': 'INGEST-KEY' });
+  assert.strictEqual(await r.text(), 'alive'); assert.ok(db.hb && db.hb.id === 1 && db.hb.at);
+  assert.strictEqual(db.tx.length, before);
+  const bad = await call(JSON.stringify({ kind: 'heartbeat' }), { 'x-ingest-secret': 'nope' });
+  assert.strictEqual(bad.status, 401);
+});
+
+await t('tx-read status=1: 생존 신호·미해석 개수·은행별 마지막 거래(수백 바이트)', async () => {
+  globalThis.fetch = dbFetch;
+  handler = null; await import(fn('tx-read') + '?st'); const read = handler;
+  const r = await read(new Request('https://proj.supabase.co/functions/v1/tx-read?status=1', { headers: { 'x-read-secret': 'READ-KEY', origin: 'https://dlgmlwns322-sys.github.io' } }));
+  assert.strictEqual(r.status, 200); const txt = await r.text(); const st = JSON.parse(txt);
+  assert.ok(st.heartbeatAt && st.unparsed.count === db.tx_unparsed.length && st.unparsed.count > 0 && st.unparsed.newest, txt);
+  assert.ok(st.lastTx.kakao && st.lastTx.kb, txt);
+  assert.ok(txt.length < 400, '응답 ' + txt.length + '바이트');
+  assert.strictEqual(r.headers.get('access-control-allow-origin'), 'https://dlgmlwns322-sys.github.io');
+  const bad = await read(new Request('https://proj.supabase.co/functions/v1/tx-read?status=1', { headers: { 'x-read-secret': 'x' } }));
+  assert.strictEqual(bad.status, 401);
+});
+
+await t('KB Pay 힌트: 저장(중복 무시) → tx-read hints=1로 가게 이름만', async () => {
+  handler = ingest;
+  const kbpay = { app: 'com.kbcard.cxh.appcard', title: 'KB Pay', text: '[KB Pay 사용 알림] 체크 0000 09/25 19:29 5,000원 쿤자PC방 승인' };
+  for (let i = 0; i < 2; i++) { const r = await call(JSON.stringify(kbpay), { 'x-ingest-secret': 'INGEST-KEY' }); assert.strictEqual(await r.text(), 'hint'); }
+  assert.strictEqual(db.card_hint.length, 1);
+  handler = null; await import(fn('tx-read') + '?hint'); const read = handler;
+  const r = await read(new Request('https://proj.supabase.co/functions/v1/tx-read?hints=1&after=0', { headers: { 'x-read-secret': 'READ-KEY' } }));
+  const list = await r.json();
+  assert.deepStrictEqual(Object.keys(list[0]).sort(), ['amount', 'at', 'id', 'merchant'], '키·시각 외 컬럼 안 보냄');
+  assert.strictEqual(list[0].merchant, '쿤자PC방');
+  const r2 = await read(new Request(`https://proj.supabase.co/functions/v1/tx-read?hints=1&after=${list[0].id}`, { headers: { 'x-read-secret': 'READ-KEY' } }));
+  assert.deepStrictEqual(await r2.json(), [], '새 것만');
 });
 
 await t('① 501건: tx-read가 500건씩 since+after로 끝까지', async () => {

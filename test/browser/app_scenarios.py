@@ -36,38 +36,48 @@ try:
         b, p, errs, reqs = page_with(pw, base, sync={"rev": 3, "seq": 5, "sentSeq": 5})
         p.goto(URL, wait_until='load'); p.wait_for_timeout(1200)
         n0 = len(reqs)
-        p.evaluate("showTab('capture'); showManual();"); p.click('#applyBtn'); p.wait_for_timeout(5000)
+        p.evaluate("S.weeklyBudget=123000;save()"); p.wait_for_timeout(5000)
         n1 = len(reqs)
         check('402 상태: 시작 1회 + 저장 1회만 요청', n0 == 1 and n1 - n0 <= 1, f'(시작 {n0}, 저장 후 +{n1-n0})')
         badge = p.evaluate("document.getElementById('syncBadge').textContent")
-        check('402 상태: 동기화 실패 표시, 앱은 계속 동작', '실패' in badge and p.evaluate("S.captures.length") == 2, badge)
+        check('402 상태: 동기화 실패 표시, 앱은 계속 동작', '실패' in badge and p.evaluate("S.weeklyBudget") == 123000, badge)
         check('402 상태: 페이지 오류 없음', not errs, str(errs))
         b.close()
 
-        # ② 공유 캡처 자동 처리: 두 계좌 다 읽으면 바로 반영
-        text_ok = "\n".join(["1,000원", "9월에 쓴 돈", "입출금통장", "123,456원", "KB국민 우대통장", "234,567원"])
-        b, p, errs, reqs = page_with(pw, {**base, "supabaseUrl": "", "supabaseKey": ""}, vision_text=text_ok)
+        # ② 캡처 없음(잔액은 은행 알림으로만, 2026-09-26): 업로드·이미지 인식·공유 받기가 없고, 홈은 버튼 없이 막대 3개
+        vision_calls = []
+        b, p, errs, reqs = page_with(pw, {**base, "supabaseUrl": "", "supabaseKey": ""})
+        p.on('request', lambda r: vision_calls.append(r.url) if 'vision.googleapis' in r.url else None)
         p.goto(URL, wait_until='load'); p.wait_for_timeout(800)
-        p.evaluate("autoProcessSharedImage('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==')")
-        p.wait_for_timeout(1500)
-        r = p.evaluate("({n:S.captures.length,b:S.captures[0].balances,src:S.captures[0].source,bal:S.balances})")
-        check('공유(둘 다 읽음): 자동 반영 + 캡처 기록', r['n'] == 2 and r['b'] == {'kakao': 123456, 'kb': 234567} and r['src'] == 'ocr', json.dumps(r, ensure_ascii=False))
-        b.close()
-
-        # ② 한 계좌 못 읽음: 자동 반영하지 않고 확인 화면(지난 잔액 표시)
-        text_miss = "입출금통장\n123,456원\n광고 문구"
-        b, p, errs, reqs = page_with(pw, {**base, "supabaseUrl": "", "supabaseKey": ""}, vision_text=text_miss)
-        p.goto(URL, wait_until='load'); p.wait_for_timeout(800)
-        p.evaluate("autoProcessSharedImage('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==')")
-        p.wait_for_timeout(1500)
-        n_before = p.evaluate("S.captures.length")
-        rows = p.evaluate("[...document.querySelectorAll('.ocr-row')].map(r=>r.innerText.replace(/\\n/g,' '))")
-        check('공유(한 계좌 못 읽음): 자동 반영 안 함', n_before == 1, str(n_before))
-        check('확인 화면: 국민은행에 지난 잔액·못 읽음 표시', any('국민' in x and '못 읽음' in x for x in rows), str(rows))
-        p.click('#applyBtn'); p.wait_for_timeout(500)
-        r = p.evaluate("S.captures[0].balances")
-        check('확인 후 반영: 국민은 지난 잔액(0원 아님)', r == {'kakao': 123456, 'kb': 200000}, str(r))
-        p.screenshot(path=os.path.expanduser('~/orca-work/shots/mp_confirm.png'))
+        ui = p.evaluate("""({up:!!document.getElementById('imgInp'),vis:!!document.getElementById('sVision'),seg:!!document.getElementById('homeSeg'),
+          gauges:['ggToday','ggWeek','ggMonth'].map(id=>document.getElementById(id).innerText.split('\\n')[0]),
+          nav:document.querySelector('#nav-capture .nl').textContent,acc:!!document.getElementById('accBal'),
+          fns:['handleCap','autoProcessSharedImage','checkSharedImage','commitBalances'].filter(f=>typeof window[f]==='function')})""")
+        check('캡처 업로드·Vision 키·세그먼트 버튼 없음', not ui['up'] and not ui['vis'] and not ui['seg'] and not ui['fns'], json.dumps(ui, ensure_ascii=False))
+        check('홈: 오늘·이번 주·이번 달 막대가 한 화면에', ui['gauges'] == ['오늘', '이번 주', '이번 달'], json.dumps(ui['gauges'], ensure_ascii=False))
+        check('탭 이름 "거래" + 계좌 잔액 카드', ui['nav'] == '거래' and ui['acc'])
+        man = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'manifest.json'), encoding='utf-8'))
+        check('공유 받기(share_target) 제거, 이미지 인식 호출 없음', 'share_target' not in man and not vision_calls)
+        ui2 = p.evaluate("""({tabs:[...document.querySelectorAll('.nb .nl')].map(e=>e.textContent),
+          gone:['sBudget','sWeekly','sStart','sEnd','sAlarm','sClaude','tab-add','tab-ai','memoModal','heroTotal'].filter(id=>document.getElementById(id)),
+          cta:!!document.querySelector('.cta2'),payer:document.getElementById('sPayer').value,payday:document.getElementById('sPayDay').value,
+          kw:!!document.getElementById('fxKw')})""")
+        check('탭은 홈·거래·고정지출·설정 4개', ui2['tabs'] == ['홈', '거래', '고정지출', '설정'], json.dumps(ui2['tabs'], ensure_ascii=False))
+        check('예산·알림·Gemini 설정, 지출·AI 탭, 한 번에 기록 버튼, 숨긴 옛 카드 없음', not ui2['gone'] and not ui2['cta'], str(ui2['gone']))
+        check('월급 설정(기본 오피엠에스·25일) + 고정지출 알림 이름 칸', ui2['payer'] == '오피엠에스' and ui2['payday'] == '25' and ui2['kw'], json.dumps(ui2, ensure_ascii=False))
+        # 설정 링크(#setup=): 한 번 열면 연결 값 저장, 주소창에서 지움, 연결 입력칸은 화면에 없음
+        import base64
+        cfg = base64.urlsafe_b64encode(json.dumps({"u": "https://abc.supabase.co/", "k": "anon-x", "t": "read-y", "n": "홍길동"}, ensure_ascii=False).encode()).decode().rstrip('=')
+        p.goto(URL + '#setup=' + cfg, wait_until='load'); p.reload(wait_until='load'); p.wait_for_timeout(800)  # 링크로 새로 여는 것처럼
+        st = p.evaluate("({u:S.supabaseUrl,k:S.supabaseKey,t:S.txReadSecret,n:S.ownerNames,hash:location.hash,inputs:['sSbUrl','sSbKey','sTxKey','sOwner','connToggle'].filter(id=>document.getElementById(id))})")
+        check('설정 링크: 값 저장·주소창에서 지움·연결 입력칸 없음', st['u'] == 'https://abc.supabase.co' and st['k'] == 'anon-x' and st['t'] == 'read-y' and st['n'] == '홍길동' and st['hash'] == '' and not st['inputs'], json.dumps(st, ensure_ascii=False))
+        # 잘못된 링크(숫자 주소)·주소만 있는 링크는 거부하고 기존 연결 유지(Codex 2회차)
+        for bad in ({"u": 123, "k": "x"}, {"u": "https://evil.supabase.co"}, {"u": "https://evil.example.com", "k": "x"}):
+            b64 = base64.urlsafe_b64encode(json.dumps(bad).encode()).decode().rstrip('=')
+            p.goto(URL + '#setup=' + b64, wait_until='load'); p.reload(wait_until='load'); p.wait_for_timeout(500)
+            kept = p.evaluate("[S.supabaseUrl,S.supabaseKey,S.txReadSecret]")
+            check(f'잘못된 설정 링크 거부(아무것도 저장 안 함) {list(bad)}', kept == ['', '', ''] and not errs, str(kept))  # 새로 열 때마다 시험용 초기값(빈 연결)
+        check('캡처 없음 화면: 페이지 오류 없음', not errs, str(errs))
         b.close()
 
         # ③ 새 동기화 첫 실행: 사용자에게 묻고, [확인]이면 이 기기 것을 rev 없는 행에 조건부로 올림
@@ -94,8 +104,8 @@ try:
         check('첫 동기화: 양쪽 백업 존재', any('_cloud_' in k for k in bk) and any('_cloud_' not in k for k in bk), str(bk))
         # ④ 설정: 백업 되돌리기 표시
         p.evaluate("showTab('settings')"); p.wait_for_timeout(300)
-        info = p.evaluate("document.getElementById('backupInfo').textContent")
-        check('설정: 백업 개수 표시', '백업 2개' in info, info)
+        bk = p.evaluate("(()=>{const n=computeNotices().find(x=>x.id.startsWith('bk-'));return n?{t:n.title,a:n.acts.map(x=>x.t)}:null})()")
+        check('백업이 생기면 벨에 되돌리기 버튼(설정 화면엔 백업 줄 없음)', bk and bk['a'] == ['되돌리기'] and not p.evaluate("!!document.getElementById('backupInfo')"), json.dumps(bk, ensure_ascii=False))
         p.screenshot(path=os.path.expanduser('~/orca-work/shots/mp_settings.png'), full_page=True)
         check('첫 동기화 흐름: 페이지 오류 없음', not errs, str(errs))
         b.close()

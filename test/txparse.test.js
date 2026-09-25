@@ -98,4 +98,43 @@ t('같은 분·금액·잔액이어도 게시 시각이 다르면 다른 거래'
   assert.notStrictEqual(a.key, b.key);
 });
 
+// 2026-09-26 사용자 실제 알림 형식(이름·계좌·카드번호는 가짜로 바꿈)
+t('카카오뱅크 체크카드 결제: 가맹점·잔액, 뒤의 홍보 문구는 무시', () => {
+  const r = parseNotification({ app: 'com.kakao.talk', title: '카카오뱅크', postedAt: '2026-09-25T15:09:30Z',
+    text: '09/26 00:09\n카드 결제 600원\n체크카드(0000) | 더 까까주까\n잔액 214,700원\n\n이번달 총 이용금액과 캐시백은 얼마?\n카드 이용내역에서 확인해보세요!⬇️' });
+  assert.strictEqual(r.type, 'out'); assert.strictEqual(r.amount, 600); assert.strictEqual(r.balance, 214700);
+  assert.strictEqual(r.counterparty, '더 까까주까'); assert.strictEqual(r.account, '체크카드(0000)');
+  assert.strictEqual(r.at, '2026-09-26T00:09:00+09:00', '알림 시각은 자정 기준 그대로(가계부 날짜는 앱이 6시 기준으로 판정)');
+});
+t('KB 체크카드출금(펼친 전체 글)', () => {
+  const r = parseNotification({ app: 'com.kbstar.kbbank', title: '출금 5,000원', postedAt: '2026-09-25T10:29:10Z',
+    text: '홍*동님 09/25 19:29 123456-**-***789 이니시스(    체크카드출금 5,000 잔액370,215' });
+  assert.strictEqual(r.amount, 5000); assert.strictEqual(r.balance, 370215); assert.strictEqual(r.method, '체크카드출금');
+  assert.ok(!r.needsReview);
+});
+t('잘린 미리보기 잔액("잔액375,...")은 버림 → 잘못된 잔액으로 누락 오탐하지 않게', () => {
+  const r = parseNotification({ app: 'com.kbstar.kbbank', title: '출금 1,500원', postedAt: '2026-09-25T10:13:10Z',
+    text: '홍*동님 09/25 19:13 123456-**-***789 메가MGC(인 체크카드출금 1,500 잔액375,...' });
+  assert.strictEqual(r.amount, 1500); assert.strictEqual(r.balance, null);
+  for (const text of ['09/26 00:09\n카드 결제 600원\n잔액 214,…', '09/26 00:09\n카드 결제 600원\n잔액 214,']) {
+    assert.strictEqual(parseNotification({ app: 'com.kakao.talk', title: '카카오뱅크', text }).balance, null, text);
+  }
+});
+t('KB Pay 앱 알림(잔액 없음·중복)은 은행 알림이 아님', () => {
+  assert.strictEqual(parseNotification({ app: 'com.kbcard.cxh.appcard', title: 'KB Pay', text: '[KB Pay 사용 알림] 체크 0000 09/25 19:29 5,000원 가게 승인' }), null);
+});
+
+t('KB Pay 승인 알림 → 가게 이름 힌트(거래 아님)', () => {
+  const { parseCardHint } = require('../txparse.js');
+  const h = parseCardHint({ app: 'com.kbcard.cxh.appcard', title: 'KB Pay', postedAt: '2026-09-25T10:29:20Z', text: '[KB Pay 사용 알림] 체크 0000 09/25 19:29 5,000원 쿤자PC방 승인' });
+  assert.deepStrictEqual({ at: h.at, amount: h.amount, merchant: h.merchant }, { at: '2026-09-25T19:29:00+09:00', amount: 5000, merchant: '쿤자PC방' });
+  assert.strictEqual(h.key, 'hint|2026-09-25T19:29:00+09:00|5000|쿤자PC방', '같은 분·같은 금액이라도 가게가 다르면 다른 힌트');
+  assert.strictEqual(parseCardHint({ app: 'com.kbcard.cxh.appcard', title: 'KB Pay', text: '09/25 19:29 5,000원 쿤자PC방 사용 취소' }), null, '"사용 취소"도 안 씀');
+  const h2 = parseCardHint({ app: 'com.kbcard.cxh.appcard', title: 'KB국민카드', big: 'KB국민체크(0000)\n홍*동님\n09/25 12:03\n12,000원\n김밥 천국 군자점 사용', text: '잘린 글' });
+  assert.strictEqual(h2.merchant, '김밥 천국 군자점', '펼친 글(big) 우선, 줄바꿈 무시');
+  assert.strictEqual(parseCardHint({ app: 'com.kbcard.cxh.appcard', title: 'KB Pay', text: '09/25 19:29 5,000원 쿤자PC방 취소' }), null, '취소는 안 씀');
+  assert.strictEqual(parseCardHint({ app: 'com.kbcard.cxh.appcard', title: 'KB Pay', text: '이번 달 혜택 안내' }), null);
+  assert.strictEqual(parseCardHint({ app: 'com.kbstar.kbbank', title: '출금 5,000원', text: '09/25 19:29 5,000원 가게 승인' }), null, '은행 앱은 힌트 아님');
+});
+
 console.log(`\n통과 ${ok}개`);

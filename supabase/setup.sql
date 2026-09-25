@@ -1,3 +1,6 @@
+-- ⚠️ 폐기(2026-09-26): 텔레그램 일일 리포트(daily-report 함수)를 더 쓰지 않는다. 새로 실행하지 말 것.
+--    이미 등록된 1분 크론은 프로젝트 재개 즉시 해제한다: select cron.unschedule('money-pace-daily-report');
+--    (옛 기록용으로만 남겨 둔다)
 -- Supabase SQL Editor에서 한 번만 실행
 -- 1) 중복 발송 방지용 로그 테이블
 create table if not exists notify_log (

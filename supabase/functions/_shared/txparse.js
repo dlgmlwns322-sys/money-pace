@@ -16,6 +16,14 @@
     return `${y}-${p(mo)}-${p(d)}T${hhmm}:00+09:00`;
   }
 
+  // 잔액: 알림 미리보기가 잘리면 "잔액375,..."처럼 끊긴다 → 그런 값은 버린다(잘못된 잔액이 누락 감지·계좌 잔액을 망가뜨리지 않게).
+  // 끝이 쉼표이거나 바로 뒤에 ... / … 이 붙으면 잘린 것.
+  function balanceOf(t) {
+    const m = t.match(/잔액\s*([\d,]+)(원)?(\.{2,}|…)?/);
+    if (!m || m[3] || /,$/.test(m[1])) return null;
+    return num(m[1]);
+  }
+
   // 카카오뱅크 — 카카오톡 알림톡. 제목 "카카오뱅크", 본문 예:
   //   09/25 02:08 / 입금 100원 / 보낸사람 → 입출금통장(0000) / 잔액 235,300원
   function parseKakao(n) {
@@ -23,7 +31,6 @@
     const dt = t.match(/(\d{2}\/\d{2})\s+(\d{2}:\d{2})/);
     const kind = t.match(/(입금|출금|결제|승인|취소)\s*([\d,]+)원/);
     if (!dt || !kind) return null;
-    const bal = t.match(/잔액\s*([\d,]+)원?/);
     const flow = t.match(/([^\n→]+?)\s*→\s*([^\n]+)/);
     let account = null, counterparty = null, type = null;
     if (flow) {
@@ -33,9 +40,12 @@
       if (/\(\d{4}\)/.test(b)) { account = b; counterparty = a; type = 'in'; }
       else if (/\(\d{4}\)/.test(a)) { account = a; counterparty = b; type = 'out'; }
     }
+    // 카드 결제: "체크카드(0000) | 가맹점"
+    const card = t.match(/((?:체크|신용)?카드\(\d{4}\))\s*\|\s*([^\n]+)/);
+    if (card && !counterparty) { account = card[1]; counterparty = card[2].trim(); }
     if (!type) type = kind[1] === '입금' ? 'in' : kind[1] === '취소' ? null : 'out';
     if (!type) return null;
-    return { bank: 'kakao', type, amount: num(kind[2]), balance: bal ? num(bal[1]) : null,
+    return { bank: 'kakao', type, amount: num(kind[2]), balance: balanceOf(t),
       counterparty, account, method: kind[1], at: toIso(dt[1], dt[2], n.postedAt) };
   }
 
@@ -46,7 +56,6 @@
     const head = title.match(/(입금|출금)\s*([\d,]+)원/) || t.match(/(입금|출금)\s*([\d,]+)원/);
     const dt = t.match(/(\d{2}\/\d{2})\s+(\d{2}:\d{2})/);
     if (!head || !dt) return null;
-    const bal = t.match(/잔액\s*([\d,]+)/);
     // 시각 다음: "계좌번호 상대방… 방식 금액 잔액"
     const mid = t.match(/\d{2}:\d{2}\s+(\S+)\s+(.+?)\s+[\d,]+\s+잔액/);
     let counterparty = null, method = null;
@@ -60,7 +69,7 @@
     const amount = num(head[2]);
     const check = bodyAmt && num(bodyAmt[1]) !== amount;
     return { bank: 'kb', type: head[1] === '입금' ? 'in' : 'out', amount,
-      balance: bal ? num(bal[1]) : null, counterparty, account: mid ? mid[1] : null, method,
+      balance: balanceOf(t), counterparty, account: mid ? mid[1] : null, method,
       at: toIso(dt[1], dt[2], n.postedAt), ...(check ? { needsReview: true } : {}) };
   }
 
@@ -78,6 +87,24 @@
     r.key = n.postedAt ? [r.bank, new Date(n.postedAt).getTime(), r.type, r.amount].join('|')
       : [r.bank, r.at, r.type, r.amount, r.balance, r.counterparty].join('|');
     return r;
+  }
+
+  // KB Pay(카드 앱) 승인 알림 → 실제 가게 이름 힌트(2026-09-26). 거래로 저장하지 않는다(통장 출금 알림과 짝지어 이름만 씀).
+  // 예: "[KB Pay 사용 알림] 체크 0000 09/25 19:29 5,000원 쿤자PC방 승인" / "KB국민체크(0000) 홍*동님 09/25 19:29 5,000원 쿤자PC방 사용"
+  // 취소 알림은 쓰지 않는다(환불은 통장 입금 알림으로 처리).
+  function parseCardHint(n) {
+    if (!n) return null;
+    const app = (n.app || '').toLowerCase();
+    if (!/kbcard|kb ?pay/.test(app) && !/kb ?pay/i.test(n.title || '')) return null;
+    const t = String(n.big || n.text || '').replace(/\s+/g, ' ').trim();
+    if (/취소/.test(t)) return null;
+    const m = t.match(/(\d{2}\/\d{2})\s+(\d{2}:\d{2})\s+([\d,]+)원\s+(.+?)\s+(승인|사용)(?:\s|$)/);
+    if (!m) return null;
+    const merchant = m[4].replace(/\s*\.{2,}$|…$/, '').trim();
+    const amount = num(m[3]);
+    if (!merchant || !amount) return null;
+    const at = toIso(m[1], m[2], n.postedAt);
+    return { at, amount, merchant: merchant.slice(0, 60), key: ['hint', at, amount, merchant.slice(0, 60)].join('|') };
   }
 
   // 내 계좌끼리 이동.
@@ -100,7 +127,7 @@
     return out;
   }
 
-  const api = { parseNotification, markTransfers };
+  const api = { parseNotification, markTransfers, parseCardHint };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.TxParse = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

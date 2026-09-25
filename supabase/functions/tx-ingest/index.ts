@@ -41,11 +41,29 @@ async function saveUnparsed(o: Record<string, unknown>) {
   if (!res.ok) throw new Error(`unparsed ${res.status}`);
 }
 
+// 생존 신호: 한 행(id=1)만 두고 시각을 덮어쓴다
+async function heartbeat() {
+  const res = await rest("ingest_heartbeat?on_conflict=id", {
+    method: "POST", headers: { "Prefer": "resolution=merge-duplicates,return=minimal" },
+    body: JSON.stringify({ id: 1, at: new Date().toISOString() }),
+  });
+  if (!res.ok) throw new Error(`heartbeat ${res.status}`);
+}
+
+// KB Pay 가게 이름 힌트: 같은 결제 알림이 두 번 와도(키 = 시각|금액) 한 번만
+async function saveHint(h: Record<string, unknown>) {
+  const res = await rest("card_hint?on_conflict=key", {
+    method: "POST", headers: { "Prefer": "resolution=ignore-duplicates,return=minimal" },
+    body: JSON.stringify({ key: h.key, at: h.at, amount: h.amount, merchant: h.merchant }),
+  });
+  if (!res.ok) throw new Error(`hint ${res.status}`);
+}
+
 Deno.serve(async (req) => {
   try {
     const out = await handleIngest(
       { method: req.method, headers: req.headers, readBody: () => req.text(), contentType: req.headers.get("content-type") || "", now: new Date().toISOString() },
-      { secret: SECRET, parse: TxParse.parseNotification, insert, saveUnparsed },
+      { secret: SECRET, parse: TxParse.parseNotification, insert, saveUnparsed, heartbeat, parseHint: TxParse.parseCardHint, saveHint },
     );
     return new Response(out.body, { status: out.status });
   } catch (e) {

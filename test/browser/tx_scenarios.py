@@ -29,10 +29,13 @@ try:
         def sb(route):
             u = route.request.url
             if '/functions/v1/tx-read' in u:
-                calls['read'].append(u)
+                if 'status=1' in u: return route.fulfill(status=200, content_type='application/json', body='{}', headers={'Access-Control-Allow-Origin': '*'})  # 알림센터 상태는 거래 읽기와 별개
+                if 'hints=1' in u: return route.fulfill(status=200, content_type='application/json', body='[]', headers={'Access-Control-Allow-Origin': '*'})  # KB Pay 가게 이름 힌트도 별개
                 if route.request.headers.get('x-read-secret') != 'READKEY':
+                    calls['read'].append(u)  # 키가 틀리면 거래 요청에서 멈추므로 상태 요청은 가지 않는다
                     return route.fulfill(status=401, body='unauthorized')
                 q = parse_qs(urlparse(u).query)
+                calls['read'].append(u)
                 after = int(q.get('after', ['0'])[0])
                 out = [r for r in rows if r['id'] > after] if 'after' in q else rows
                 return route.fulfill(status=200, content_type='application/json', body=json.dumps(out), headers={'Access-Control-Allow-Origin': '*'})
@@ -55,7 +58,7 @@ try:
         p.screenshot(path=os.path.expanduser('~/orca-work/shots/mp_tx.png'))
         # 눌러서 이동으로 지정 → 9/24 지출에서 빠짐
         p.on('dialog', lambda d: d.accept())
-        p.click('#txList .tx-row >> nth=0'); p.wait_for_timeout(300)
+        p.click('#txList .tx-row >> nth=0'); p.wait_for_timeout(200); p.click('#txmMove'); p.wait_for_timeout(300)  # 거래 누르면 카테고리 창 → '내 계좌 이동으로'
         sp2 = p.evaluate("sumSpentInRange('2026-09-24','2026-09-24')")
         ov = p.evaluate("S.txOverrides")
         check('눌러서 내 계좌 이동으로 지정 → 지출에서 빠짐', sp2 == 4500 and ov.get('5', {}).get('transfer') is True, f'{sp2} {ov}')
@@ -75,19 +78,23 @@ try:
             {"id": 11, "bank": "kb", "type": "out", "amount": 1000, "balance": 99000, "counterparty": "밤가게", "method": "체크카드", "at": "2026-09-24T14:59:00+00:00", "needs_review": False},
             {"id": 12, "bank": "kakao", "type": "out", "amount": 2000, "balance": 98000, "counterparty": "새벽가게", "method": "출금", "at": "2026-09-24T15:01:00+00:00", "needs_review": False},
             {"id": 13, "bank": "kb", "type": "out", "amount": 500, "balance": 98500, "counterparty": "월말", "method": "체크카드", "at": "2026-09-30T14:30:00+00:00", "needs_review": False},
+            {"id": 14, "bank": "kakao", "type": "out", "amount": 300, "balance": 97700, "counterparty": "아침", "method": "출금", "at": "2026-09-24T21:01:00+00:00", "needs_review": False},
         ]
         seed2 = {**seed, "txSince": "2026-09-20", "balanceAt": {}}
         p.add_init_script(f"localStorage.setItem('mp_v6', {json.dumps(json.dumps(seed2))});localStorage.setItem('mp_sync', JSON.stringify({{rev:3,seq:1,sentSeq:1}}));")
         def sb2(route):
             u = route.request.url
             if '/functions/v1/tx-read' in u:
+                if 'status=1' in u: return route.fulfill(status=200, content_type='application/json', body='{}', headers={'Access-Control-Allow-Origin': '*'})  # 알림센터 상태는 거래 읽기와 별개
+                if 'hints=1' in u: return route.fulfill(status=200, content_type='application/json', body='[]', headers={'Access-Control-Allow-Origin': '*'})  # KB Pay 가게 이름 힌트도 별개
                 return route.fulfill(status=200, content_type='application/json', body=json.dumps(utc_rows), headers={'Access-Control-Allow-Origin': '*'})
             if 'select=rev' in u: return route.fulfill(status=200, content_type='application/json', body=json.dumps([{"rev": "3"}]))
             return route.fulfill(status=200, content_type='application/json', body='[{"id":"my_money_data"}]')
         p.route(SB + '/**', sb2)
         p.goto(URL, wait_until='load'); p.wait_for_timeout(1800)
         r = p.evaluate("({d24:sumSpentInRange('2026-09-24','2026-09-24'),d25:sumSpentInRange('2026-09-25','2026-09-25'),d30:sumSpentInRange('2026-09-30','2026-09-30'),dates:TX.rows.map(x=>txDate(x.at)+' '+txTime(x.at))})")
-        check('UTC 형식·자정 경계: 23:59→9/24, 00:01→9/25, 23:30→9/30', r['d24'] == 1000 and r['d25'] == 2000 and r['d30'] == 500, json.dumps(r, ensure_ascii=False))
+        # 가계부 하루는 새벽 6시 시작: 25일 00:01 결제는 24일, 25일 06:01부터 25일
+        check('UTC 형식·새벽 6시 경계: 24일 23:59·25일 00:01→9/24, 25일 06:01→9/25, 30일 23:30→9/30', r['d24'] == 3000 and r['d25'] == 300 and r['d30'] == 500, json.dumps(r, ensure_ascii=False))
         b.close()
 
         # ① 501건: 앱이 500건씩 끝까지 이어 읽기(첫 복구 since, 다음 쪽 since+after)
@@ -98,6 +105,8 @@ try:
         def sb3(route):
             u = route.request.url
             if '/functions/v1/tx-read' in u:
+                if 'status=1' in u: return route.fulfill(status=200, content_type='application/json', body='{}', headers={'Access-Control-Allow-Origin': '*'})  # 알림센터 상태는 거래 읽기와 별개
+                if 'hints=1' in u: return route.fulfill(status=200, content_type='application/json', body='[]', headers={'Access-Control-Allow-Origin': '*'})  # KB Pay 가게 이름 힌트도 별개
                 q = parse_qs(urlparse(u).query); after = int(q.get('after', ['0'])[0]); pages.append(u)
                 part = [r for r in many if r['id'] > after][:500]
                 return route.fulfill(status=200, content_type='application/json', body=json.dumps(part), headers={'Access-Control-Allow-Origin': '*'})
@@ -116,6 +125,8 @@ try:
         def sb4(route):
             u = route.request.url
             if '/functions/v1/tx-read' in u:
+                if 'status=1' in u: return route.fulfill(status=200, content_type='application/json', body='{}', headers={'Access-Control-Allow-Origin': '*'})  # 알림센터 상태는 거래 읽기와 별개
+                if 'hints=1' in u: return route.fulfill(status=200, content_type='application/json', body='[]', headers={'Access-Control-Allow-Origin': '*'})  # KB Pay 가게 이름 힌트도 별개
                 seen.append(u)
                 if mode['full500']:
                     q = parse_qs(urlparse(u).query); after = int(q.get('after', ['0'])[0])

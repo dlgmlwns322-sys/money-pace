@@ -30,7 +30,8 @@ export function isBankNotification(app, title) {
 }
 
 // req: {method, headers: {get(name)}, readBody(): Promise<string>, contentType, now}
-// deps: {secret, parse(n) -> tx|null, insert(row) -> Promise<'inserted'|'duplicate'>, saveUnparsed(o) -> Promise}
+// deps: {secret, parse(n) -> tx|null, insert(row) -> Promise<'inserted'|'duplicate'>, saveUnparsed(o) -> Promise, heartbeat() -> Promise,
+//        parseHint(n) -> {at,amount,merchant,key}|null, saveHint(h) -> Promise}
 export async function handleIngest(req, deps) {
   if (req.method !== "POST") return { status: 405, body: "method" };
   if (!deps.secret) return { status: 500, body: "not configured" };
@@ -43,7 +44,23 @@ export async function handleIngest(req, deps) {
   const data = parseBody(bodyText, req.contentType);
   if (!data) return { status: 400, body: "bad body" };
 
+  // 생존 신호: MacroDroid가 하루 한 번 보낸다. 끊기면 일일 리포트가 경고한다(시각 한 줄만 저장)
+  if (data.kind === "heartbeat") {
+    if (!deps.heartbeat) return { status: 500, body: "not configured" };
+    await deps.heartbeat();
+    return { status: 200, body: "alive" };
+  }
+
   const app = String(data.app || ""), title = String(data.title || "");
+
+  // KB Pay(카드 앱) 승인 알림: 거래가 아니라 '실제 가게 이름' 힌트로만 저장(통장 출금 알림과 앱이 짝지음)
+  if (app.toLowerCase().startsWith("com.kbcard.")) {
+    if (!deps.parseHint || !deps.saveHint) return { status: 200, body: "skip" };
+    const h = deps.parseHint({ app, title, text: String(data.text || ""), big: String(data.big || ""), postedAt: req.now });
+    if (!h) return { status: 200, body: "skip" };
+    await deps.saveHint(h);
+    return { status: 200, body: "hint" };
+  }
   if (!isBankNotification(app, title)) return { status: 200, body: "skip" }; // 은행 알림 아님 → 아무것도 저장 안 함
 
   // 펼친 알림 전체 글(big)이 있으면 그걸 쓴다(카카오 알림톡은 여러 줄이라 미리보기가 잘릴 수 있음)
