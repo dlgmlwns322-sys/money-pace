@@ -1,6 +1,7 @@
 // 매일 설정한 시간(S.alarmTime)에 지출 현황을 분석해서 텔레그램으로 보내는 함수
 // pg_cron이 1분마다 호출하고, 여기서 알람 시간이 맞는지 확인 후 1회만 발송한다.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import "../_shared/txparse.js";
 import { buildNumbers } from "./calc.js";
 
 const ROW_ID = "my_money_data";
@@ -37,9 +38,9 @@ function getMemos(S: any, dateStr: string): any[] {
 }
 
 // 핵심 5줄만 남긴 심플 리포트 (AI 코멘트가 너무 길다는 피드백 반영 — 잔액 내역·일별추이·메모·페이스 라벨 등은 전부 제거)
-function buildSimpleSummary(input: any, todayStr: string) {
+function buildSimpleSummary(input: any, todayStr: string, tx: any[] = []) {
   // 숫자는 전부 calc.js(앱과 같은 식)에서 가져온다. 예산 주기가 끝났으면 앱처럼 다음 주기로 넘긴 복사본 기준.
-  const n = buildNumbers(input, todayStr);
+  const n = buildNumbers(input, todayStr, tx);
   const S = n.S;
   const { eff, spent, remain, total, elapsed, remaining, todayBudget } = n;
   const realPct = Math.round(spent / Math.max(eff, 1) * 100);
@@ -119,9 +120,21 @@ Deno.serve(async () => {
   const { error: logErr } = await supabase.from("notify_log").insert({ sent_date: dateStr });
   if (logErr) return new Response("already sent today", { status: 200 });
 
+  // 입출금 알림 거래: 발송 때 한 번, 이번 예산 주기 시작 2일 전부터(최대 45일)·필요한 칼럼만(원문·계좌 제외, 전송량 최소)
+  let tx: any[] = [];
+  let txWarn = "";
+  if (S.txSince) {
+    const startMs = S.budgetStart ? Date.parse(`${S.budgetStart}T00:00:00+09:00`) - 2 * 86400000 : 0;
+    const since = new Date(Math.max(startMs, Date.now() - 45 * 86400000)).toISOString();
+    const { data: txRows, error: txErr } = await supabase
+      .from("tx").select("id,bank,type,amount,balance,counterparty,method,at").gte("at", since).order("id").limit(3000);
+    if (!txErr && txRows) tx = txRows;
+    else txWarn = "\n⚠️ 입출금 알림 거래를 불러오지 못해 지출이 실제보다 적게 나올 수 있어요";
+  }
+
   try {
-    const summary = buildSimpleSummary(S, dateStr);
-    await sendTelegram(`💸 머니페이스 일일 리포트 (${dateStr})\n\n${summary}`);
+    const summary = buildSimpleSummary(S, dateStr, tx);
+    await sendTelegram(`💸 머니페이스 일일 리포트 (${dateStr})\n\n${summary}${txWarn}`);
     return new Response("sent", { status: 200 });
   } catch (e) {
     // 실패하면 같은 날 재시도할 수 있게 로그 롤백

@@ -18,7 +18,7 @@ export function corsHeaders(origin) {
 
 // 읽는 방식 두 가지
 //  after=<id>: 그 id 뒤의 새 거래(평소, 겹쳐 읽기는 앱이 함)
-//  since=<ISO 시각>: 그 시각 이후 저장된 거래 전체(하루 한 번, id 순서가 어긋나 빠진 거래를 채우는 용도, 최대 7일)
+//  since=<ISO 시각>: 그 시각 이후 저장된 거래 전체(하루 한 번 최근 7일로 빈 곳 채우기, 캐시가 비면 예산 주기 시작부터 — 최대 45일)
 // req: {method, headers: {get}, url, now}  deps: {secret, select({afterId,sinceIso}, limit) -> Promise<rows>}
 export async function handleRead(req, deps) {
   const cors = corsHeaders(req.headers.get("origin") || "");
@@ -32,7 +32,7 @@ export async function handleRead(req, deps) {
   if (sinceRaw) {
     const ms = Date.parse(sinceRaw);
     if (!Number.isFinite(ms)) return { status: 400, headers: cors, body: "bad since" };
-    const floor = Date.parse(req.now || new Date().toISOString()) - 7 * 86400000; // 최대 7일(전송량 상한)
+    const floor = Date.parse(req.now || new Date().toISOString()) - 45 * 86400000; // 최대 45일(전송량 상한: 한 주기+여유)
     sinceIso = new Date(Math.max(ms, floor)).toISOString();
   }
   const afterId = sinceIso ? 0 : Math.max(0, Math.floor(Number(u.searchParams.get("after") || 0)) || 0);

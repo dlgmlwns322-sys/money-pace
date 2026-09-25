@@ -1,6 +1,8 @@
 // 텔레그램 리포트용 계산 — 앱(index.html)과 같은 식을 쓴다.
 // 두 쪽이 어긋나지 않게 test/parity.test.js가 같은 데이터로 앱과 이 파일의 결과를 비교한다.
 // 서버는 데이터를 고치지 않는다: 예산 주기가 끝났으면 복사본에서 앱과 똑같이 다음 주기로 넘겨 계산만 한다.
+// 입출금 알림 거래(tx)가 있으면 앱과 똑같이 txSince부터는 '출금 − 내 계좌 이동 − 그날 고정지출'로 계산한다.
+// 내 계좌 이동 판정은 globalThis.TxParse.markTransfers(서버는 _shared/txparse.js를 먼저 불러온다).
 
 // 실제로 쓰는 계좌(카카오뱅크·국민은행). 예전 기록의 신한 값은 빠진다.
 const ACCOUNT_IDS = ["kakao", "kb"];
@@ -25,8 +27,54 @@ export function timeToMinutes(t) {
   return h * 60 + parseInt(m[3], 10);
 }
 
-// 앱 getDailySpent와 같음: 그날 마지막 캡처와 직전 캡처의 잔액 차이(그날 빠져나간 고정지출 제외)
-export function getDailySpent(S, dateStr) {
+const dayAfter = (d) => { const [y, m, dd] = d.split("-").map(Number); return new Date(Date.UTC(y, m - 1, dd + 1)).toISOString().slice(0, 10); };
+const dayBefore = (d) => { const [y, m, dd] = d.split("-").map(Number); return new Date(Date.UTC(y, m - 1, dd - 1)).toISOString().slice(0, 10); };
+
+// ── 입출금 알림 거래 (앱 txDailySpent·balanceBefore와 같은 식) ──
+export const txDate = (at) => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul" }).format(new Date(at));
+const ownerNameList = (S) => String(S.ownerNames || "").split(",").map((x) => x.trim()).filter(Boolean);
+function txWithFlags(S, tx) {
+  const TP = globalThis.TxParse;
+  const marked = TP && TP.markTransfers ? TP.markTransfers(tx, ownerNameList(S)) : tx.map((r) => ({ ...r, transfer: false, transferGuess: false }));
+  return marked.map((r) => { const o = (S.txOverrides || {})[r.id]; return { ...r, isTransfer: o && typeof o.transfer === "boolean" ? o.transfer : !!r.transfer }; });
+}
+const txMode = (S, d) => !!S.txSince && d >= S.txSince;
+const txKstKey = (at) => txDate(at) + " " + String(Math.floor(((Date.parse(at) / 60000) + 540) % 1440)).padStart(4, "0");
+const capKey = (c) => c.date + " " + String(timeToMinutes(c.time)).padStart(4, "0");
+function balanceBefore(S, d, tx) {
+  return ACCOUNT_IDS.reduce((sum, id) => {
+    const lastTx = tx.filter((r) => r.bank === id && r.balance != null && txDate(r.at) < d).sort((x, y) => Date.parse(y.at) - Date.parse(x.at) || y.id - x.id)[0];
+    const cap = (S.captures || []).filter((c) => c.date < d && c.balances && c.balances[id] != null).sort((x, y) => capKey(y).localeCompare(capKey(x)))[0];
+    if (lastTx && (!cap || txKstKey(lastTx.at) >= capKey(cap))) return sum + lastTx.balance;
+    return sum + ((cap && cap.balances[id]) || 0);
+  }, 0);
+}
+export function txGaps(tx) {
+  const gaps = [];
+  for (const id of ACCOUNT_IDS) {
+    const rs = tx.filter((r) => r.bank === id && r.balance != null).sort((x, y) => Date.parse(x.at) - Date.parse(y.at) || x.id - y.id);
+    for (let i = 1; i < rs.length; i++) {
+      const expected = rs[i - 1].balance + (rs[i].type === "in" ? rs[i].amount : -rs[i].amount);
+      if (expected !== rs[i].balance) gaps.push({ bank: id, date: txDate(rs[i].at), afterId: rs[i].id, amount: expected - rs[i].balance });
+    }
+  }
+  return gaps;
+}
+const isRefund = (r) => r.type === "in" && /취소|환불/.test(String(r.method || "") + String(r.counterparty || ""));
+const fixedExpensePaidOn = (S, d) => [...(S.fixed || []).filter((f) => f.paid), ...(S.fixedPaidLog || [])]
+  .filter((f) => f.type !== "income" && f.paidDate === d && f.affectsBalance !== false).reduce((a, f) => a + (f.amount || 0), 0);
+function txDailySpent(S, d, tx) {
+  const rows = txWithFlags(S, tx).filter((r) => txDate(r.at) === d);
+  const out = rows.filter((r) => r.type === "out" && !r.isTransfer).reduce((a, r) => a + r.amount, 0);
+  const refunds = rows.filter((r) => isRefund(r) && !r.isTransfer).reduce((a, r) => a + r.amount, 0);
+  const missing = txGaps(tx).filter((g) => g.date === d && g.amount > 0).reduce((a, g) => a + g.amount, 0);
+  const spent = Math.max(0, out + missing - fixedExpensePaidOn(S, d)) - refunds;
+  return { spent, missing, todayDate: d, prevTotal: balanceBefore(S, d, tx), todayTotal: null, source: "tx" };
+}
+
+// 앱 getDailySpent와 같음: 알림 기간이면 거래로, 아니면 그날 마지막 캡처와 직전 캡처의 잔액 차이(그날 고정지출 제외)
+export function getDailySpent(S, dateStr, tx = []) {
+  if (txMode(S, dateStr)) return txDailySpent(S, dateStr, tx);
   if (!S.captures || S.captures.length < 1) return null;
   const byDate = {};
   for (const c of S.captures) {
@@ -42,16 +90,19 @@ export function getDailySpent(S, dateStr) {
   return { spent, todayDate: dateStr, prevDate, todayTotal: todayCap.total, prevTotal };
 }
 
-// 앱 sumSpentInRange와 같음: 기간 안 캡처일의 하루 지출 중 양수만 합산
-export function sumSpentInRange(S, fromStr, toStr) {
-  if (!S.captures || S.captures.length < 1) return 0;
-  const dates = [...new Set(S.captures.map((c) => c.date))].filter((d) => d >= fromStr && d <= toStr).sort();
+// 앱 sumSpentInRange와 같음: 캡처가 있는 날 + 알림 기간의 모든 날, 하루 지출 중 양수만 합산
+export function sumSpentInRange(S, fromStr, toStr, tx = []) {
+  const days = new Set((S.captures || []).map((c) => c.date));
+  if (S.txSince) for (let d = S.txSince > fromStr ? S.txSince : fromStr; d <= toStr; d = dayAfter(d)) days.add(d);
+  if (!days.size) return 0;
+  const dates = [...days].filter((d) => d >= fromStr && d <= toStr).sort();
   let sum = 0;
   for (const d of dates) {
-    const ds = getDailySpent(S, d);
-    if (ds && !ds.noCaptureToday && ds.spent > 0) sum += ds.spent;
+    const ds = getDailySpent(S, d, tx);
+    if (ds && ds.source === "tx") sum += ds.spent; // 알림 기간: 환불로 음수인 날도 반영
+    else if (ds && !ds.noCaptureToday && ds.spent > 0) sum += ds.spent;
   }
-  return sum;
+  return Math.max(0, sum);
 }
 
 // 앱 rollBudgetCycle과 같은 규칙(서버는 복사본에만 적용)
@@ -60,16 +111,14 @@ function addMonthsKeepDay(dateStr, n) {
   const last = new Date(Date.UTC(y, m - 1 + n + 1, 0)).getUTCDate();
   return new Date(Date.UTC(y, m - 1 + n, Math.min(d, last))).toISOString().slice(0, 10);
 }
-const dayAfter = (d) => { const [y, m, dd] = d.split("-").map(Number); return new Date(Date.UTC(y, m - 1, dd + 1)).toISOString().slice(0, 10); };
-const dayBefore = (d) => { const [y, m, dd] = d.split("-").map(Number); return new Date(Date.UTC(y, m - 1, dd - 1)).toISOString().slice(0, 10); };
-export function rollBudgetCycle(S, today) {
+export function rollBudgetCycle(S, today, tx = []) {
   if (!S.budgetStart || !S.budgetEnd) return false;
   if (!S.budgetAnchorDay) S.budgetAnchorDay = Number(S.budgetStart.slice(8, 10));
   let rolled = false, guard = 0;
   while (today > S.budgetEnd && guard++ < 240) {
     const start = S.budgetStart, end = S.budgetEnd;
     const paid = (S.fixed || []).filter((f) => f.paid && f.paidDate && f.paidDate <= end);
-    S.cycles = [...(S.cycles || []), { start, end, budget: S.budget, effective: effectiveBudget(S), spent: sumSpentInRange(S, start, end), closedAt: today }].slice(-24);
+    S.cycles = [...(S.cycles || []), { start, end, budget: S.budget, effective: effectiveBudget(S), spent: sumSpentInRange(S, start, end, tx), closedAt: today }].slice(-24);
     S.fixedPaidLog = [...(S.fixedPaidLog || []), ...paid.map((f) => ({ name: f.name, amount: f.amount, type: f.type || "expense", paidDate: f.paidDate, affectsBalance: f.affectsBalance }))]
       .filter((f) => f.paidDate >= addMonthsKeepDay(today, -3));
     paid.forEach((f) => { f.paid = false; f.paidDate = ""; });
@@ -93,9 +142,9 @@ function getBD(S, today) {
   return { total, elapsed, remaining: Math.max(1, total - elapsed + 1) };
 }
 
-function totSpent(S, today) {
-  if (S.budgetStart && S.budgetEnd && S.captures && S.captures.length) {
-    return sumSpentInRange(S, S.budgetStart, today < S.budgetEnd ? today : S.budgetEnd);
+function totSpent(S, today, tx) {
+  if (S.budgetStart && S.budgetEnd && ((S.captures && S.captures.length) || S.txSince)) {
+    return sumSpentInRange(S, S.budgetStart, today < S.budgetEnd ? today : S.budgetEnd, tx);
   }
   const tb = sumAcc(S.balances);
   if (tb <= 0) return 0;
@@ -111,13 +160,13 @@ function weekStartOf(dateStr) {
 }
 
 // 리포트에 쓰는 숫자 전부. 앱의 같은 이름 함수들과 결과가 같아야 한다.
-export function buildNumbers(input, today) {
+export function buildNumbers(input, today, tx = []) {
   const S = structuredClone(input);
-  rollBudgetCycle(S, today);
+  rollBudgetCycle(S, today, tx);
   const eff = effectiveBudget(S);
-  const spent = totSpent(S, today);
+  const spent = totSpent(S, today, tx);
   const { total, elapsed, remaining } = getBD(S, today);
-  const ds = getDailySpent(S, today);
+  const ds = getDailySpent(S, today, tx);
   const remainAtDayStart = (ds && ds.prevTotal != null)
     ? Math.min(eff, Math.max(0, ds.prevTotal - unpaidFixed(S)))
     : (eff - spent);
@@ -125,8 +174,8 @@ export function buildNumbers(input, today) {
   const todayBudget = baseline - ((ds && !ds.noCaptureToday && ds.spent > 0) ? ds.spent : 0);
   const weekStart = weekStartOf(today);
   const hasWeekCap = (S.captures || []).some((c) => c.date >= weekStart && c.date <= today);
-  const weekSpent = hasWeekCap ? sumSpentInRange(S, weekStart, today) : 0;
+  const weekSpent = (hasWeekCap || txMode(S, today)) ? sumSpentInRange(S, weekStart, today, tx) : 0;
   const yd = dayBefore(today);
-  const ydDaily = getDailySpent(S, yd);
+  const ydDaily = getDailySpent(S, yd, tx);
   return { S, eff, spent, remain: eff - spent, total, elapsed, remaining, todayBudget, weekStart, weekSpent, yd, ydDaily };
 }

@@ -84,7 +84,7 @@ let ok = 0; const t = async (n, f) => { await f(); ok++; console.log('ok -', n);
     const r = await handleRead({ method: 'GET', headers: hdr({ 'x-read-secret': READ, origin: 'https://dlgmlwns322-sys.github.io' }), url: 'https://x/tx-read?after=5' }, deps);
     assert.strictEqual(r.status, 200); assert.deepStrictEqual(asked, { afterId: 5, sinceIso: null, limit: 500 });
     const rs = await handleRead({ method: 'GET', headers: hdr({ 'x-read-secret': READ }), url: 'https://x/tx-read?since=2020-01-01T00:00:00Z', now: '2026-09-25T00:00:00Z' }, deps);
-    assert.strictEqual(rs.status, 200); assert.strictEqual(asked.sinceIso, '2026-09-18T00:00:00.000Z', 'since는 최대 7일로 제한');
+    assert.strictEqual(rs.status, 200); assert.strictEqual(asked.sinceIso, '2026-08-11T00:00:00.000Z', 'since는 최대 45일로 제한');
     assert.strictEqual((await handleRead({ method: 'GET', headers: hdr({ 'x-read-secret': READ }), url: 'https://x/tx-read?since=abc' }, deps)).status, 400);
     assert.strictEqual(r.headers['Access-Control-Allow-Origin'], 'https://dlgmlwns322-sys.github.io');
     const { COLUMNS } = await import('../supabase/functions/tx-read/handler.js');

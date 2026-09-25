@@ -2,7 +2,8 @@
 const fs=require('fs'),path=require('path'),assert=require('assert');
 const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
 const pick=re=>{const m=html.match(re);assert(m,'not found: '+re);return m[0];};
-const src=[
+const txBlock=(()=>{const a=html.indexOf('// ── 입출금 알림 거래 ──'),b=html.indexOf('function getBD(){');assert(a>0&&b>a,'tx block');return html.slice(a,b);})();
+const src=[txBlock,
   pick(/const ACCOUNTS=[^\n]*/),
   pick(/const sumAcc=[^\n]*/),
   pick(/const fxSigned=[^\n]*/),
@@ -20,7 +21,7 @@ const src=[
 ].join('\n');
 let today='2026-09-20';
 const run=new Function('ctx',`with(ctx){let S;${src}
-  return{setS:v=>{S=v},getS:()=>S,rollBudgetCycle,sumSpentInRange,addMonthsKeepDay};}`)({toStr:()=>today});
+  return{setS:v=>{S=v},getS:()=>S,rollBudgetCycle,sumSpentInRange,addMonthsKeepDay};}`)({toStr:()=>today,localStorage:{getItem:()=>null,setItem:()=>{}},window:{},render:()=>{},save:()=>{},escapeHtml:x=>x,won:x=>x,document:{getElementById:()=>null}});
 let ok=0;const t=(n,f)=>{f();ok++;console.log('ok -',n);};
 const cap=(date,kakao,kb)=>({date,time:'오후 9:00',balances:{kakao,kb,shinhan:999999}});
 
