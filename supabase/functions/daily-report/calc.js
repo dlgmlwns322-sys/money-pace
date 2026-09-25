@@ -45,10 +45,18 @@ function txDerived(S, tx) {
   const overrides = S.txOverrides || {};
   const flags = marked.map((r) => { const o = overrides[r.id]; return { ...r, date: txDate(r.at), isTransfer: o && typeof o.transfer === "boolean" ? o.transfer : !!r.transfer }; });
   const byDate = new Map(); flags.forEach((r) => { if (!byDate.has(r.date)) byDate.set(r.date, []); byDate.get(r.date).push(r); });
-  const perBank = {};
-  for (const id of ACCOUNT_IDS) perBank[id] = flags.filter((r) => r.bank === id && r.balance != null).sort((x, y) => Date.parse(x.at) - Date.parse(y.at) || x.id - y.id);
-  const gaps = [];
-  for (const id of ACCOUNT_IDS) { const rs = perBank[id]; for (let i = 1; i < rs.length; i++) { const expected = rs[i - 1].balance + (rs[i].type === "in" ? rs[i].amount : -rs[i].amount); if (expected !== rs[i].balance) gaps.push({ bank: id, date: rs[i].date, afterId: rs[i].id, amount: expected - rs[i].balance }); } }
+  const perBank = {}, gaps = [];
+  for (const id of ACCOUNT_IDS) {
+    const all = flags.filter((r) => r.bank === id).sort((x, y) => Date.parse(x.at) - Date.parse(y.at) || x.id - y.id);
+    perBank[id] = all.filter((r) => r.balance != null);
+    let expected = null;
+    for (const r of all) {
+      const signed = r.type === "in" ? r.amount : -r.amount;
+      if (r.balance == null) { if (expected != null) expected += signed; continue; }
+      if (expected != null && expected + signed !== r.balance) gaps.push({ bank: id, date: r.date, afterId: r.id, amount: expected + signed - r.balance });
+      expected = r.balance;
+    }
+  }
   const missingByDate = new Map(); gaps.forEach((g) => { if (g.amount > 0) missingByDate.set(g.date, (missingByDate.get(g.date) || 0) + g.amount); });
   const d = { ov, own, flags, byDate, perBank, gaps, missingByDate };
   memo.set(tx, d);
@@ -70,15 +78,21 @@ function balanceBefore(S, d, tx) {
 }
 export function txGaps(tx, S = {}) { return txDerived(S, tx).gaps; }
 const isRefund = (r) => r.type === "in" && /취소|환불/.test(String(r.method || "") + String(r.counterparty || ""));
-const fixedExpensePaidOn = (S, d) => [...(S.fixed || []).filter((f) => f.paid), ...(S.fixedPaidLog || [])]
-  .filter((f) => f.type !== "income" && f.paidDate === d && f.affectsBalance !== false).reduce((a, f) => a + (f.amount || 0), 0);
+function fixedMatchedOn(S, d, outs) {
+  const pool = outs.map((r) => r.amount); let sum = 0;
+  [...(S.fixed || []).filter((f) => f.paid), ...(S.fixedPaidLog || [])].filter((f) => f.type !== "income" && f.paidDate === d && f.affectsBalance !== false).forEach((f) => {
+    const i = pool.indexOf(f.amount || 0); if (i >= 0) { sum += pool[i]; pool.splice(i, 1); }
+  });
+  return sum;
+}
 function txDailySpent(S, d, tx) {
   const m = txDerived(S, tx);
   const rows = m.byDate.get(d) || [];
-  const out = rows.filter((r) => r.type === "out" && !r.isTransfer).reduce((a, r) => a + r.amount, 0);
+  const outs = rows.filter((r) => r.type === "out" && !r.isTransfer);
+  const out = outs.reduce((a, r) => a + r.amount, 0);
   const refunds = rows.filter((r) => isRefund(r) && !r.isTransfer).reduce((a, r) => a + r.amount, 0);
   const missing = m.missingByDate.get(d) || 0;
-  const spent = Math.max(0, out + missing - fixedExpensePaidOn(S, d)) - refunds;
+  const spent = out + missing - fixedMatchedOn(S, d, outs) - refunds;
   return { spent, missing, todayDate: d, prevTotal: balanceBefore(S, d, tx), todayTotal: null, source: "tx" };
 }
 

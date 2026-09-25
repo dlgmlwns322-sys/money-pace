@@ -921,7 +921,15 @@ async function refreshAndRoll(){
   const ok=await fetchTx();
   // 받기가 계속 실패해도(예: Supabase 정지) 종료일 3일 뒤에는 마감한다(주기가 영영 안 넘어가지 않게)
   const overdue=!!S.budgetEnd&&toStr()>dayAfter(dayAfter(dayAfter(S.budgetEnd)));
-  if(ok||overdue)checkBudgetRollover();
+  if(ok)checkBudgetRollover();
+  else if(overdue){
+    const before=new Set((S.cycles||[]).map(c=>c.start));
+    checkBudgetRollover();
+    // 거래를 못 받은 채 마감했으면 불완전 표시 → 나중에 받으면 applyTxToState가 다시 계산.
+    // 한 번에 여러 주기가 마감돼도 새로 생긴 주기 전부에 표시(결산 기록은 최근 24개만이라 개수 대신 시작일로 구분)
+    const added=(S.cycles||[]).filter(c=>!before.has(c.start));
+    if(S.txReadSecret&&added.length){added.forEach(c=>{c.incomplete=true;});save();}
+  }
 }
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshAndRoll();});
 setInterval(refreshAndRoll,30*60*1000);
@@ -950,10 +958,19 @@ function txDerived(){
   const overrides=S.txOverrides||{};
   const flags=marked.map(r=>{const o=overrides[r.id];return{...r,date:txDate(r.at),isTransfer:o&&typeof o.transfer==='boolean'?o.transfer:!!r.transfer};});
   const byDate=new Map();flags.forEach(r=>{if(!byDate.has(r.date))byDate.set(r.date,[]);byDate.get(r.date).push(r);});
-  const perBank={};
-  ACCOUNTS.forEach(a=>{perBank[a.id]=flags.filter(r=>r.bank===a.id&&r.balance!=null).sort((x,y)=>Date.parse(x.at)-Date.parse(y.at)||x.id-y.id);});
-  const gaps=[];
-  ACCOUNTS.forEach(a=>{const rs=perBank[a.id];for(let i=1;i<rs.length;i++){const expected=rs[i-1].balance+(rs[i].type==='in'?rs[i].amount:-rs[i].amount);if(expected!==rs[i].balance)gaps.push({bank:a.id,date:rs[i].date,afterId:rs[i].id,amount:expected-rs[i].balance});}});
+  const perBank={},gaps=[];
+  ACCOUNTS.forEach(a=>{
+    const all=flags.filter(r=>r.bank===a.id).sort((x,y)=>Date.parse(x.at)-Date.parse(y.at)||x.id-y.id);
+    perBank[a.id]=all.filter(r=>r.balance!=null);
+    // 잔액 없는 거래는 예상 잔액에만 반영하고, 다음 잔액 있는 거래에서 비교(같은 돈을 누락으로 다시 세지 않게)
+    let expected=null;
+    all.forEach(r=>{
+      const signed=r.type==='in'?r.amount:-r.amount;
+      if(r.balance==null){if(expected!=null)expected+=signed;return;}
+      if(expected!=null&&expected+signed!==r.balance)gaps.push({bank:a.id,date:r.date,afterId:r.id,amount:expected+signed-r.balance});
+      expected=r.balance;
+    });
+  });
   const missingByDate=new Map();gaps.forEach(g=>{if(g.amount>0)missingByDate.set(g.date,(missingByDate.get(g.date)||0)+g.amount);});
   txMemo={rows:TX.rows,ov,own,flags,byDate,perBank,gaps,missingByDate};
   return txMemo;
@@ -978,32 +995,51 @@ function balanceBefore(d){
 function txGaps(){return txDerived().gaps;}
 // 환불·취소 입금: 원래 출금을 지출에서 되돌린다
 const isRefund=r=>r.type==='in'&&/취소|환불/.test(String(r.method||'')+String(r.counterparty||''));
-// 그날 빠져나간 고정'지출'만(알림 기간엔 입금이 지출 계산에 안 들어가므로 고정입금은 빼지 않는다)
-const fixedExpensePaidOn=d=>[...(S.fixed||[]).filter(f=>f.paid),...(S.fixedPaidLog||[])].filter(f=>f.type!=='income'&&f.paidDate===d&&f.affectsBalance!==false).reduce((a,f)=>a+(f.amount||0),0);
+// 그날 빠져나간 고정'지출' 중 같은 금액의 실제 출금과 짝지어지는 것만(고정입금은 제외: 알림 기간엔 입금이 지출 계산에 안 들어감).
+// 납부 표시만 있고 출금 알림이 없는 고정비는 차감하지 않는다(일반 지출이 사라지지 않게).
+function fixedMatchedOn(d,outs){
+  const pool=outs.map(r=>r.amount);let sum=0;
+  [...(S.fixed||[]).filter(f=>f.paid),...(S.fixedPaidLog||[])].filter(f=>f.type!=='income'&&f.paidDate===d&&f.affectsBalance!==false).forEach(f=>{
+    const i=pool.indexOf(f.amount||0);if(i>=0){sum+=pool[i];pool.splice(i,1);}
+  });
+  return sum;
+}
 function txDailySpent(d){
   const m=txDerived();
   const rows=m.byDate.get(d)||[];
-  const out=rows.filter(r=>r.type==='out'&&!r.isTransfer).reduce((a,r)=>a+r.amount,0);
+  const outs=rows.filter(r=>r.type==='out'&&!r.isTransfer);
+  const out=outs.reduce((a,r)=>a+r.amount,0);
   const refunds=rows.filter(r=>isRefund(r)&&!r.isTransfer).reduce((a,r)=>a+r.amount,0);
   const missing=m.missingByDate.get(d)||0;
-  // 고정지출 차감은 그날 출금·누락분을 넘지 않게(표시만 하고 알림이 안 온 날 지출이 음수로 빠지지 않게), 환불은 그대로 뺀다
-  const spent=Math.max(0,out+missing-fixedExpensePaidOn(d))-refunds;
+  const spent=out+missing-fixedMatchedOn(d,outs)-refunds;
   return{spent,missing,todayDate:d,prevTotal:balanceBefore(d),todayTotal:null,source:'tx'};
 }
-// 받은 거래로 상태 갱신: 시작일(txSince)과 계좌별 최신 잔액
-function applyTxToState(){
+// 받은 거래로 상태 갱신: 시작일(txSince)과 계좌별 최신 잔액.
+// coveredFromMs: 이번에 빠짐없이 받은 범위의 시작(없으면 null)
+function applyTxToState(coveredFromMs){
   let changed=false;
   if(!S.txSince){
     // 두 계좌 모두 알림이 한 번 이상 온 뒤, 늦게 시작한 계좌의 다음 날부터(그날은 알림 전 거래가 빠져 있을 수 있음)
     const firsts=ACCOUNTS.map(a=>TX.rows.filter(r=>r.bank===a.id).map(r=>txDate(r.at)).sort()[0]);
     if(firsts.every(Boolean)){S.txSince=dayAfter(firsts.sort().pop());changed=true;}
   }
-  S.balanceAt={...(S.balanceAt||{})};
+  S.balanceAt={...(S.balanceAt||{})};S.balanceTxId={...(S.balanceTxId||{})};
   ACCOUNTS.forEach(a=>{
     const last=TX.rows.filter(r=>r.bank===a.id&&r.balance!=null).sort((x,y)=>Date.parse(y.at)-Date.parse(x.at)||y.id-x.id)[0];
-    if(last&&(!S.balanceAt[a.id]||Date.parse(last.at)>Date.parse(S.balanceAt[a.id]))){
+    if(!last)return;
+    const prevAt=S.balanceAt[a.id]?Date.parse(S.balanceAt[a.id]):-Infinity,lastAt=Date.parse(last.at);
+    // 더 늦은 시각이거나, 같은 분이면 더 나중에 저장된 거래(id가 큰 것)가 최신. 캡처로 맞춘 뒤엔 balanceTxId가 비어 있음.
+    const newer=lastAt>prevAt||(lastAt===prevAt&&S.balanceTxId[a.id]!=null&&last.id>S.balanceTxId[a.id]);
+    if(newer){
       if(S.balances[a.id]!==last.balance){S.balances={...S.balances,[a.id]:last.balance};changed=true;}
-      if(S.balanceAt[a.id]!==last.at){S.balanceAt[a.id]=last.at;changed=true;}
+      if(S.balanceAt[a.id]!==last.at||S.balanceTxId[a.id]!==last.id){S.balanceAt[a.id]=last.at;S.balanceTxId[a.id]=last.id;changed=true;}
+    }
+  });
+  // 받기 실패 중 강제로 마감된 주기가 있으면, 이제 받은 거래로 그 주기 지출을 다시 계산
+  // 불완전 주기 각각: 받은 범위가 그 주기 시작 전날까지 덮을 때만 다시 계산하고 확정(일부만 받았으면 불완전 유지)
+  (S.cycles||[]).forEach(c=>{
+    if(c.incomplete&&coveredFromMs!=null&&coveredFromMs<=Date.parse(dayBefore(c.start)+'T00:00:00+09:00')){
+      c.spent=sumSpentInRange(c.start,c.end);delete c.incomplete;changed=true;
     }
   });
   if(changed)save();
@@ -1020,27 +1056,45 @@ async function fetchTx(){
   txFetching=true;TX.lastFetch=Date.now();
   try{
     const full=!TX.lastFull||Date.now()-TX.lastFull>20*3600e3;
-    // 캐시가 비었으면(새 기기·캐시 삭제) 이번 예산 주기 시작 전날부터(최대 45일), 아니면 하루 한 번 최근 7일
-    const backfill=!TX.rows.length;
-    const sinceMs=backfill&&S.budgetStart?Math.max(Date.parse(dayBefore(S.budgetStart)+'T00:00:00+09:00'),Date.now()-45*86400e3):Date.now()-7*86400e3;
+    // 다시 받아야 할 시작점(가장 이른 것, 최대 45일 — 서버도 45일로 제한):
+    //  캐시가 비었으면 이번 주기 시작 전날 / 불완전하게 마감된 주기가 있으면 그 주기 시작 전날 /
+    //  마지막 전체 확인이 7일보다 오래됐으면 그때 하루 전 / 그 밖엔 하루 한 번 최근 7일
+    const kstDay0=d=>Date.parse(d+'T00:00:00+09:00');
+    const needFrom=[];
+    if(!TX.rows.length&&S.budgetStart)needFrom.push(kstDay0(dayBefore(S.budgetStart)));
+    (S.cycles||[]).filter(c=>c.incomplete).forEach(c=>needFrom.push(kstDay0(dayBefore(c.start)))); // 불완전 주기 전부
+    if(TX.lastFull&&Date.now()-TX.lastFull>7*86400e3)needFrom.push(TX.lastFull-86400e3);
+    const backfill=needFrom.length>0;
+    const sinceMs=Math.max(backfill?Math.min(...needFrom):Date.now()-7*86400e3,Date.now()-45*86400e3);
     const q=(full||backfill)?`since=${encodeURIComponent(new Date(sinceMs).toISOString())}`:`after=${Math.max(0,(TX.maxId||0)-3)}`;
     // 응답이 15초 안에 안 오면 끊는다(무한 대기로 주기 마감이 막히지 않게)
     const ctl=new AbortController();const to=setTimeout(()=>ctl.abort(),15000);
-    let res,rows;
+    let res,rows=[],truncated=false;
     try{
-      res=await fetch(`${S.supabaseUrl}/functions/v1/tx-read?${q}`,{headers:{'x-read-secret':S.txReadSecret},signal:ctl.signal});
-      if(res.ok)rows=await res.json(); // 본문 읽기까지 15초 안에(같은 signal로 끊김)
+      // 한 번에 최대 500건 → 500건이 오면 마지막 id 뒤를 이어서(최대 20쪽) 읽는다. 본문 읽기까지 15초 안에.
+      let after=null;
+      for(let page=0;page<20;page++){
+        const qq=after==null?q:(q.startsWith('since=')?`${q}&after=${after}`:`after=${after}`);
+        res=await fetch(`${S.supabaseUrl}/functions/v1/tx-read?${qq}`,{headers:{'x-read-secret':S.txReadSecret},signal:ctl.signal});
+        if(!res.ok)break;
+        const part=await res.json();rows.push(...part);
+        if(part.length<500)break;
+        after=part[part.length-1].id;
+        if(page===19)truncated=true; // 20쪽(1만 건)을 다 채웠으면 끝까지 못 받은 것
+      }
     }finally{clearTimeout(to);}
     if(!res.ok){TX.error=res.status===401?'읽기 키가 맞지 않아요':`오류 ${res.status}`;renderTx();return false;}
     const byId=new Map(TX.rows.map(r=>[r.id,r]));rows.forEach(r=>byId.set(r.id,r));
     const cut=Date.now()-100*86400e3; // 이 기기엔 최근 100일만(캡처 보관 3개월보다 길게)
     TX.rows=[...byId.values()].filter(r=>Date.parse(r.at)>=cut).sort((a,b)=>a.id-b.id);
     TX.maxId=Math.max(TX.maxId||0,0,...TX.rows.map(r=>r.id));
-    if(full||backfill)TX.lastFull=Date.now();
-    TX.error=null;
+    const sinceRead=(full||backfill)&&!truncated;
+    if(sinceRead)TX.lastFull=Date.now();
+    TX.error=truncated?'거래가 너무 많아 일부만 받았어요':null;
     try{localStorage.setItem(TX_STORE,JSON.stringify(TX));}catch(e){}
-    applyTxToState();
-    return true;
+    // 끝까지 받은 전체 범위(since)만 '확인된 범위'로 넘긴다 → 불완전 주기는 그 범위가 주기 시작을 덮을 때만 확정
+    applyTxToState(sinceRead?sinceMs:null);
+    return !truncated;
   }catch(e){TX.error='연결 안 됨';console.error('tx fetch',e);renderTx();return false;}
   finally{txFetching=false;}
 }
@@ -2056,7 +2110,7 @@ function commitBalances(bals,source){
   const b={};ACCOUNTS.forEach(a=>{b[a.id]=bals[a.id]||0;});
   const prevBal=S.balances,prevCaps=[...(S.captures||[])]; // 복사본(아래 unshift가 원래 배열을 바꾸므로)
   S.balances={...S.balances,...b};
-  const nowIso=new Date().toISOString();S.balanceAt={...(S.balanceAt||{})};ACCOUNTS.forEach(a=>{S.balanceAt[a.id]=nowIso;});
+  const nowIso=new Date().toISOString();S.balanceAt={...(S.balanceAt||{})};S.balanceTxId={...(S.balanceTxId||{})};ACCOUNTS.forEach(a=>{S.balanceAt[a.id]=nowIso;delete S.balanceTxId[a.id];});
   S.captures.unshift({id:Date.now().toString(),date:toStr(),time:new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}),thumb:(pendingCap&&pendingCap.thumb)||null,source,balances:b});
   pendingCap=null;
   pruneCaptures();

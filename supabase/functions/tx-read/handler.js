@@ -35,7 +35,8 @@ export async function handleRead(req, deps) {
     const floor = Date.parse(req.now || new Date().toISOString()) - 45 * 86400000; // 최대 45일(전송량 상한: 한 주기+여유)
     sinceIso = new Date(Math.max(ms, floor)).toISOString();
   }
-  const afterId = sinceIso ? 0 : Math.max(0, Math.floor(Number(u.searchParams.get("after") || 0)) || 0);
+  // after는 since와 함께 써서 500건이 넘으면 다음 쪽을 이어 읽는다(앱이 끝까지 반복)
+  const afterId = Math.max(0, Math.floor(Number(u.searchParams.get("after") || 0)) || 0);
   const rows = await deps.select({ afterId, sinceIso }, PAGE);
   return { status: 200, headers: { ...cors, "Content-Type": "application/json" }, body: JSON.stringify(rows) };
 }

@@ -8,7 +8,7 @@ const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const SECRET = Deno.env.get("TX_READ_SECRET") || "";
 
 async function select(q: { afterId: number; sinceIso: string | null }, limit: number) {
-  const filter = q.sinceIso ? `created_at=gte.${encodeURIComponent(q.sinceIso)}` : `id=gt.${q.afterId}`;
+  const filter = (q.sinceIso ? `created_at=gte.${encodeURIComponent(q.sinceIso)}&` : "") + `id=gt.${q.afterId}`;
   const res = await fetch(`${SUPABASE_URL}/rest/v1/tx?select=${COLUMNS}&${filter}&order=id.asc&limit=${limit}`, {
     headers: { "apikey": SERVICE_ROLE, "Authorization": `Bearer ${SERVICE_ROLE}` },
   });
