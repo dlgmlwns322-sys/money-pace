@@ -60,9 +60,50 @@ const app={setS:v=>A.set({S:v}),getS:()=>A.S,setTX:v=>A.set({TX:v}),...A.fn};
     assert.strictEqual(calc.buildNumbers(S0,today,T).todayBudget,want,'리포트 오늘 권장 지출');
     const S1={...S0,budget:300000};
     app.setS(JSON.parse(JSON.stringify(S1)));app.setTX({rows:JSON.parse(JSON.stringify(T))});
-    assert.strictEqual(app.getTodayBudget(),-10000,'예산을 다 썼으면 하루 몫 0 − 오늘 쓴 돈');
-    assert.strictEqual(calc.buildNumbers(S1,today,T).todayBudget,-10000);
-    console.log('ok - 오늘 권장 지출: 잔액이 커도 쓴 돈 반영, 예산 소진이면 0');n++;
+    // 2026-09-29 사용자: 모자라면 0으로 자르지 않고 음수 그대로. 초과 10만 원 ÷ 25일 = 하루 −4,000, 거기서 오늘 쓴 1만 원
+    assert.strictEqual(app.getTodayBudget(),-14000,'예산을 넘겼으면 하루 몫도 음수 − 오늘 쓴 돈');
+    assert.strictEqual(calc.buildNumbers(S1,today,T).todayBudget,-14000);
+    console.log('ok - 오늘 권장 지출: 잔액이 커도 쓴 돈 반영, 초과면 음수 그대로');n++;
+  }
+  // 2026-09-29: 주기 시작 전의 옛 캡처 잔액(캡처 폐지 뒤 남은 기록)을 오늘 시작 잔액으로 쓰지 않는다 → 지금 잔액(알림 기준)
+  {
+    const S2={budget:2280000,budgetStart:'2026-09-23',budgetEnd:'2026-10-22',txSince:'2026-09-30',
+      captures:[{id:'1',date:'2026-08-04',time:'오후 1:00',balances:{kakao:58000,kb:121150}}],
+      balances:{kakao:129200,kb:346815},balanceAt:{kakao:'2026-09-29T08:32:00Z',kb:'2026-09-29T08:32:00Z'},balanceTxId:{kakao:2,kb:1},
+      fixed:[{id:'a',name:'저축',amount:1000000,type:'expense',paid:true,paidDate:'2026-09-29'},
+             {id:'b',name:'관리비',amount:300000,type:'expense',paid:true,paidDate:'2026-09-29'},
+             {id:'c',name:'테니스',amount:180000,type:'expense',paid:false,paidDate:''},
+             {id:'d',name:'복싱',amount:100000,type:'expense',paid:true,paidDate:'2026-09-29'}]};
+    setToday('2026-09-29');
+    app.setS(JSON.parse(JSON.stringify(S2)));app.setTX({rows:[]});
+    // 9/29~10/22 = 24일, (476,015 − 미납 180,000) ÷ 24
+    assert.strictEqual(app.getTodayBudget(),Math.floor((476015-180000)/24),'옛 캡처 대신 지금 잔액');
+    // 잔액이 미납 고정비보다 적으면 음수 그대로
+    app.setS({...JSON.parse(JSON.stringify(S2)),balances:{kakao:10000,kb:20000}});
+    assert.strictEqual(app.getTodayBudget(),Math.floor((30000-180000)/24),'잔액 부족이면 음수');
+    // (Codex) 지금 잔액을 알림으로 받은 적이 없으면 0원으로 치지 않고 예산 기준
+    app.setS({...JSON.parse(JSON.stringify(S2)),budget:1000000,budgetEnd:'2026-10-08',fixed:[],balances:{},balanceAt:{},balanceTxId:{}});
+    assert.strictEqual(app.getTodayBudget(),100000,'잔액 모름 → 예산 기준(옛 캡처도 안 씀)');
+    console.log('ok - 오늘 권장 지출: 주기 시작 전 옛 캡처 무시, 부족하면 음수');n++;
+  }
+  // (Codex) 캡처만 쓰는 경우(txSince 없음) 주기 첫날의 전날 캡처는 정상 기준 — 오늘 지출을 두 번 빼지 않는다
+  {
+    const S3={budget:1000000,budgetStart:'2026-09-29',budgetEnd:'2026-10-08',txSince:'',fixed:[],balances:{kakao:90000,kb:0},
+      captures:[{id:'1',date:'2026-09-28',time:'오후 1:00',balances:{kakao:100000,kb:0}},{id:'2',date:'2026-09-29',time:'오후 1:00',balances:{kakao:90000,kb:0}}]};
+    setToday('2026-09-29');app.setS(JSON.parse(JSON.stringify(S3)));app.setTX({rows:[]});
+    assert.strictEqual(app.getTodayBudget(),100000/10-10000,'캡처 사용자 주기 첫날');
+    // (Codex 2차) 알림 전환 당일: txSince=내일, 오늘 캡처(1만 지출)도 있고 두 계좌 알림 잔액 합 9만 → 0원(오늘 지출 이중 차감 없음)
+    const S4={...S3,budgetStart:'2026-09-29',txSince:'2026-09-30',captures:[{id:'1',date:'2026-09-20',time:'오후 1:00',balances:{kakao:100000,kb:0}},{id:'2',date:'2026-09-29',time:'오후 1:00',balances:{kakao:90000,kb:0}}],
+      balanceAt:{kakao:'2026-09-29T05:00:00Z',kb:'2026-09-29T05:00:00Z'},balanceTxId:{kakao:1,kb:2}};
+    app.setS(JSON.parse(JSON.stringify(S4)));
+    assert.strictEqual(app.getTodayBudget(),0,'알림 전환 당일 오늘 지출 이중 차감 없음');
+    console.log('ok - 오늘 권장 지출: 캡처만 쓰는 주기 첫날은 예전 계산 그대로, 알림 전환 당일도 이중 차감 없음');n++;
+  }
+  // (Codex) 음수 하루 몫이면 막대 오른쪽 예산도 − 부호
+  {
+    const h=app.gaugeHtml('오늘',0,-6250,null,'');
+    assert.ok(h.includes('−6,250원'),'음수 예산 표시');
+    console.log('ok - 막대: 음수 하루 몫 − 표시');n++;
   }
   // (Codex 8차 재현) 앱=리포트로 같은 값인지와 기대값을 함께 본다
   const both=(S,T,d)=>{setToday(d);app.setS(JSON.parse(JSON.stringify(S)));app.setTX({rows:JSON.parse(JSON.stringify(T))});

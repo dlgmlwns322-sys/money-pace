@@ -7,7 +7,7 @@ const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
 const main = scripts.sort((a, b) => b.length - a.length)[0]; // 가장 긴 인라인 스크립트가 앱 본체
 
-const EXPORTS = ['sumSpentInRange', 'getDailySpent', 'txGaps', 'txWithFlags', 'applyTxToState', 'getTodayBudget', 'getBD', 'effectiveBudget',
+const EXPORTS = ['gaugeHtml', 'sumSpentInRange', 'getDailySpent', 'txGaps', 'txWithFlags', 'applyTxToState', 'getTodayBudget', 'getBD', 'effectiveBudget',
   'totSpent', 'getWeeklySpent', 'cycleSavings', 'syncSalaryCycle', 'salaryCandidates', 'undoSalary', 'pickSalary', 'linkFixedTx', 'fixedCandidates',
   'confirmFixed', 'toggleFixed', 'computeNotices', 'toStr', 'txDate', 'capMs', 'timeToMinutes', 'weeklyShare', 'recomputeClosedCycles', 'balanceBefore', 'cycleCategoryTotals', 'txCategory'];
 
