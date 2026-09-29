@@ -1379,8 +1379,10 @@ function catTxHtml(cat,catTotal){
   const rows=txWithFlags().filter(r=>r.date>=S.budgetStart&&r.date<=today&&r.date>=S.txSince&&!r.isTransfer&&!r.savings&&!linked.has(r.id)
     &&(r.type==='out'||isRefund(r))&&txCategory(r)===cat).sort((a,b)=>Date.parse(b.at)-Date.parse(a.at));
   const sum=rows.reduce((a,r)=>a+(r.type==='out'?r.amount:-r.amount),0);
-  const extra=cat==='기타'?catTotal-sum:0;
-  return`<div class="cat-tx">${rows.map(r=>`<div class="cat-tx-row" onclick="openTxSheet(${Number(r.id)})"><span class="d num">${txDate(r.at).slice(5).replace('-','/')}</span><span class="m">${escapeHtml(r.merchant||r.counterparty||r.method||'')}</span><span class="a num">${r.type==='in'?'+':''}${won(r.amount)}</span></div>`).join('')}${extra>0?`<div class="cat-tx-row"><span class="d"></span><span class="m" style="color:var(--text3)">누락 추정</span><span class="a num">${won(extra)}</span></div>`:''}</div>`;
+  const adj=cat==='기타'?spentAdjustIn(S.budgetStart,today):0;
+  const extra=cat==='기타'?catTotal-sum-adj:0;
+  const adjRow=adj>0?`<div class="cat-tx-row"><span class="d num">${S.spentAdjust.date.slice(5).replace('-','/')}</span><span class="m">${escapeHtml(S.spentAdjust.note||'직접 기록')}</span><span class="a num">${won(adj)}</span></div>`:'';
+  return`<div class="cat-tx">${adjRow}${rows.map(r=>`<div class="cat-tx-row" onclick="openTxSheet(${Number(r.id)})"><span class="d num">${txDate(r.at).slice(5).replace('-','/')}</span><span class="m">${escapeHtml(r.merchant||r.counterparty||r.method||'')}</span><span class="a num">${r.type==='in'?'+':''}${won(r.amount)}</span></div>`).join('')}${extra>0?`<div class="cat-tx-row"><span class="d"></span><span class="m" style="color:var(--text3)">누락 추정</span><span class="a num">${won(extra)}</span></div>`:''}</div>`;
 }
 function selCat(c){catSel=catSel===c?null:c;renderCatCard();}
 // 거래 누르면: 카테고리 고르기(같은 가게 기억) + 내 계좌 이동 표시
@@ -1504,11 +1506,16 @@ function getDailySpent(dateStr){
 // 입금(음수 지출)·미캡처일은 제외한다. 순잔액차이 방식과 달리 기간 중 입금이 들어와도
 // 지출이 0으로 뭉개지지 않는다(예: 예산 시작일 입금). 캡처가 띄엄띄엄이어도
 // getDailySpent가 '직전 캡처'와 비교하므로 텔레스코핑으로 총액이 보존된다.
+// 알림으로 못 잡은 지출을 한 번에 적어 둔 조정 지출(기타). 예: 9월 주기 알림 연결 전 9/23~9/29 지출(2026-09-29 사용자).
+// S.spentAdjust={date,amount,note} — 그 날짜가 범위 안이면 합계에 더한다(이번 달·권장 지출·주기 결산에 같이 반영).
+// 금액은 유한한 양수만(음수·Infinity 등은 무시). 알림·캡처로 이미 잡힌 기간과 겹치지 않는 금액이어야 한다.
+const spentAdjustIn=(from,to)=>{const a=S.spentAdjust,v=a?Number(a.amount):0;return a&&a.date&&a.date>=from&&a.date<=to&&Number.isFinite(v)&&v>0?Math.round(v):0;};
 function sumSpentInRange(fromStr, toStr){
+  const adj=spentAdjustIn(fromStr,toStr);
   // 캡처가 있는 날 + 알림 기간(txSince 이후)의 모든 날
   const days=new Set((S.captures||[]).map(capDate));
   if(S.txSince){for(let d=S.txSince>fromStr?S.txSince:fromStr;d<=toStr;d=dayAfter(d))days.add(d);}
-  if(!days.size)return 0;
+  if(!days.size)return Math.max(0,adj);
   const dates=[...days].filter(d=>d>=fromStr&&d<=toStr).sort();
   let sum=0;
   for(const d of dates){
@@ -1516,7 +1523,7 @@ function sumSpentInRange(fromStr, toStr){
     if(ds&&ds.source==='tx')sum+=ds.spent; // 알림 기간: 환불로 음수인 날도 반영
     else if(ds&&!ds.noCaptureToday&&ds.spent>0)sum+=ds.spent;
   }
-  return Math.max(0,sum);
+  return Math.max(0,sum+adj);
 }
 
 // 오늘 쓸 수 있는 돈 = 오늘 하루치 배정액(어제 마감 잔액 기준 남은예산÷남은일수) - 오늘 실제 지출.

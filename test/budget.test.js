@@ -105,6 +105,22 @@ const app={setS:v=>A.set({S:v}),getS:()=>A.S,setTX:v=>A.set({TX:v}),...A.fn};
     assert.ok(h.includes('−6,250원'),'음수 예산 표시');
     console.log('ok - 막대: 음수 하루 몫 − 표시');n++;
   }
+  // 2026-09-29: 알림 연결 전 지출을 조정 지출(기타) 한 건으로 — 이번 달·결산에는 들어가고, 주기 시작일 날짜라 이번 주 막대엔 안 들어감
+  {
+    const S5={budget:2280000,budgetStart:'2026-09-23',budgetEnd:'2026-10-22',txSince:'2026-09-30',captures:[],
+      balances:{kakao:129200,kb:346815},balanceAt:{kakao:'2026-09-29T08:32:00Z',kb:'2026-09-29T08:32:00Z'},balanceTxId:{kakao:2,kb:1},
+      fixed:[{id:'c',name:'테니스',amount:180000,type:'expense',paid:false,paidDate:''},{id:'a',name:'저축',amount:1400000,type:'expense',paid:true,paidDate:'2026-09-29'}],
+      spentAdjust:{date:'2026-09-23',amount:403985,note:'알림 연결 전 지출(9/23~9/29)'}};
+    setToday('2026-10-01');app.setS(JSON.parse(JSON.stringify(S5)));app.setTX({rows:[]});
+    assert.strictEqual(app.totSpent(),403985,'이번 달 사용에 조정 지출 포함');
+    assert.strictEqual(app.sumSpentInRange('2026-09-28','2026-10-01'),0,'이번 주(9/28~)에는 안 들어감');
+    // 10/1 권장: 예산 70만 − 어제까지 403,985 = 296,015 ÷ 22일(10/1~10/22)
+    assert.strictEqual(app.getTodayBudget(),Math.floor(296015/22),'권장 지출도 조정 반영');
+    // 다음 주기(시작일이 바뀜)에는 들어가지 않음
+    assert.strictEqual(app.sumSpentInRange('2026-10-23','2026-11-22'),0,'다음 주기 영향 없음');
+    for(const bad of [-5000,'Infinity',null,'abc']){app.setS({...JSON.parse(JSON.stringify(S5)),spentAdjust:{date:'2026-09-23',amount:bad}});assert.strictEqual(app.totSpent(),0,'잘못된 조정액 무시 '+bad);}
+    console.log('ok - 조정 지출(기타): 이번 달·권장 지출 반영, 이번 주·다음 주기 제외, 잘못된 값 무시');n++;
+  }
   // (Codex 8차 재현) 앱=리포트로 같은 값인지와 기대값을 함께 본다
   const both=(S,T,d)=>{setToday(d);app.setS(JSON.parse(JSON.stringify(S)));app.setTX({rows:JSON.parse(JSON.stringify(T))});
     const a=app.getTodayBudget(),c=calc.buildNumbers(S,d,T).todayBudget;assert.strictEqual(a,c,`앱 ${a} ≠ 리포트 ${c}`);return a;};
