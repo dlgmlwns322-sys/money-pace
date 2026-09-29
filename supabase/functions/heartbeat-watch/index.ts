@@ -21,8 +21,9 @@ async function load() {
 }
 
 // 생존 신호 시각(at)이 읽은 값 그대로일 때만 alert_at을 바꾼다(그 사이 새 신호가 오면 0행). 바뀌었으면 true.
-async function record(at: string, alertAt: string | null): Promise<boolean> {
-  const res = await rest(`ingest_heartbeat?id=eq.1&at=eq.${encodeURIComponent(at)}&select=id`, {
+async function record(at: string | null, alertAt: string | null): Promise<boolean> {
+  const cond = at === null ? "" : `&at=eq.${encodeURIComponent(at)}`; // null이면 조건 없이(정정 실패 표시용)
+  const res = await rest(`ingest_heartbeat?id=eq.1${cond}&select=id`, {
     method: "PATCH", headers: { "Prefer": "return=representation" }, body: JSON.stringify({ alert_at: alertAt }),
   });
   if (!res.ok) throw new Error(`record ${res.status}`);

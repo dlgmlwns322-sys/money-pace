@@ -37,7 +37,7 @@ export function messageFor(action, hb, hours) {
 
 // req: {method, headers: {get}, now}
 // deps: {secret, load() -> Promise<{at, alert_at}|null>,
-//        record(at, alertAt) -> Promise<boolean>  // 생존 신호 시각이 at 그대로일 때만 alert_at을 바꾼다. 바뀌었으면 true
+//        record(at, alertAt) -> Promise<boolean>  // 생존 신호 시각이 at 그대로일 때만 alert_at을 바꾼다(at이 null이면 조건 없이). 바뀌었으면 true
 //        send(text) -> Promise<boolean>}
 export async function handleWatch(req, deps) {
   if (req.method !== "POST") return { status: 405, body: "method" };
@@ -48,13 +48,16 @@ export async function handleWatch(req, deps) {
   if (d.action === "none") return { status: 200, body: "ok" };
   // 1) 먼저 보낸다. 실패하면 아무것도 기록하지 않아 다음 실행(1시간 뒤)에 다시 보낸다.
   if (!(await deps.send(messageFor(d.action, hb, d.hours)))) return { status: 502, body: "send failed" };
-  // 2) 보낸 뒤 기록. 확인하는 사이 생존 신호가 새로 들어왔으면(at이 바뀜) 경고가 틀린 것이므로 바로 정정한다.
-  const recorded = await deps.record(hb.at, d.action === "alert" ? req.now : null).catch(() => null);
+  // 2) 보낸 뒤 기록(일시 오류 대비 3번까지). 확인하는 사이 생존 신호가 새로 들어왔으면(at이 바뀜) 경고가 틀린 것이므로 바로 정정한다.
+  let recorded = null;
+  for (let i = 0; i < 3 && recorded === null; i++) recorded = await deps.record(hb.at, d.action === "alert" ? req.now : null).catch(() => null);
   if (recorded === null) return { status: 500, body: `${d.action} sent, record failed` }; // 다음 실행에 한 번 더 갈 수 있음
   if (!recorded && d.action === "alert") {
     const fresh = await deps.load().catch(() => null);
-    if (fresh && fresh.at) await deps.send(messageFor("recovered", fresh));
-    return { status: 200, body: "alert corrected" };
+    if (fresh && fresh.at && await deps.send(messageFor("recovered", fresh))) return { status: 200, body: "alert corrected" };
+    // 정정 메시지를 못 보냈으면(다시 읽기 실패 포함) 경고 표시를 시각 조건 없이 남긴다 → 다음 실행이 '다시 연결됐어요'를 보낸다
+    const marked = await deps.record(null, req.now).catch(() => null);
+    return { status: marked ? 502 : 500, body: marked ? "correction deferred" : "correction failed" };
   }
   return { status: 200, body: d.action };
 }

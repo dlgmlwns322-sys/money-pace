@@ -20,7 +20,7 @@ let ok = 0; const t = async (n, f) => { await f(); ok++; console.log('ok -', n);
         load: async () => (db.row ? { ...db.row } : null),
         record: async (at, alertAt) => {
           if (db.recordFail) throw new Error('db down');
-          if (Date.parse(db.row.at) !== Date.parse(at)) return false;
+          if (at !== null && Date.parse(db.row.at) !== Date.parse(at)) return false;
           db.row.alert_at = alertAt; return true;
         },
         send: async (text) => { if (!db.sendOk) return false; sent.push(text); return true; },
@@ -101,6 +101,38 @@ let ok = 0; const t = async (n, f) => { await f(); ok++; console.log('ok -', n);
     assert.deepStrictEqual([r.body, db.row.alert_at], ['alert corrected', null]);
     assert.match(db.sent[0], /확인 필요/);
     assert.match(db.sent[1], /다시 연결됐어요/);
+  });
+
+  await t('(Codex 2차) 기록이 한두 번 실패해도 다시 시도해 한 번에 기록(중복 경고 없음)', async () => {
+    const db = mkDb({ at: iso(base), alert_at: null });
+    const rec0 = db.deps.record; let fails = 2;
+    db.deps.record = async (...a) => { if (fails-- > 0) throw new Error('일시 오류'); return rec0(...a); };
+    assert.strictEqual((await run(db, base + 31 * H)).body, 'alert');
+    assert.strictEqual(db.row.alert_at, iso(base + 31 * H));
+    assert.strictEqual((await run(db, base + 32 * H)).body, 'ok', '1시간 뒤 중복 없음');
+  });
+
+  await t('(Codex 2차) 정정 메시지 전송이 실패하면 경고 표시를 남겨 다음 실행에 복구 알림', async () => {
+    const db = mkDb({ at: iso(base), alert_at: null });
+    let n = 0; const send0 = db.deps.send;
+    db.deps.send = async (text) => { n++; if (n === 1) { const r = await send0(text); db.row.at = iso(base + 31 * H); return r; } return false; };
+    const r = await run(db, base + 31 * H);
+    assert.deepStrictEqual([r.status, r.body], [502, 'correction deferred']);
+    db.deps.send = send0;
+    assert.strictEqual((await run(db, base + 32 * H)).body, 'recovered');
+    assert.match(db.sent[db.sent.length - 1], /다시 연결됐어요/);
+    assert.strictEqual((await run(db, base + 33 * H)).body, 'ok');
+  });
+
+  await t('(Codex 2차) 정정하려고 다시 읽기가 실패해도 경고 표시를 남겨 다음 실행에 복구 알림', async () => {
+    const db = mkDb({ at: iso(base), alert_at: null });
+    const send0 = db.deps.send, load0 = db.deps.load; let loads = 0;
+    db.deps.load = async () => { if (++loads > 1) throw new Error('load down'); return load0(); };
+    db.deps.send = async (text) => { const r = await send0(text); db.row.at = iso(base + 31 * H); return r; };
+    const r = await run(db, base + 31 * H);
+    assert.deepStrictEqual([r.status, r.body], [502, 'correction deferred'], '다시 읽기 실패해도 경고 표시를 남김');
+    db.deps.load = load0; db.deps.send = send0;
+    assert.strictEqual((await run(db, base + 32 * H)).body, 'recovered', '다음 실행에 복구 알림');
   });
 
   await t('비밀키 없거나 틀리면 거부, GET 거부, 생존 신호 기록이 없으면 조용', async () => {

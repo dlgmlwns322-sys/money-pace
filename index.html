@@ -1420,7 +1420,9 @@ const totSpent=()=>{
   // 순잔액차이(예산-사용가능잔액) 방식은 예산 시작일 등에 입금이 들어오면 소진이 0으로 뭉개져서 바꿈.
   if(S.budgetStart&&S.budgetEnd&&((S.captures&&S.captures.length)||S.txSince)){
     const today=toStr();
-    return sumSpentInRange(S.budgetStart, today<S.budgetEnd?today:S.budgetEnd);
+    // 월급 자동 판정이면 주기는 다음 월급이 와야 닫힌다 → 종료일이 지나 월급을 기다리는 동안에도 오늘까지 합산(결산과 같게)
+    const end=today<S.budgetEnd||(S.payer&&today>S.budgetEnd)?today:S.budgetEnd;
+    return sumSpentInRange(S.budgetStart, end);
   }
   const tb=totBal();
   if(tb<=0)return 0;
