@@ -20,8 +20,8 @@ t('월급(오피엠에스·200만 이상·예상일 근처) 들어오면 새 주
   assert.strictEqual(S.budgetStart, '2026-10-23'); assert.strictEqual(S.budgetEnd, '2026-11-24', '11/25 수요일 → 전날 11/24');
   assert.strictEqual(S.salaryAmount, 3100000);
   assert.strictEqual(S.cycles.length, 1); assert.strictEqual(S.cycles[0].spent, 100000);
-  assert.strictEqual(S.carry, 900000, '지난 주기 100만 − 10만 = 90만 이월');
-  assert.strictEqual(S.budget, 4000000, '월급 310만 + 이월 90만');
+  assert.strictEqual(S.carry, 1750000, '지난 주기 100만 − 10만 + 개인경비 입금 85만(월급 아닌 입금은 쓸 수 있는 돈에 더함) = 175만 이월');
+  assert.strictEqual(S.budget, 4850000, '월급 310만 + 이월 175만');
   // 같은 월급이 다시 들어와도(재수신) 주기를 또 시작하지 않음
   app.fn.applyTxToState(null); assert.strictEqual(app.S.cycles.length, 1);
 });
@@ -72,6 +72,24 @@ t('저축: 본인 이름으로 나갔는데 국민·카카오로 짝이 없으�
   assert.strictEqual(app.fn.sumSpentInRange('2026-09-23', '2026-09-26'), 12000, '저축·이동은 지출 아님');
   assert.strictEqual(app.fn.cycleSavings(), 300000);
   assert.strictEqual(app.fn.effectiveBudget(), 700000, '100만 − 저축 30만');
+});
+
+t('카카오뱅크 저금통으로 옮긴 잔돈은 저축(지출 아님). 국민 쪽 같은 이름·직접 지정·저금통에서 꺼낸 입금은 해당 없음', () => {
+  const app = makeApp({ now: '2026-09-26T20:00:00+09:00' });
+  const rows = [...seedRows(),
+    tx('kakao', 'out', 200, 499800, '저금통', '2026-09-24', '11:15'),
+    tx('kakao', 'out', 300, 499500, '저금통', '2026-09-25', '11:15'),   // 사용자가 '이동 아님'으로 지정 → 지출
+    tx('kakao', 'in', 5000, 504500, '저금통', '2026-09-25', '12:00'),   // 저금통 깨기(입금)
+    tx('kb', 'out', 400, 999600, '저금통', '2026-09-25', '13:00'),      // 카카오 알림이 아닌 건 그대로 지출
+    tx('kakao', 'out', 12000, 492500, '식당', '2026-09-25', '14:00')];
+  app.set({ S: baseS({ txOverrides: { [rows[3].id]: { transfer: false } } }), TX: { rows } });
+  const f = app.fn.txWithFlags();
+  assert.strictEqual(f.find((r) => r.amount === 200).savings, true);
+  assert.strictEqual(f.find((r) => r.amount === 300).savings, false, '직접 지정하면 그 값');
+  assert.ok(!f.find((r) => r.amount === 5000).savings && !f.find((r) => r.amount === 400).savings);
+  assert.strictEqual(app.fn.sumSpentInRange('2026-09-23', '2026-09-26'), 300 + 400 + 12000, '저금통 200은 지출 아님');
+  assert.strictEqual(app.fn.cycleSavings(), 200);
+  assert.strictEqual(app.fn.effectiveBudget(), 1000000 - 200);
 });
 
 t('고정지출 자동 체크: 알림 이름이 들어간 출금(±20%)이면 체크·연결, 실제액과 예정액 차이만 지출. 신한 2만(본인 이름)은 저축으로 한 번 더 안 셈', () => {
@@ -226,6 +244,38 @@ t('(카테고리 Codex) 환불이 더 커도 합계 = 이번 달 막대, 환불�
   // 구매를 이 거래만 병원으로 바꾸면 그 환불도 병원
   app.S.txCat = { [rows[2].id]: '병원' }; // 올리브영 구매
   assert.strictEqual(app.fn.txCategory(rows[4]), '병원', '그 환불도 병원');
+});
+
+t('월급 아닌 입금은 쓸 수 있는 돈에 더함. 이동·본인 이름·저금통·환불·월급·고정 입금 같은 금액·직접 뺀 것은 제외', () => {
+  const app = makeApp({ now: '2026-09-30T20:00:00+09:00' });
+  const rows = [...seedRows(),
+    tx('kakao', 'in', 177200, 677200, '(주)오피엠에스', '2026-09-30', '12:22'),          // 경비정산 → 더함
+    tx('kakao', 'in', 15000, 692200, '김철수', '2026-09-30', '13:00'),                  // 더치페이 → 더함
+    tx('kakao', 'in', 30000, 722200, '홍길동', '2026-09-30', '13:10'),                  // 본인 이름(추정 이동) → 제외
+    tx('kakao', 'in', 5000, 727200, '저금통', '2026-09-30', '13:20'),                   // 저금통 깨기 → 제외
+    tx('kb', 'in', 8000, 1008000, '쿠팡', '2026-09-30', '13:30', { method: '취소' }),   // 환불 → 지출에서 차감
+    tx('kakao', 'in', 50000, 777200, '엄마', '2026-09-30', '14:00'),                     // 고정 입금(5만)과 같은 금액 → 제외
+    tx('kakao', 'in', 20000, 797200, '이벤트', '2026-09-30', '15:00'),                   // 사용자가 뺌
+    tx('kakao', 'in', 2500000, 3297200, '오피엠에스', '2026-09-25', '10:00')];         // 월급 후보 → 제외
+  app.set({ S: baseS({ txSince: '2026-09-21', fixed: [{ id: 1, name: '용돈', type: 'income', amount: 50000 }], txIncomeOff: { [rows[8].id]: true } }), TX: { rows } });
+  assert.deepStrictEqual(app.fn.cycleIncomeRows().map((r) => r.counterparty), ['(주)오피엠에스', '김철수']);
+  assert.strictEqual(app.fn.cycleIncome(), 192200);
+  assert.strictEqual(app.fn.effectiveBudget(), 1000000 + 50000 + 192200, '예산 + 고정 입금 5만 + 입금');
+  app.S.txSince = '2026-10-01'; // 알림 기록 시작 전 입금은 세지 않음
+  assert.strictEqual(app.fn.cycleIncome(), 0);
+});
+
+t('주기 마감: 지난 주기 입금은 이월에 더하고 기록에 남긴다', () => {
+  const app = makeApp({ now: '2026-10-24T12:00:00+09:00' });
+  const rows = [...seedRows(),
+    tx('kakao', 'in', 100000, 600000, '(주)오피엠에스', '2026-10-01', '12:00'),
+    tx('kakao', 'out', 400000, 200000, '가게', '2026-10-02', '12:00')];
+  app.set({ S: baseS({ budgetStart: '2026-09-23', txSince: '2026-09-21' }), TX: { rows } });
+  app.fn.startSalaryCycle({ id: 999, amount: 2500000, date: '2026-10-23' }, '2026-10');
+  const c = app.S.cycles[app.S.cycles.length - 1];
+  assert.strictEqual(c.income, 100000);
+  assert.strictEqual(c.effective, 1000000 + 100000);
+  assert.strictEqual(app.S.carry, c.effective - c.spent);
 });
 
 console.log(`\n통과 ${ok}개`);

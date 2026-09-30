@@ -9,7 +9,7 @@ const main = scripts.sort((a, b) => b.length - a.length)[0]; // 가장 긴 인�
 
 const EXPORTS = ['gaugeHtml', 'sumSpentInRange', 'getDailySpent', 'txGaps', 'txWithFlags', 'applyTxToState', 'getTodayBudget', 'getBD', 'effectiveBudget',
   'totSpent', 'getWeeklySpent', 'cycleSavings', 'syncSalaryCycle', 'salaryCandidates', 'undoSalary', 'pickSalary', 'linkFixedTx', 'fixedCandidates',
-  'confirmFixed', 'toggleFixed', 'computeNotices', 'toStr', 'txDate', 'capMs', 'timeToMinutes', 'weeklyShare', 'recomputeClosedCycles', 'balanceBefore', 'cycleCategoryTotals', 'txCategory'];
+  'confirmFixed', 'toggleFixed', 'computeNotices', 'toStr', 'txDate', 'capMs', 'timeToMinutes', 'weeklyShare', 'recomputeClosedCycles', 'balanceBefore', 'cycleCategoryTotals', 'txCategory', 'cycleIncome', 'cycleIncomeRows', 'startSalaryCycle'];
 
 module.exports = function makeApp(opt = {}) {
   let nowMs = Date.parse(opt.now || '2026-09-26T12:00:00+09:00');

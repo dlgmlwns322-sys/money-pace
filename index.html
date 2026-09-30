@@ -395,7 +395,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
     <div class="modal-title" id="txmTitle"></div>
     <div class="cat-chips" id="txmChips"></div>
     <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--text2);margin-top:12px"><input type="checkbox" id="txmAll" checked/>같은 가게는 앞으로도</label>
-    <div class="modal-btns"><button class="btn btn-sm" id="txmMove" style="flex:1;background:var(--bg);color:var(--text2)"></button><button class="btn btn-sm" style="flex:1" onclick="document.getElementById('txModal').classList.add('hidden')">닫기</button></div>
+    <div class="modal-btns"><button class="btn btn-sm" id="txmMove" style="flex:1;background:var(--bg);color:var(--text2)"></button><button class="btn btn-sm hidden" id="txmIncome" style="flex:1;background:var(--bg);color:var(--text2)"></button><button class="btn btn-sm" style="flex:1" onclick="document.getElementById('txModal').classList.add('hidden')">닫기</button></div>
   </div>
 </div>
 <div id="noticeModal" class="modal-bg hidden" onclick="if(event.target===this)closeNotices()">
@@ -496,17 +496,24 @@ let S=(()=>{try{const r=localStorage.getItem('mp_v6');if(r)return{...defState(),
 //  rev: 마지막으로 클라우드와 맞춘 데이터 버전(data.rev). 예전 데이터(rev 없음)는 0으로 본다.
 //  seq: 이 기기에서 바뀐 횟수, sentSeq: 클라우드에 올라간 변경 번호. 둘이 다르면 아직 못 올린 변경이 있다.
 const syncMeta=(()=>{try{return JSON.parse(localStorage.getItem('mp_sync')||'{}');}catch(e){return{};}})();
-const saveSyncMeta=()=>{try{localStorage.setItem('mp_sync',JSON.stringify(syncMeta));}catch(e){}};
+// 같은 앱이 탭 여러 개로 열려 있으면(같은 저장 공간을 같이 씀) 다른 탭이 저장한 순간 이 탭의 메모리 상태는 낡는다.
+// 낡은 탭은 저장·동기화하지 않고 화면으로 돌아올 때 새로 읽는다 — 옛 상태로 덮어 읽기 키·최신 잔액을 지우거나 동기화 충돌이 반복되지 않게(2026-09-30).
+let staleTab=false;
+window.addEventListener('storage',e=>{if(e.key===null||e.key==='mp_v6'||e.key==='mp_sync')staleTab=true;});
+const saveSyncMeta=()=>{if(staleTab)return;try{localStorage.setItem('mp_sync',JSON.stringify(syncMeta));}catch(e){}};
 const isDirty=()=>(syncMeta.seq||0)!==(syncMeta.sentSeq||0);
 let syncTimer=null, syncing=false, syncAgain=false;
 let syncChain=Promise.resolve();
-const serialSync=fn=>(syncChain=syncChain.then(()=>fn()).catch(e=>{console.error('sync chain',e);return false;}));
+const serialSync=fn=>(syncChain=syncChain.then(()=>staleTab?false:fn()).catch(e=>{console.error('sync chain',e);return false;}));
 const queueSync=()=>serialSync(syncToCloud);
-// 로컬 백업: 사진까지 포함한 이 기기 데이터(키·접속정보 제외). 실패하면 false.
+// 로컬 백업: 이 기기 데이터(키·접속정보·캡처 사진 제외). 실패하면 false.
+// 사진까지 넣으면 백업 하나가 1MB를 넘어 저장 공간이 차고, 그러면 동기화 충돌 처리가 멈춘다(2026-09-30). 사진은 본 데이터(mp_v6)에 그대로 있다.
 function backupLocal(tag){
   pruneBackups(4);
-  try{const d={...S};LOCAL_ONLY_KEYS.forEach(k=>delete d[k]);localStorage.setItem('mp_v6_backup_'+(tag||'')+Date.now(),JSON.stringify(d));return true;}
-  catch(e){return false;}
+  const d={...S};LOCAL_ONLY_KEYS.forEach(k=>delete d[k]);d.captures=(S.captures||[]).map(({thumb,...c})=>c);
+  const put=()=>localStorage.setItem('mp_v6_backup_'+(tag||'')+Date.now(),JSON.stringify(d));
+  try{put();return true;}
+  catch(e){pruneBackups(1);try{put();return true;}catch(e2){return false;}} // 예전 사진 포함 백업이 자리를 차지하면 최근 1개만 남기고 다시
 }
 // 백업 목록(새것부터). 키 끝의 숫자가 만든 시각.
 function listBackups(){
@@ -515,6 +522,17 @@ function listBackups(){
   return out.sort((a,b)=>b.t-a.t);
 }
 function pruneBackups(keep){listBackups().slice(keep).forEach(b=>{try{localStorage.removeItem(b.k);}catch(e){}});}
+// 예전 백업(사진 포함, 하나에 1MB 넘음)이 저장 공간을 차지해 충돌 백업이 실패하던 문제(2026-09-30):
+// 시작할 때 사진을 빼서 다시 저장한다(작아지니 저장 가능). 다시 저장도 못 하면 그 백업은 지운다. 사진은 본 데이터(mp_v6)에 그대로 있다.
+function slimOldBackups(){
+  listBackups().forEach(b=>{
+    try{
+      const v=localStorage.getItem(b.k);if(!v||!/"thumb":\s*"data:/.test(v))return;
+      const d=JSON.parse(v);d.captures=(d.captures||[]).map(({thumb,...c})=>c);
+      localStorage.setItem(b.k,JSON.stringify(d));
+    }catch(e){try{localStorage.removeItem(b.k);}catch(e2){}}
+  });
+}
 // 가장 최근 백업으로 되돌리기. 되돌리기 직전 상태도 백업해 둔다.
 function restoreLatestBackup(){
   const b=listBackups()[0];
@@ -526,12 +544,15 @@ function restoreLatestBackup(){
   const local={};LOCAL_ONLY_KEYS.forEach(k=>{local[k]=S[k];});
   if(!backupLocal('prerestore_')){showToast('저장 공간이 부족해 되돌리지 못했어요');return;}
   const prevS=S;
+  const thumbs=new Map((S.captures||[]).filter(c=>c.thumb).map(c=>[c.id,c.thumb])); // 백업엔 사진이 없으니 지금 사진을 이어 붙인다
   S={...defState(),...data,...local};delete S.rev;
+  S.captures=(S.captures||[]).map(c=>({...c,thumb:c.thumb||thumbs.get(c.id)||null}));
   if(!save()){S=prevS;render();return;}
   render();showToast('백업으로 되돌렸어요 ✓');
 }
 // 이 기기에 저장하고 성공 여부를 돌려준다(실패하면 호출한 쪽이 '완료' 표시를 하지 않는다).
 function save(){
+  if(staleTab){location.reload();return false;} // 다른 탭이 더 새 상태를 저장함 → 옛 상태로 덮지 않고 새로 읽는다
   syncMeta.seq=(syncMeta.seq||0)+1;saveSyncMeta();
   let stored=true;
   try{localStorage.setItem('mp_v6',JSON.stringify(S));}
@@ -759,7 +780,8 @@ const totFixedExpense=()=>(S.fixed||[]).filter(f=>f.type!=='income').reduce((a,f
 const totFixedIncome=()=>(S.fixed||[]).filter(f=>f.type==='income').reduce((a,f)=>a+(f.amount||0),0);
 // 실제 사용 가능 월 예산 = 월 예산 - 고정지출 + 예정입금 (= 월예산 - 순액)
 // 쓸 수 있는 돈 = (월급 + 지난 주기 이월) − 고정지출 − 이번 주기 저축
-const effectiveBudget=()=>Math.max(0, S.budget - totFixed() - cycleSavings());
+// + 이번 주기 월급 아닌 입금(경비정산·더치페이 등, 2026-09-30)
+const effectiveBudget=()=>Math.max(0, S.budget - totFixed() - cycleSavings() + cycleIncome());
 // 미납(아직 안 빠져나간 지출 / 아직 안 들어온 입금)의 순액 = 잔액엔 아직 미반영이지만 곧 반영될 돈.
 // 입금은 음수라 여기서 빼면(usableBal) 예정입금만큼 쓸 수 있는 돈이 늘어난다(A방식: 즉시 반영).
 const unpaidFixed=()=>(S.fixed||[]).filter(f=>!f.paid).reduce((a,f)=>a+fxSigned(f),0);
@@ -836,10 +858,10 @@ function startSalaryCycle(r,month){
   let carry=S.carry||0;
   if(S.budgetStart&&r.date>S.budgetStart){
     const end=dayBefore(r.date);
-    const spent=sumSpentInRange(S.budgetStart,end),savings=cycleSavings(S.budgetStart,end);
-    // 지난 주기 기간 안의 저축만, 적자도 그대로(0으로 자르지 않음)
-    const effective=S.budget-totFixed()-savings;
-    S.cycles=[...(S.cycles||[]),{start:S.budgetStart,end,budget:S.budget,effective,spent,savings,closedAt:toStr()}].slice(-24);
+    const spent=sumSpentInRange(S.budgetStart,end),savings=cycleSavings(S.budgetStart,end),income=cycleIncome(S.budgetStart,end);
+    // 지난 주기 기간 안의 저축·입금만, 적자도 그대로(0으로 자르지 않음)
+    const effective=S.budget-totFixed()-savings+income;
+    S.cycles=[...(S.cycles||[]),{start:S.budgetStart,end,budget:S.budget,effective,spent,savings,income,closedAt:toStr()}].slice(-24);
     carry=effective-spent;
     // 지난 주기에 낸 고정지출은 기록으로 옮기고 체크를 푼다(새 주기에 이미 낸 것은 그대로)
     const paid=(S.fixed||[]).filter(f=>f.paid&&f.paidDate&&f.paidDate<r.date);
@@ -917,7 +939,7 @@ const weeklyShare=()=>{const{total}=getBD();return total>0?Math.round(effectiveB
 
 // 예산 주기는 날짜가 아니라 '월급 입금 알림'으로 넘어간다(applyTxToState → syncSalaryCycle). 월급이 늦으면 주기가 이어진다.
 async function refreshAndRoll(){await fetchTx();}
-document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshAndRoll();});
+document.addEventListener('visibilitychange',()=>{if(document.hidden)return;if(staleTab){location.reload();return;}refreshAndRoll();});
 setInterval(refreshAndRoll,30*60*1000);
 
 // ── 입출금 알림 거래 ──
@@ -954,14 +976,16 @@ function matchCardHints(rows){
   });
   return m;
 }
+const isPiggyBank=r=>r.bank==='kakao'&&String(r.counterparty||'').trim()==='저금통';
 function txDerived(){
   const ov=JSON.stringify(S.txOverrides||{}),own=S.ownerNames||'';
   if(txMemo&&txMemo.rows===TX.rows&&txMemo.hints===TX.hints&&txMemo.ov===ov&&txMemo.own===own)return txMemo;
   const marked=(window.TxParse&&window.TxParse.markTransfers)?window.TxParse.markTransfers(TX.rows,ownerNameList()):TX.rows.map(r=>({...r,transfer:false,transferGuess:false}));
   const overrides=S.txOverrides||{};
   // 저축: 본인 이름으로 나갔는데 국민·카카오로 들어온 짝이 없는 돈(토스증권·신한 등 내 다른 계좌). 사용자가 직접 지정하면 그 값.
+  // 카카오뱅크 저금통(잔돈 자동 모으기, 알림 '입출금통장(0000) → 저금통')으로 옮긴 돈도 저축(2026-09-30).
   const hintOf=matchCardHints(marked);
-  const flags=marked.map(r=>{const o=overrides[r.id],set=o&&typeof o.transfer==='boolean';return{...r,merchant:hintOf.get(r.id)||r.counterparty,date:txDate(r.at),isTransfer:set?o.transfer:!!r.transfer,savings:!set&&!r.transfer&&!!r.transferGuess&&r.type==='out'};});
+  const flags=marked.map(r=>{const o=overrides[r.id],set=o&&typeof o.transfer==='boolean';return{...r,merchant:hintOf.get(r.id)||r.counterparty,date:txDate(r.at),isTransfer:set?o.transfer:!!r.transfer,ownGuess:!set&&!r.transfer&&!!r.transferGuess,savings:!set&&!r.transfer&&r.type==='out'&&(!!r.transferGuess||isPiggyBank(r))};});
   const byDate=new Map();flags.forEach(r=>{if(!byDate.has(r.date))byDate.set(r.date,[]);byDate.get(r.date).push(r);});
   const perBank={},gaps=[];
   ACCOUNTS.forEach(a=>{
@@ -1038,6 +1062,26 @@ function cycleSavings(from=S.budgetStart,to=toStr()){
   const linked=fixedLinks();
   return txWithFlags().filter(r=>r.savings&&!linked.has(r.id)&&r.date>=from&&r.date<=to).reduce((a,r)=>a+r.amount,0);
 }
+// 월급 아닌 입금(경비정산·더치페이 등)은 쓸 수 있는 돈에 더한다(2026-09-30 사용자 결정). 거래를 눌러 하나씩 뺄 수 있다(S.txIncomeOff).
+// 대상 아님: 내 계좌 이동·본인 이름 입금(추정 이동)·저금통에서 꺼낸 돈·환불(지출에서 차감)·월급(후보 포함).
+// 고정 입금 항목은 이미 예산에 들어 있으니 같은 금액 입금 하나씩은 빼고 센다(이중 계산 방지).
+const incomeEligible=(r,sal)=>r.type==='in'&&!r.isTransfer&&!r.ownGuess&&!isPiggyBank(r)&&!isRefund(r)&&!sal.has(r.id);
+function cycleIncomeRows(from=S.budgetStart,to=toStr()){
+  if(!from||!S.txSince)return[];
+  const sal=salaryIds();if(S.salaryTxId!=null)sal.add(S.salaryTxId);
+  const fixedIn=(S.fixed||[]).filter(f=>f.type==='income'&&f.affectsBalance!==false).map(f=>f.amount||0);
+  const off=S.txIncomeOff||{};
+  return txWithFlags().filter(r=>incomeEligible(r,sal)&&r.date>=from&&r.date<=to&&r.date>=S.txSince)
+    .sort((a,b)=>Date.parse(a.at)-Date.parse(b.at)||a.id-b.id)
+    .filter(r=>{const i=fixedIn.indexOf(r.amount);if(i<0)return true;fixedIn.splice(i,1);return false;})
+    .filter(r=>!off[r.id]);
+}
+function cycleIncome(from=S.budgetStart,to=toStr()){return cycleIncomeRows(from,to).reduce((a,r)=>a+r.amount,0);}
+function toggleTxIncome(id){
+  const off={...(S.txIncomeOff||{})};
+  if(off[id])delete off[id];else off[id]=true;
+  S.txIncomeOff=off;save();render();
+}
 function txDailySpent(d){
   const m=txDerived();
   const rows=m.byDate.get(d)||[];
@@ -1097,7 +1141,7 @@ let txFetching=false,txRefetchPending=false; // 받는 중에 다시 받기 요�
 // 돌려주는 값: 주기를 마감해도 되는지(알림 미사용·방금 받음·받기 성공 → true, 진행 중·실패 → false)
 async function fetchTx(){
   if(!S.supabaseUrl||!S.txReadSecret)return true;
-  if(txFetching)return false;
+  if(txFetching||staleTab)return false;
   if(TX.lastFetch&&Date.now()-TX.lastFetch<60e3)return !TX.error; // 1분 안에 또 열면 건너뜀(전송량 절약)
   txFetching=true;TX.lastFetch=Date.now();
   try{
@@ -1309,12 +1353,13 @@ function renderTx(){
   const rows=txWithFlags();
   const last=rows[rows.length-1];
   const gaps=txGaps();const gapByAfter=new Map(gaps.map(g=>[g.afterId,g.amount]));
+  const incomeIds=new Set(cycleIncomeRows().map(r=>r.id)),incomeOff=S.txIncomeOff||{};
   const waiting=ACCOUNTS.filter(a=>!rows.some(r=>r.bank===a.id)).map(a=>a.n);
   st.textContent=TX.error?`불러오기 실패: ${TX.error}`:'';
   el.innerHTML=rows.slice(-30).reverse().map(r=>{
     const a=ACCOUNTS.find(x=>x.id===r.bank)||{c:'#ccc'};
     const gap=gapByAfter.get(r.id);
-    const tags=(r.isTransfer?'<span class="tx-tag">내 계좌 이동</span>':'')+(r.savings?'<span class="tx-tag">저축</span>':'')+(r.type==='out'&&!r.isTransfer&&!r.savings?`<span class="tx-tag">${txCategory(r)}</span>`:'')+(salaryIds().has(r.id)?'<span class="tx-tag">월급</span>':'')+(r.needs_review?'<span class="tx-tag warn">확인 필요</span>':'')+(isRefund(r)?'<span class="tx-tag">환불</span>':'')
+    const tags=(r.isTransfer?'<span class="tx-tag">내 계좌 이동</span>':'')+(r.savings?'<span class="tx-tag">저축</span>':'')+(r.type==='out'&&!r.isTransfer&&!r.savings?`<span class="tx-tag">${txCategory(r)}</span>`:'')+(salaryIds().has(r.id)?'<span class="tx-tag">월급</span>':'')+(r.needs_review?'<span class="tx-tag warn">확인 필요</span>':'')+(isRefund(r)?'<span class="tx-tag">환불</span>':'')+(incomeIds.has(r.id)?'<span class="tx-tag">예산에 더함</span>':'')+(incomeOff[r.id]?'<span class="tx-tag">예산 제외</span>':'')
       +(gap?`<span class="tx-tag warn">앞에 ${gap>0?'출금':'입금'} ${won(Math.abs(gap))} 누락?</span>`:'');
     return `<div class="tx-row" onclick="openTxSheet(${Number(r.id)})"><div style="width:7px;height:7px;border-radius:50%;background:${a.c};flex:none"></div><div class="tx-main"><div class="tx-cp">${escapeHtml(r.merchant||r.counterparty||r.method||'')}</div><div class="tx-sub">${txWhen(r.at)} · ${bankName(r.bank)}${tags}</div></div><div class="tx-amt ${r.type==='in'?'in':''}">${r.type==='in'?'+':'−'}${won(r.amount)}</div></div>`;
   }).join('');
@@ -1394,6 +1439,12 @@ function openTxSheet(id){
   const mv=document.getElementById('txmMove');
   mv.textContent=r.isTransfer?'지출로 표시':'내 계좌 이동으로';
   mv.onclick=()=>{document.getElementById('txModal').classList.add('hidden');toggleTxTransfer(id);};
+  // 월급 아닌 입금: 쓸 수 있는 돈에 더할지(기본 더함)
+  const sal=salaryIds();if(S.salaryTxId!=null)sal.add(S.salaryTxId);
+  const inc=document.getElementById('txmIncome'),canInc=incomeEligible(r,sal);
+  inc.classList.toggle('hidden',!canInc);
+  inc.textContent=(S.txIncomeOff||{})[id]?'예산에 더하기':'예산에서 빼기';
+  inc.onclick=()=>{document.getElementById('txModal').classList.add('hidden');toggleTxIncome(id);};
   document.getElementById('txModal').classList.remove('hidden');
 }
 function setTxCat(id,cat){
@@ -1910,6 +1961,7 @@ function showToast(msg){const el=document.getElementById('toast');el.textContent
 render();
 
 // 앱 시작 시: 클라우드 동기화 → 공유 이미지 체크 (AI 코멘트는 자동 생성 안 함)
+slimOldBackups();
 applySetupLink();
 (async function initApp(){
   if(S.supabaseUrl&&S.supabaseKey){

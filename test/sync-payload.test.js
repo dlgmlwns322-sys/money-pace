@@ -9,6 +9,7 @@ const pick=re=>{const m=html.match(re);assert(m,'not found: '+re);return m[0];};
 const src=[
   pick(/function defState\(\)\{[^\n]*/),
   pick(/const syncMeta=[^\n]*/),
+  pick(/let staleTab=false;/),
   pick(/const saveSyncMeta=[^\n]*/),
   pick(/const isDirty=[^\n]*/),
   pick(/let syncTimer=null, syncing=false, syncAgain=false;/),
@@ -113,7 +114,7 @@ let n=0;const ok=m=>{n++;console.log('ok -',m);};
   assert.ok(keys.some(k=>/^mp_v6_backup_\d/.test(k)),'이 기기 것 백업');
   assert.ok(keys.some(k=>k.startsWith('mp_v6_backup_cloud_')),'클라우드 것 백업');
   const lb=JSON.parse(env.store[keys.find(k=>/^mp_v6_backup_\d/.test(k))]);
-  assert.ok(lb.captures[0].thumb.startsWith('data:'),'백업에 사진 포함');
+  assert.ok(!lb.captures[0].thumb,'백업엔 사진 없음(저장 공간 부족으로 동기화가 멈추지 않게, 2026-09-30)');
   assert.strictEqual(env.run.syncMeta.rev,0,'예전 데이터(rev 없음)=0');
   env.run.save();await env.run.syncToCloud();
   assert.strictEqual(env.row.data.rev,1);
