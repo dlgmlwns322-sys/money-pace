@@ -498,13 +498,21 @@ let S=(()=>{try{const r=localStorage.getItem('mp_v6');if(r)return{...defState(),
 const syncMeta=(()=>{try{return JSON.parse(localStorage.getItem('mp_sync')||'{}');}catch(e){return{};}})();
 // 같은 앱이 탭 여러 개로 열려 있으면(같은 저장 공간을 같이 씀) 다른 탭이 저장한 순간 이 탭의 메모리 상태는 낡는다.
 // 낡은 탭은 저장·동기화하지 않고 화면으로 돌아올 때 새로 읽는다 — 옛 상태로 덮어 읽기 키·최신 잔액을 지우거나 동기화 충돌이 반복되지 않게(2026-09-30).
-let staleTab=false;
-window.addEventListener('storage',e=>{if(e.key===null||e.key==='mp_v6'||e.key==='mp_sync')staleTab=true;});
-const saveSyncMeta=()=>{if(staleTab)return;try{localStorage.setItem('mp_sync',JSON.stringify(syncMeta));}catch(e){}};
+// 쓰기 표식(mp_writer): 이 탭이 상태를 쓸 때마다 남기고, 저장·클라우드 적용·동기화·화면 복귀 때 비교한다.
+// storage 이벤트를 못 받은 탭(멈춘 백그라운드 탭·뒤로 가기 캐시에서 돌아온 탭)도 알아챈다(검토 반영).
+const TAB_ID=Math.random().toString(36).slice(2,10);
+let staleTab=false,lastWriter=(()=>{try{return localStorage.getItem('mp_writer');}catch(e){return null;}})(),pendingOwnerName=null;
+const isStale=()=>{if(!staleTab){try{if(localStorage.getItem('mp_writer')!==lastWriter)staleTab=true;}catch(e){}}return staleTab;};
+const markWrite=()=>{lastWriter=TAB_ID+':'+Date.now();try{localStorage.setItem('mp_writer',lastWriter);}catch(e){}};
+// 저장하려다 새로 읽으면 방금 바꾼 것이 반영되지 않았을 수 있어 알려 준다
+function reloadStale(fromSave){try{if(fromSave)sessionStorage.setItem('mp_stale_reload','1');}catch(e){}location.reload();}
+window.addEventListener('storage',e=>{if(e.key===null||e.key==='mp_v6'||e.key==='mp_sync'||e.key==='mp_writer')staleTab=true;});
+window.addEventListener('pageshow',e=>{if(e.persisted&&isStale())reloadStale(false);});
+const saveSyncMeta=()=>{if(isStale())return;try{localStorage.setItem('mp_sync',JSON.stringify(syncMeta));markWrite();}catch(e){}};
 const isDirty=()=>(syncMeta.seq||0)!==(syncMeta.sentSeq||0);
 let syncTimer=null, syncing=false, syncAgain=false;
 let syncChain=Promise.resolve();
-const serialSync=fn=>(syncChain=syncChain.then(()=>staleTab?false:fn()).catch(e=>{console.error('sync chain',e);return false;}));
+const serialSync=fn=>(syncChain=syncChain.then(()=>isStale()?false:fn()).catch(e=>{console.error('sync chain',e);return false;}));
 const queueSync=()=>serialSync(syncToCloud);
 // 로컬 백업: 이 기기 데이터(키·접속정보·캡처 사진 제외). 실패하면 false.
 // 사진까지 넣으면 백업 하나가 1MB를 넘어 저장 공간이 차고, 그러면 동기화 충돌 처리가 멈춘다(2026-09-30). 사진은 본 데이터(mp_v6)에 그대로 있다.
@@ -552,10 +560,10 @@ function restoreLatestBackup(){
 }
 // 이 기기에 저장하고 성공 여부를 돌려준다(실패하면 호출한 쪽이 '완료' 표시를 하지 않는다).
 function save(){
-  if(staleTab){location.reload();return false;} // 다른 탭이 더 새 상태를 저장함 → 옛 상태로 덮지 않고 새로 읽는다
+  if(isStale()){reloadStale(true);return false;} // 다른 탭이 더 새 상태를 저장함 → 옛 상태로 덮지 않고 새로 읽는다
   syncMeta.seq=(syncMeta.seq||0)+1;saveSyncMeta();
   let stored=true;
-  try{localStorage.setItem('mp_v6',JSON.stringify(S));}
+  try{localStorage.setItem('mp_v6',JSON.stringify(S));markWrite();}
   catch(e){stored=false;if(syncTimer){clearTimeout(syncTimer);syncTimer=null;}showToast('이 기기 저장 공간이 부족해 저장하지 못했어요');}
   // Supabase 동기화는 0.8초 디바운스 (연속 저장 시 마지막 것만 업로드). 이 기기 저장에 실패했으면 올리지 않는다.
   if(stored&&S.supabaseUrl&&S.supabaseKey){
@@ -587,7 +595,7 @@ async function fetchCloudRev(){
 }
 
 async function syncToCloud(){
-  if(!S.supabaseUrl||!S.supabaseKey)return;
+  if(!S.supabaseUrl||!S.supabaseKey||isStale())return;
   if(syncing){syncAgain=true;return;}
   syncing=true; updateSyncBadge('saving');
   const seqAtSend=syncMeta.seq||0;
@@ -627,6 +635,7 @@ async function syncToCloud(){
     }
     if(ok){
       syncMeta.rev=next;syncMeta.sentSeq=seqAtSend;saveSyncMeta();
+      if(pendingOwnerName!=null&&S.ownerNames===pendingOwnerName)pendingOwnerName=null; // 이름이 클라우드에 올라감
       updateSyncBadge('saved');
     }else conflict=true;
   }catch(e){
@@ -694,6 +703,7 @@ async function firstSyncPickNewer(cloudRev){
 
 // 받은 클라우드 데이터 적용 (로컬 전용 키·접속정보와 이 기기의 캡처 사진은 유지)
 function applyCloudData(cloud){
+  if(isStale()){reloadStale(false);return false;} // 옛 탭 메모리(읽기 키 없음 등)로 저장소를 덮지 않게
   const prevS=S;
   const local={};LOCAL_ONLY_KEYS.forEach(k=>{local[k]=S[k];});
   const thumbs=new Map((S.captures||[]).filter(c=>c.thumb).map(c=>[c.id,c.thumb]));
@@ -701,9 +711,14 @@ function applyCloudData(cloud){
   S={...defState(),...cloud,...local};
   delete S.rev;
   S.captures=(S.captures||[]).map(c=>({...c,thumb:c.thumb||thumbs.get(c.id)||null}));
-  try{localStorage.setItem('mp_v6',JSON.stringify(S));}
+  // 이번에 설정 링크로 넣은 이름은 클라우드 값(예전 빈 이름)으로 되돌리지 않고 다시 올린다(검토 반영)
+  const keepName=pendingOwnerName!=null&&S.ownerNames!==pendingOwnerName;
+  if(keepName)S.ownerNames=pendingOwnerName;
+  try{localStorage.setItem('mp_v6',JSON.stringify(S));markWrite();}
   catch(e){S=prevS;updateSyncBadge('error');showToast('이 기기 저장 공간이 부족해 불러오지 못했어요');return false;}
-  syncMeta.rev=rev;syncMeta.sentSeq=syncMeta.seq||0;saveSyncMeta();
+  syncMeta.rev=rev;syncMeta.sentSeq=syncMeta.seq||0;
+  if(keepName){syncMeta.seq=(syncMeta.seq||0)+1;if(syncTimer)clearTimeout(syncTimer);syncTimer=setTimeout(queueSync,800);}
+  saveSyncMeta();
   updateSyncBadge('saved');
   return true;
 }
@@ -838,6 +853,8 @@ function salaryCandidates(){
     });
 }
 const salaryIds=()=>new Set(salaryCandidates().filter(c=>c.row).map(c=>c.row.id));
+// 입금 계산용: 아직 고르지 않은 후보(같은 달 둘 이상)까지 전부 월급 쪽으로 본다(두 후보가 모두 입금으로 더해지지 않게)
+const salaryAllIds=()=>{const s=new Set();salaryCandidates().forEach(c=>{if(c.row)s.add(c.row.id);(c.ambiguous||[]).forEach(p=>s.add(p.id));});if(S.salaryTxId!=null)s.add(S.salaryTxId);return s;};
 function syncSalaryCycle(){
   let changed=false;
   for(const c of salaryCandidates()){
@@ -939,7 +956,7 @@ const weeklyShare=()=>{const{total}=getBD();return total>0?Math.round(effectiveB
 
 // 예산 주기는 날짜가 아니라 '월급 입금 알림'으로 넘어간다(applyTxToState → syncSalaryCycle). 월급이 늦으면 주기가 이어진다.
 async function refreshAndRoll(){await fetchTx();}
-document.addEventListener('visibilitychange',()=>{if(document.hidden)return;if(staleTab){location.reload();return;}refreshAndRoll();});
+document.addEventListener('visibilitychange',()=>{if(document.hidden)return;if(isStale()){reloadStale(false);return;}refreshAndRoll();});
 setInterval(refreshAndRoll,30*60*1000);
 
 // ── 입출금 알림 거래 ──
@@ -1064,16 +1081,16 @@ function cycleSavings(from=S.budgetStart,to=toStr()){
 }
 // 월급 아닌 입금(경비정산·더치페이 등)은 쓸 수 있는 돈에 더한다(2026-09-30 사용자 결정). 거래를 눌러 하나씩 뺄 수 있다(S.txIncomeOff).
 // 대상 아님: 내 계좌 이동·본인 이름 입금(추정 이동)·저금통에서 꺼낸 돈·환불(지출에서 차감)·월급(후보 포함).
-// 고정 입금 항목은 이미 예산에 들어 있으니 같은 금액 입금 하나씩은 빼고 센다(이중 계산 방지).
+// 고정 입금 항목은 이미 예산에 들어 있으니 비슷한 금액(±1천 원 또는 ±20%, 고정지출 연결과 같은 기준) 입금 하나씩은 빼고 센다(이중 계산 방지).
 const incomeEligible=(r,sal)=>r.type==='in'&&!r.isTransfer&&!r.ownGuess&&!isPiggyBank(r)&&!isRefund(r)&&!sal.has(r.id);
 function cycleIncomeRows(from=S.budgetStart,to=toStr()){
   if(!from||!S.txSince)return[];
-  const sal=salaryIds();if(S.salaryTxId!=null)sal.add(S.salaryTxId);
+  const sal=salaryAllIds();
   const fixedIn=(S.fixed||[]).filter(f=>f.type==='income'&&f.affectsBalance!==false).map(f=>f.amount||0);
   const off=S.txIncomeOff||{};
   return txWithFlags().filter(r=>incomeEligible(r,sal)&&r.date>=from&&r.date<=to&&r.date>=S.txSince)
     .sort((a,b)=>Date.parse(a.at)-Date.parse(b.at)||a.id-b.id)
-    .filter(r=>{const i=fixedIn.indexOf(r.amount);if(i<0)return true;fixedIn.splice(i,1);return false;})
+    .filter(r=>{const i=fixedIn.findIndex(a=>Math.abs(r.amount-a)<=Math.max(1000,a*0.2));if(i<0)return true;fixedIn.splice(i,1);return false;})
     .filter(r=>!off[r.id]);
 }
 function cycleIncome(from=S.budgetStart,to=toStr()){return cycleIncomeRows(from,to).reduce((a,r)=>a+r.amount,0);}
@@ -1127,6 +1144,7 @@ function applyTxToState(coveredFromMs){
   (S.cycles||[]).forEach(c=>{
     if(c.incomplete&&coveredFromMs!=null&&coveredFromMs<=Date.parse(dayBefore(c.start)+'T00:00:00+09:00')){
       c.spent=sumSpentInRange(c.start,c.end);delete c.incomplete;changed=true;
+      if(c.income!=null){const inc=cycleIncome(c.start,c.end);c.effective+=inc-c.income;c.income=inc;} // 입금도 다시(입금 반영 전에 마감된 주기는 그대로)
     }
   });
   if(linkFixedTx())changed=true; // 마감 전 연결
@@ -1141,7 +1159,7 @@ let txFetching=false,txRefetchPending=false; // 받는 중에 다시 받기 요�
 // 돌려주는 값: 주기를 마감해도 되는지(알림 미사용·방금 받음·받기 성공 → true, 진행 중·실패 → false)
 async function fetchTx(){
   if(!S.supabaseUrl||!S.txReadSecret)return true;
-  if(txFetching||staleTab)return false;
+  if(txFetching||isStale())return false;
   if(TX.lastFetch&&Date.now()-TX.lastFetch<60e3)return !TX.error; // 1분 안에 또 열면 건너뜀(전송량 절약)
   txFetching=true;TX.lastFetch=Date.now();
   try{
@@ -1359,7 +1377,7 @@ function renderTx(){
   el.innerHTML=rows.slice(-30).reverse().map(r=>{
     const a=ACCOUNTS.find(x=>x.id===r.bank)||{c:'#ccc'};
     const gap=gapByAfter.get(r.id);
-    const tags=(r.isTransfer?'<span class="tx-tag">내 계좌 이동</span>':'')+(r.savings?'<span class="tx-tag">저축</span>':'')+(r.type==='out'&&!r.isTransfer&&!r.savings?`<span class="tx-tag">${txCategory(r)}</span>`:'')+(salaryIds().has(r.id)?'<span class="tx-tag">월급</span>':'')+(r.needs_review?'<span class="tx-tag warn">확인 필요</span>':'')+(isRefund(r)?'<span class="tx-tag">환불</span>':'')+(incomeIds.has(r.id)?'<span class="tx-tag">예산에 더함</span>':'')+(incomeOff[r.id]?'<span class="tx-tag">예산 제외</span>':'')
+    const tags=(r.isTransfer?'<span class="tx-tag">내 계좌 이동</span>':'')+(r.savings?'<span class="tx-tag">저축</span>':'')+(r.type==='out'&&!r.isTransfer&&!r.savings?`<span class="tx-tag">${txCategory(r)}</span>`:'')+(salaryIds().has(r.id)?'<span class="tx-tag">월급</span>':'')+(r.needs_review?'<span class="tx-tag warn">확인 필요</span>':'')+(isRefund(r)?'<span class="tx-tag">환불</span>':'')+(incomeIds.has(r.id)?'<span class="tx-tag">예산에 더함</span>':'')+(incomeOff[r.id]&&r.date>=S.budgetStart?'<span class="tx-tag">예산 제외</span>':'')
       +(gap?`<span class="tx-tag warn">앞에 ${gap>0?'출금':'입금'} ${won(Math.abs(gap))} 누락?</span>`:'');
     return `<div class="tx-row" onclick="openTxSheet(${Number(r.id)})"><div style="width:7px;height:7px;border-radius:50%;background:${a.c};flex:none"></div><div class="tx-main"><div class="tx-cp">${escapeHtml(r.merchant||r.counterparty||r.method||'')}</div><div class="tx-sub">${txWhen(r.at)} · ${bankName(r.bank)}${tags}</div></div><div class="tx-amt ${r.type==='in'?'in':''}">${r.type==='in'?'+':'−'}${won(r.amount)}</div></div>`;
   }).join('');
@@ -1440,8 +1458,7 @@ function openTxSheet(id){
   mv.textContent=r.isTransfer?'지출로 표시':'내 계좌 이동으로';
   mv.onclick=()=>{document.getElementById('txModal').classList.add('hidden');toggleTxTransfer(id);};
   // 월급 아닌 입금: 쓸 수 있는 돈에 더할지(기본 더함)
-  const sal=salaryIds();if(S.salaryTxId!=null)sal.add(S.salaryTxId);
-  const inc=document.getElementById('txmIncome'),canInc=incomeEligible(r,sal);
+  const inc=document.getElementById('txmIncome'),canInc=incomeEligible(r,salaryAllIds())&&r.date>=S.budgetStart&&r.date>=(S.txSince||'');
   inc.classList.toggle('hidden',!canInc);
   inc.textContent=(S.txIncomeOff||{})[id]?'예산에 더하기':'예산에서 빼기';
   inc.onclick=()=>{document.getElementById('txModal').classList.add('hidden');toggleTxIncome(id);};
@@ -1914,6 +1931,7 @@ function saveSets(){
 function applySetupLink(){
   const m=/[#&]setup=([A-Za-z0-9_-]+)/.exec(location.hash||'');
   if(!m)return false;
+  if(isStale()){location.reload();return false;} // 다른 탭이 저장한 뒤면 링크를 지우기 전에 새로 읽는다(새로 읽으면 시작할 때 적용)
   try{history.replaceState(null,'',location.pathname+location.search);}catch(e){}
   let c;try{c=JSON.parse(decodeURIComponent(escape(atob(m[1].replace(/-/g,'+').replace(/_/g,'/')))));}catch(e){c=null;}
   // 검사: 모든 값은 문자열, 주소는 https://*.supabase.co, 주소와 anon 키는 반드시 함께(예전 키가 다른 주소로 가지 않게)
@@ -1928,7 +1946,7 @@ function applySetupLink(){
   if(S.supabaseUrl&&urlChanged&&!confirm('다른 저장소로 연결을 바꿀까요?'))return false;
   S.supabaseUrl=url;S.supabaseKey=c.k.trim();
   if(c.t!=null)S.txReadSecret=c.t.trim();else if(urlChanged)S.txReadSecret='';
-  if(c.n!=null)S.ownerNames=c.n.trim();
+  if(c.n!=null){S.ownerNames=c.n.trim();pendingOwnerName=S.ownerNames;}
   if(urlChanged){delete syncMeta.rev;saveSyncMeta();}
   if(!save()){ // 저장 실패면 원래대로
     S.supabaseUrl=prev.u;S.supabaseKey=prev.k;S.txReadSecret=prev.t;S.ownerNames=prev.n;
@@ -1962,6 +1980,9 @@ render();
 
 // 앱 시작 시: 클라우드 동기화 → 공유 이미지 체크 (AI 코멘트는 자동 생성 안 함)
 slimOldBackups();
+try{if(sessionStorage.getItem('mp_stale_reload')){sessionStorage.removeItem('mp_stale_reload');setTimeout(()=>showToast('다른 창에서 바뀐 내용을 불러왔어요. 방금 바꾼 게 있으면 다시 해 주세요'),300);}}catch(e){}
+// 이미 열린 앱 창에서 설정 링크를 열면 주소의 # 뒤만 바뀌어 새로 읽지 않는다 → 그때도 적용(검토 반영)
+window.addEventListener('hashchange',()=>{if(/[#&]setup=/.test(location.hash)&&applySetupLink()){TX.lastFetch=0;refreshAndRoll();}});
 applySetupLink();
 (async function initApp(){
   if(S.supabaseUrl&&S.supabaseKey){

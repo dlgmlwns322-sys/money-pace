@@ -265,6 +265,20 @@ t('월급 아닌 입금은 쓸 수 있는 돈에 더함. 이동·본인 이름·
   assert.strictEqual(app.fn.cycleIncome(), 0);
 });
 
+t('입금: 같은 달 월급 후보가 둘(아직 안 고름)이면 둘 다 입금으로 안 셈 / 고정 입금 5만에 4.9만이 와도 이중 계산 안 함(검토 반영)', () => {
+  const app = makeApp({ now: '2026-10-24T12:00:00+09:00' });
+  const rows = [...seedRows(),
+    tx('kakao', 'in', 3100000, 3600000, '오피엠에스', '2026-10-23', '09:00'),
+    tx('kakao', 'in', 2500000, 6100000, '오피엠에스', '2026-10-23', '15:00')];
+  app.set({ S: baseS(), TX: { rows } });
+  app.fn.applyTxToState(null);
+  assert.strictEqual(app.S.budgetStart, '2026-09-23', '후보 둘이면 자동으로 주기를 시작하지 않음');
+  assert.strictEqual(app.fn.cycleIncome(), 0);
+  const app2 = makeApp({ now: '2026-09-30T20:00:00+09:00' });
+  app2.set({ S: baseS({ fixed: [{ id: 1, name: '용돈', type: 'income', amount: 50000 }] }), TX: { rows: [...seedRows(), tx('kakao', 'in', 49000, 549000, '엄마', '2026-09-30')] } });
+  assert.strictEqual(app2.fn.cycleIncome(), 0);
+});
+
 t('주기 마감: 지난 주기 입금은 이월에 더하고 기록에 남긴다', () => {
   const app = makeApp({ now: '2026-10-24T12:00:00+09:00' });
   const rows = [...seedRows(),

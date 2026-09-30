@@ -68,7 +68,7 @@ try:
         # 설정 링크(#setup=): 한 번 열면 연결 값 저장, 주소창에서 지움, 연결 입력칸은 화면에 없음
         import base64
         cfg = base64.urlsafe_b64encode(json.dumps({"u": "https://abc.supabase.co/", "k": "anon-x", "t": "read-y", "n": "홍길동"}, ensure_ascii=False).encode()).decode().rstrip('=')
-        p.goto(URL + '#setup=' + cfg, wait_until='load'); p.reload(wait_until='load'); p.wait_for_timeout(800)  # 링크로 새로 여는 것처럼
+        p.goto(URL + '#setup=' + cfg, wait_until='load'); p.wait_for_timeout(800)  # 열린 창에서 링크를 열면 # 뒤만 바뀜 → hashchange로 적용(새로 읽기는 이 테스트의 초기화 스크립트가 저장소를 덮어서 쓰지 않음)
         st = p.evaluate("({u:S.supabaseUrl,k:S.supabaseKey,t:S.txReadSecret,n:S.ownerNames,hash:location.hash,inputs:['sSbUrl','sSbKey','sTxKey','sOwner','connToggle'].filter(id=>document.getElementById(id))})")
         check('설정 링크: 값 저장·주소창에서 지움·연결 입력칸 없음', st['u'] == 'https://abc.supabase.co' and st['k'] == 'anon-x' and st['t'] == 'read-y' and st['n'] == '홍길동' and st['hash'] == '' and not st['inputs'], json.dumps(st, ensure_ascii=False))
         # 잘못된 링크(숫자 주소)·주소만 있는 링크는 거부하고 기존 연결 유지(Codex 2회차)

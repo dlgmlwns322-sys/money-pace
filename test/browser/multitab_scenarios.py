@@ -65,8 +65,10 @@ try:
         check('A는 다른 탭 저장을 알아챔(staleTab)', a.evaluate("staleTab"))
         conflicts_before = calls['patch_conflict']
         # A에서 무언가 저장하려 하면 옛 상태로 덮지 않고 새로 읽는다
+        a.evaluate("staleTab=false")  # storage 이벤트를 놓친 탭(멈춘 탭·뒤로 가기 캐시) 가정 → 쓰기 표식으로 알아채야 함
         with a.expect_navigation(): a.evaluate("save()")
         a.wait_for_timeout(1500)
+        check('이벤트를 놓쳐도 쓰기 표식으로 알아채고 새로 읽음 + 알림', '다른 창에서 바뀐 내용' in a.evaluate("document.getElementById('toast').textContent"))
         check('A 새로 읽은 뒤 읽기 키 있음(덮어서 지우지 않음)', a.evaluate("!!S.txReadSecret&&S.ownerNames==='홍길동'"))
         check('저장소의 읽기 키도 그대로', json.loads(bp.evaluate("localStorage.getItem('mp_v6')")).get('txReadSecret') == 'READKEY')
         check('A가 옛 버전으로 충돌 저장을 보내지 않음', calls['patch_conflict'] == conflicts_before, str(calls))
@@ -90,7 +92,20 @@ try:
         check('빼면 쓸 수 있는 돈에서 제외', bp.evaluate("effectiveBudget()") == 1000000 - 200)
         bp.evaluate("openTxSheet(4)"); bp.wait_for_timeout(200)
         check('출금(저금통)엔 입금 버튼 없음', bp.evaluate("document.getElementById('txmIncome').classList.contains('hidden')"))
+        # 이미 열린 창에서 설정 링크를 열면(# 뒤만 바뀜) 새로 읽지 않아도 적용
+        bp.evaluate("S.ownerNames='임시'"); bp.evaluate(f"location.hash='#setup={link}'"); bp.wait_for_timeout(800)
+        check('열린 창에서 설정 링크 적용(hashchange)', bp.evaluate("S.ownerNames==='홍길동'&&document.getElementById('toast').textContent.includes('연결됐어요')"))
         check('페이지 오류 없음', not errs, str(errs[:3]))
+        # 기기 버전이 클라우드보다 낡았을 때 설정 링크를 열어도 이름이 클라우드 빈 값으로 되돌아가지 않음(검토 반영)
+        ctx2 = b.new_context(viewport={'width': 420, 'height': 900}, locale='ko-KR')
+        cloud['rev'] = 5; cloud['data'] = {**cloud['data'], 'rev': 5, 'ownerNames': ''}
+        ctx2.add_init_script("if(!localStorage.getItem('seeded')){localStorage.setItem('seeded','1');"
+                             f"localStorage.setItem('mp_v6',{json.dumps(json.dumps(seed))});localStorage.setItem('mp_sync',JSON.stringify({{rev:2,seq:1,sentSeq:1}}));}}")
+        ctx2.route(SB + '/**', sb)
+        c2 = ctx2.new_page(); c2.on('pageerror', lambda e: errs.append('C:' + str(e)[:200]))
+        c2.goto(URL + '#setup=' + link); c2.wait_for_timeout(3000)
+        check('낡은 기기에서 링크 적용 → 이름 유지·클라우드에 올라감', c2.evaluate("S.ownerNames") == '홍길동' and cloud['data'].get('ownerNames') == '홍길동', str(cloud['rev']))
+        check('두 번째 창도 오류 없음', not errs, str(errs[:3]))
         b.close()
 finally:
     srv.terminate()

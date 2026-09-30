@@ -9,7 +9,11 @@ const pick=re=>{const m=html.match(re);assert(m,'not found: '+re);return m[0];};
 const src=[
   pick(/function defState\(\)\{[^\n]*/),
   pick(/const syncMeta=[^\n]*/),
-  pick(/let staleTab=false;/),
+  pick(/const TAB_ID=[^\n]*/),
+  pick(/let staleTab=false,[^\n]*/),
+  pick(/const isStale=[^\n]*/),
+  pick(/const markWrite=[^\n]*/),
+  pick(/function reloadStale\(fromSave\)\{[^\n]*/),
   pick(/const saveSyncMeta=[^\n]*/),
   pick(/const isDirty=[^\n]*/),
   pick(/let syncTimer=null, syncing=false, syncAgain=false;/),
