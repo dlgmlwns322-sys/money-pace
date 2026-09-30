@@ -106,6 +106,26 @@ try:
         c2.goto(URL + '#setup=' + link); c2.wait_for_timeout(3000)
         check('낡은 기기에서 링크 적용 → 이름 유지·클라우드에 올라감', c2.evaluate("S.ownerNames") == '홍길동' and cloud['data'].get('ownerNames') == '홍길동', str(cloud['rev']))
         check('두 번째 창도 오류 없음', not errs, str(errs[:3]))
+        # 2026-09-30 사고 재현: 새로 설치한 빈 기기가 클라우드를 덮은 뒤 → 벨의 '되돌리기'는 빈 백업을 건너뛰고 클라우드 백업을 요약과 함께 되돌림
+        good = {**{k: v for k, v in seed.items() if k not in ('supabaseUrl', 'supabaseKey', 'txReadSecret')}, "budget": 2280000, "budgetStart": "2026-09-23", "budgetEnd": "2026-10-22",
+                "fixed": [{"id": 1, "name": "월세", "amount": 1000000}], "captures": [{"id": 1, "date": "2026-09-19", "balances": {"kakao": 1, "kb": 1}}], "ownerNames": "홍길동", "rev": 14}
+        empty = {"budget": 700000, "balances": {"kakao": 0, "kb": 0}, "captures": [], "fixed": [], "supabaseUrl": SB, "supabaseKey": "anon", "txReadSecret": "READKEY", "ownerNames": "홍길동"}
+        cloud['rev'] = 20; cloud['data'] = {**{k: v for k, v in empty.items() if k not in ('supabaseUrl', 'supabaseKey', 'txReadSecret')}, 'rev': 20}
+        ctx3 = b.new_context(viewport={'width': 420, 'height': 900}, locale='ko-KR')
+        ctx3.add_init_script("if(!localStorage.getItem('seeded')){localStorage.setItem('seeded','1');"
+                             f"localStorage.setItem('mp_v6',{json.dumps(json.dumps(empty))});localStorage.setItem('mp_sync',JSON.stringify({{rev:20,seq:3,sentSeq:3}}));"
+                             f"localStorage.setItem('mp_v6_backup_cloud_1790745000000',{json.dumps(json.dumps(good))});"
+                             f"localStorage.setItem('mp_v6_backup_1790745000001',{json.dumps(json.dumps({k: v for k, v in empty.items() if k not in ('supabaseUrl', 'supabaseKey', 'txReadSecret')}))});}}")
+        ctx3.route(SB + '/**', sb)
+        d3 = ctx3.new_page(); msgs = []; d3.on('pageerror', lambda e: errs.append('D:' + str(e)[:200]))
+        d3.on('dialog', lambda d: (msgs.append(d.message), d.accept()))
+        d3.goto(URL); d3.wait_for_timeout(1500)
+        d3.evaluate("restoreLatestBackup()"); d3.wait_for_timeout(1500)
+        check('되돌리기: 빈 백업 건너뛰고 클라우드 백업 요약을 보여 줌', msgs and '2026-09-23' in msgs[0] and '고정지출 1개' in msgs[0] and '클라우드 데이터' in msgs[0], str(msgs[:1]))
+        st3 = d3.evaluate("({bs:S.budgetStart,b:S.budget,f:S.fixed.length,key:S.txReadSecret})")
+        check('되돌린 뒤 예산 기간·고정지출 복구, 읽기 키 유지', st3 == {'bs': '2026-09-23', 'b': 2280000, 'f': 1, 'key': 'READKEY'}, json.dumps(st3))
+        check('클라우드에도 복구본이 올라감', cloud['data'].get('budgetStart') == '2026-09-23' and cloud['rev'] >= 21, str(cloud['rev']))
+        check('세 번째 창 오류 없음', not errs, str(errs[:3]))
         b.close()
 finally:
     srv.terminate()

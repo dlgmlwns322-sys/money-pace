@@ -33,6 +33,7 @@ const src=[
   pick(/async function syncToCloud\(\)\{[\s\S]*?\n\}/),
   pick(/async function takeCloudKeepLocalBackup\(\)\{[\s\S]*?\n\}/),
   pick(/async function syncOnStart\(\)\{[\s\S]*?\n\}/),
+  pick(/const hasUserData=[^\n]*/),
   pick(/async function firstSyncPickNewer\(cloudRev\)\{[\s\S]*?\n\}/),
   pick(/async function loadFromCloud\(\)\{[\s\S]*?\n\}/),
 ].join('\n');
@@ -130,6 +131,15 @@ let n=0;const ok=m=>{n++;console.log('ok -',m);};
   assert.strictEqual(env.row.data.budget,123,'[확인] 이 기기 것을 올림(멈춘 동안 저장분 보호)');
   assert.strictEqual(env.row.data.rev,1);
   ok('배포 직후 [확인]: 이 기기 것을 올림');}
+
+  {const env=makeEnv();env.choice=true; // [확인]을 눌러도 묻지 않아야 함
+  env.run.setS({...env.run.defState(),supabaseUrl:'https://x.supabase.co',supabaseKey:'K',txReadSecret:'R'}); // 새로 설치한 빈 기기 + 설정 링크
+  env.row={data:{budget:2280000,budgetStart:'2026-09-23',fixed:[{id:1,amount:1000000}],captures:[{id:'1',date:'2026-09-20',balances:{}}],rev:14}};
+  await env.run.syncOnStart();
+  assert.strictEqual(env.row.data.budgetStart,'2026-09-23','빈 기기가 클라우드를 덮지 않음(2026-09-30 사고)');
+  assert.strictEqual(env.run.getS().budgetStart,'2026-09-23','묻지 않고 클라우드를 가져옴');
+  assert.strictEqual(env.run.getS().txReadSecret,'R','기기 전용 키는 유지');
+  ok('빈 기기: 묻지 않고 클라우드를 가져옴');}
 
   {const env=makeEnv();env.run.setS(local(env));env.choice=false;
   env.row={data:{budget:2,captures:[]}};

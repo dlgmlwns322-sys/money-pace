@@ -514,6 +514,8 @@ let syncTimer=null, syncing=false, syncAgain=false;
 let syncChain=Promise.resolve();
 const serialSync=fn=>(syncChain=syncChain.then(()=>isStale()?false:fn()).catch(e=>{console.error('sync chain',e);return false;}));
 const queueSync=()=>serialSync(syncToCloud);
+// 사용자가 쌓은 데이터가 있는지(예산 기간·고정지출·잔액 캡처·지난 주기 중 하나라도) — 새로 설치한 빈 기기 판별용
+const hasUserData=d=>!!(d&&(d.budgetStart||(d.fixed||[]).length||(d.captures||[]).length||(d.cycles||[]).length));
 // 로컬 백업: 이 기기 데이터(키·접속정보·캡처 사진 제외). 실패하면 false.
 // 사진까지 넣으면 백업 하나가 1MB를 넘어 저장 공간이 차고, 그러면 동기화 충돌 처리가 멈춘다(2026-09-30). 사진은 본 데이터(mp_v6)에 그대로 있다.
 function backupLocal(tag){
@@ -542,13 +544,15 @@ function slimOldBackups(){
   });
 }
 // 가장 최근 백업으로 되돌리기. 되돌리기 직전 상태도 백업해 둔다.
+// 빈 백업(새로 설치한 기기의 초기값 등)은 건너뛰고 내용이 있는 가장 최근 백업을 고른다. 되돌리기 전에 요약을 보여 준다(2026-09-30 사고).
 function restoreLatestBackup(){
-  const b=listBackups()[0];
-  if(!b){showToast('백업이 없어요');return;}
+  let b=null,data=null;
+  for(const x of listBackups()){let d;try{d=JSON.parse(localStorage.getItem(x.k));}catch(e){continue;}if(hasUserData(d)){b=x;data=d;break;}}
+  if(!b){showToast('되돌릴 백업이 없어요');return;}
   const when=new Date(b.t).toLocaleString('ko-KR');
   const kind=b.k.includes('_cloud_')?'클라우드 데이터':'이 기기 데이터';
-  if(!confirm(`${when}에 백업한 ${kind}로 되돌릴까요?\n(지금 상태도 백업해 둬요)`))return;
-  let data;try{data=JSON.parse(localStorage.getItem(b.k));}catch(e){showToast('백업을 읽지 못했어요');return;}
+  const sum=`예산 기간 ${data.budgetStart||'없음'}~${data.budgetEnd||''} · 예산 ${won(data.budget||0)} · 고정지출 ${(data.fixed||[]).length}개 · 잔액 캡처 ${(data.captures||[]).length}개`;
+  if(!confirm(`${when}에 백업한 ${kind}로 되돌릴까요?\n\n${sum}\n\n(지금 상태도 백업해 둬요)`))return;
   const local={};LOCAL_ONLY_KEYS.forEach(k=>{local[k]=S[k];});
   if(!backupLocal('prerestore_')){showToast('저장 공간이 부족해 되돌리지 못했어요');return;}
   const prevS=S;
@@ -689,7 +693,8 @@ async function firstSyncPickNewer(cloudRev){
   let cloudSaved=true;
   try{localStorage.setItem('mp_v6_backup_cloud_'+Date.now(),JSON.stringify(cloud));}catch(e){cloudSaved=false;}
   if(!cloudSaved||!backupLocal()){updateSyncBadge('error');showToast('백업 공간이 부족해 동기화를 멈췄어요');return false;}
-  const useLocal=confirm(`동기화 방식이 바뀌어 한 번만 확인할게요.\n\n이 기기 마지막 잔액 기록: ${lastCap(S)}\n클라우드 마지막 잔액 기록: ${lastCap(cloud)}\n\n[확인] 이 기기 데이터로 클라우드를 맞춤\n[취소] 클라우드 데이터를 이 기기로 가져옴\n\n(어느 쪽이든 양쪽 모두 이 기기에 백업돼 있어요)`);
+  // 이 기기가 비어 있으면(새로 설치 등) 묻지 않고 클라우드를 가져온다: 빈 기기가 클라우드를 덮던 사고(2026-09-30) 방지
+  const useLocal=hasUserData(S)&&confirm(`동기화 방식이 바뀌어 한 번만 확인할게요.\n\n이 기기 마지막 잔액 기록: ${lastCap(S)}\n클라우드 마지막 잔액 기록: ${lastCap(cloud)}\n\n[확인] 이 기기 데이터로 클라우드를 맞춤\n[취소] 클라우드 데이터를 이 기기로 가져옴\n\n(어느 쪽이든 양쪽 모두 이 기기에 백업돼 있어요)`);
   if(useLocal){
     syncMeta.rev=cloudRev;syncMeta.seq=(syncMeta.seq||0)+1;saveSyncMeta();
     await syncToCloud();
