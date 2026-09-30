@@ -314,4 +314,67 @@ t('주기 마감: 지난 주기 입금은 이월에 더하고 기록에 남긴�
   assert.strictEqual(app.S.carry, c.effective - c.spent);
 });
 
+t('손으로 체크(2026-10-01): 같은 금액 출금 한 건이면 묻지 않고 연결·날짜도 출금일, 풀면 연결도 풀리고 다시 잇지 않음, 다시 체크하면 물어봄', () => {
+  const asked = []; let answer = true;
+  const app = makeApp({ now: '2026-09-26T20:00:00+09:00', confirm: (m) => { asked.push(m); return answer; } });
+  const rows = [...seedRows(), tx('kb', 'out', 300000, 700000, '관리사무소', '2026-09-24', '10:00'), tx('kb', 'out', 20000, 680000, '식당', '2026-09-24', '12:00'),
+    tx('kb', 'out', 305000, 375000, '관리사무소', '2026-09-25', '10:00')]; // 같은 이름 출금이 하나 더(금액 범위 안)
+  app.set({ S: baseS({ fixed: [{ id: 'k', name: '관리비', kw: '관리', amount: 300000, paid: false, paidDate: '' }] }), TX: { rows } });
+  const k = () => app.S.fixed[0];
+  app.fn.toggleFixed('k');
+  assert.ok(asked.length === 0 && k().paid && k().txId === rows[2].id && k().paidDate === '2026-09-24' && k().actual === 300000);
+  assert.strictEqual(app.fn.getDailySpent('2026-09-24').spent, 20000, '연결된 관리비는 그날 지출에서 빠짐');
+  app.fn.toggleFixed('k'); // 체크 해제
+  assert.ok(!k().paid && k().txId == null && k().actual == null && k().skipTx === rows[2].id);
+  assert.strictEqual(app.fn.getDailySpent('2026-09-24').spent, 320000, '연결을 풀면 그 출금은 다시 지출');
+  assert.strictEqual(app.fn.linkFixedTx(), false, '알림 이름(관리)이 맞는 다른 출금이 있어도 이번 주기엔 자동으로 다시 체크 안 함(검토 반영)');
+  assert.strictEqual(app.fn.fixedCandidates().length, 0, '벨에서도 다시 안 물음');
+  app.fn.toggleFixed('k'); // 다시 체크 → 전에 푼 거래라 물어봄 → 확인
+  assert.ok(asked.length === 1 && asked[0].includes('관리사무소') && asked[0].includes("'관리비'") && k().txId === rows[2].id && k().skipTx == null);
+  app.fn.toggleFixed('k'); answer = false; app.fn.toggleFixed('k'); // 풀고 다시 체크 → 취소
+  assert.ok(asked.length === 2 && k().paid && k().paidDate === '2026-09-26' && k().txId == null && app.S.fixedNo.includes('k:' + rows[2].id), '취소하면 오늘 날짜로 체크만');
+  answer = true; app.fn.toggleFixed('k'); app.fn.toggleFixed('k'); // 잘못 취소했으면: 풀었다 다시 체크 → 다시 물음(검토 반영)
+  assert.ok(asked.length === 3 && k().txId === rows[2].id && !app.S.fixedNo.some((x) => x.startsWith('k:')));
+});
+
+t('손으로 체크(2026-10-01 검토 반영): 금액이 똑같은 항목이 또 있으면 묻고, 예전 버전이 남긴 연결 흔적은 체크 때 지움', () => {
+  const asked = [];
+  const app = makeApp({ now: '2026-09-26T20:00:00+09:00', confirm: (m) => { asked.push(m); return false; } });
+  const rows = [...seedRows(), tx('kb', 'out', 100000, 900000, '복싱장', '2026-09-24')];
+  const fixed = [{ id: 'p', name: '필라테스', amount: 100000, paid: false, paidDate: '' }, { id: 'b', name: '복싱', amount: 100000, paid: false, paidDate: '' },
+    { id: 'o', name: '통신', amount: 50000, paid: false, paidDate: '', txId: 99999, actual: 45000 }];
+  app.set({ S: baseS({ fixed }), TX: { rows } });
+  const F = () => Object.fromEntries(app.S.fixed.map((x) => [x.id, x]));
+  app.fn.toggleFixed('p');
+  assert.ok(asked.length === 1 && asked[0].includes('복싱장') && F().p.txId == null && F().p.paidDate === '2026-09-26', '그 출금이 누구 것인지 모르면 묻는다(취소 → 오늘 날짜)');
+  app.fn.toggleFixed('o');
+  assert.ok(asked.length === 1 && F().o.paid && F().o.txId == null && F().o.actual == null && F().o.paidDate === '2026-09-26', '미납인데 남아 있던 연결은 체크 때 지움');
+});
+
+t('손으로 체크(2026-10-01): 금액이 조금 다르거나 같은 금액이 여러 건이면 물어보고, 없으면 오늘 날짜 / 내 이름 계좌 저축도 연결돼 두 번 안 빠짐', () => {
+  const asked = [];
+  const app = makeApp({ now: '2026-09-26T20:00:00+09:00', confirm: (m) => { asked.push(m); return true; } });
+  const rows = [...seedRows(),
+    tx('kb', 'out', 298500, 701500, '관리사무소', '2026-09-24'), // 예정 30만과 조금 다름
+    tx('kakao', 'out', 100000, 400000, '가게A', '2026-09-24'), tx('kakao', 'out', 100000, 300000, '가게B', '2026-09-25'), // 같은 금액 두 건
+    tx('kakao', 'out', 200000, 100000, '토스 홍길동', '2026-09-25')]; // 내 이름 계좌 = 저축
+  const fixed = [{ id: 'k', name: '관리비', amount: 300000, paid: false, paidDate: '' }, { id: 'b', name: '복싱', amount: 100000, paid: false, paidDate: '' },
+    { id: 's', name: '저축', amount: 200000, paid: false, paidDate: '' }, { id: 'x', name: '테니스', amount: 180000, paid: false, paidDate: '' },
+    { id: 'i', name: '용돈', amount: 298500, type: 'income', paid: false, paidDate: '' }];
+  app.set({ S: baseS({ fixed }), TX: { rows } });
+  const F = () => Object.fromEntries(app.S.fixed.map((x) => [x.id, x]));
+  assert.strictEqual(app.fn.cycleSavings(), 200000, '연결 전: 저축 이체가 저축 합계에도 들어가 고정지출과 두 번 빠짐');
+  app.fn.toggleFixed('k');
+  assert.ok(asked.length === 1 && asked[0].includes('298,500원') && F().k.txId === rows[2].id && F().k.actual === 298500, '금액이 다르면 물어보고 연결');
+  app.fn.toggleFixed('b');
+  assert.ok(asked.length === 2 && asked[1].startsWith('09/25') && F().b.txId === rows[4].id, '같은 금액 두 건이면 최근 것으로 물어봄');
+  app.fn.toggleFixed('s');
+  assert.ok(asked.length === 2 && F().s.txId === rows[5].id, '저축 이체 한 건 → 묻지 않고 연결');
+  assert.strictEqual(app.fn.cycleSavings(), 0, '연결 뒤엔 고정지출로만 셈');
+  app.fn.toggleFixed('x');
+  assert.ok(asked.length === 2 && F().x.paidDate === '2026-09-26' && F().x.txId == null, '맞는 출금이 없으면(다른 항목에 연결된 것 제외) 오늘 날짜');
+  app.fn.toggleFixed('i');
+  assert.ok(asked.length === 2 && F().i.txId == null, '고정 입금은 연결 안 함');
+});
+
 console.log(`\n통과 ${ok}개`);

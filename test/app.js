@@ -1,5 +1,6 @@
 // 테스트용: index.html의 메인 스크립트를 통째로 불러와(화면은 가짜) 앱 함수를 그대로 쓴다.
 // 정규식으로 함수를 골라 붙이던 방식 대신 — 앱 코드를 고쳐도 테스트를 따라 고칠 일이 적다.
+// confirm: opt.confirm(메시지) → true/false (없으면 늘 확인)
 // 사용: const app = require('./app')({ now: '2026-09-26T12:00:00+09:00' }); app.set({S, TX}); app.fn.sumSpentInRange(...)
 const fs = require('fs'), path = require('path');
 const root = path.join(__dirname, '..');
@@ -22,10 +23,10 @@ module.exports = function makeApp(opt = {}) {
   { get: (t, k) => (k in t ? t[k] : undefined), set: (t, k, v) => { t[k] = v; return true; } });
   const document = { getElementById: () => el(), querySelector: () => null, querySelectorAll: () => [], createElement: () => el(), addEventListener() {}, body: el(), hidden: false, activeElement: null };
   const localStorage = { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)), removeItem: (k) => store.delete(k), key: () => null, get length() { return 0; } };
-  const window = { TxParse: require(path.join(root, 'txparse.js')), Payday: require(path.join(root, 'payday.js')), Category: require(path.join(root, 'category.js')), addEventListener() {}, confirm: () => true, location: { href: '' } };
+  const window = { TxParse: require(path.join(root, 'txparse.js')), Payday: require(path.join(root, 'payday.js')), Category: require(path.join(root, 'category.js')), addEventListener() {}, confirm: (m) => (opt.confirm ? opt.confirm(m) : true), location: { href: '' } };
   const ctx = { Date: FakeDate, document, localStorage, window, Payday: window.Payday, TxParse: window.TxParse, Category: window.Category, navigator: {}, Notification: undefined, setInterval: () => 0, setTimeout: () => 0, clearTimeout() {},
     location: { hash: '', pathname: '/', search: '' }, history: { replaceState() {} },
-    fetch: async () => ({ ok: false, status: 599, json: async () => ({}), text: async () => '', headers: { get: () => null } }), alert() {}, confirm: () => true, console, Object };
+    fetch: async () => ({ ok: false, status: 599, json: async () => ({}), text: async () => '', headers: { get: () => null } }), alert() {}, confirm: (m) => (opt.confirm ? opt.confirm(m) : true), console, Object };
   const body = `with(ctx){${main}\n;return{get S(){return S},set S(v){S=v},get TX(){return TX},set TX(v){TX=v},fn:{${EXPORTS.map((n) => `${n}:typeof ${n}==='function'?${n}:undefined`).join(',')}}};}`;
   const api = new Function('ctx', body)(ctx);
   return {

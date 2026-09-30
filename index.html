@@ -935,9 +935,10 @@ function linkFixedTx(){
   const used=new Set((S.fixed||[]).filter(f=>f.txId!=null).map(f=>f.txId));
   let changed=false;
   (S.fixed||[]).forEach(f=>{
-    if(f.type==='income'||f.txId!=null||!f.kw)return;
+    // 이번 주기에 사용자가 연결을 푼 항목(skipIn)은 자동으로 다시 체크하지 않는다(같은 이름 출금이 여럿이면 번갈아 붙던 문제). '아니에요'(fixedNo)한 거래도 제외.
+    if(f.type==='income'||f.txId!=null||!f.kw||f.skipIn===S.budgetStart)return;
     const kw=normKw(f.kw);
-    const hit=rows.find(r=>!used.has(r.id)&&normKw(r.counterparty).includes(kw)&&Math.abs(r.amount-(f.amount||0))<=Math.max(1000,(f.amount||0)*0.2));
+    const hit=rows.find(r=>!used.has(r.id)&&!(S.fixedNo||[]).includes(f.id+':'+r.id)&&normKw(r.counterparty).includes(kw)&&Math.abs(r.amount-(f.amount||0))<=Math.max(1000,(f.amount||0)*0.2));
     if(!hit)return;
     f.paid=true;f.paidDate=hit.date;f.txId=hit.id;f.actual=hit.amount;used.add(hit.id);changed=true;
   });
@@ -951,7 +952,7 @@ function fixedCandidates(){
   const out=[];
   (S.fixed||[]).forEach(f=>{
     if(f.type==='income'||f.txId!=null||f.paid)return;
-    const r=rows.find(x=>x.amount===(f.amount||0)&&!(S.fixedNo||[]).includes(f.id+':'+x.id));
+    const r=rows.find(x=>x.amount===(f.amount||0)&&x.id!==f.skipTx&&!(S.fixedNo||[]).includes(f.id+':'+x.id));
     if(r)out.push({f,r});
   });
   return out;
@@ -1843,13 +1844,47 @@ function addFixed(){
   save();renderFixed();render();showToast(fxAddType==='income'?'예정 입금이 추가됐어요 ✓':'고정지출이 추가됐어요 ✓');
 }
 
+// 손으로 체크할 때 이을 출금: 이번 주기(알림 시작 뒤~오늘)의 예정액 ±20%(최소 1,000원) 출금 중 금액이 가장 가깝고 최근인 것.
+// 같은 금액이 딱 한 건이면 묻지 않고 잇고, 금액이 조금 다르거나 여러 건이거나 전에 연결을 푼 거래거나
+// 그 출금과 금액이 똑같은 다른 미연결 항목이 있으면(복싱·필라테스 둘 다 10만 등 — 누구 것인지 모름) 한 번 묻는다(2026-10-01 사용자 결정).
+function checkLinkPick(f){
+  if(!S.txSince||!S.budgetStart||f.type==='income'||f.affectsBalance===false||!(f.amount>0))return null;
+  const today=toStr(),amt=f.amount,no=S.fixedNo||[];
+  const used=new Set((S.fixed||[]).filter(x=>x!==f&&x.txId!=null).map(x=>x.txId));
+  const near=txWithFlags().filter(r=>r.type==='out'&&!r.isTransfer&&r.date>=S.budgetStart&&r.date>=S.txSince&&r.date<=today
+    &&!used.has(r.id)&&!no.includes(f.id+':'+r.id)&&Math.abs(r.amount-amt)<=Math.max(1000,amt*0.2))
+    .sort((a,b)=>Math.abs(a.amount-amt)-Math.abs(b.amount-amt)||Date.parse(b.at)-Date.parse(a.at)||b.id-a.id);
+  if(!near.length)return null;
+  const r=near[0],exact=near.filter(x=>x.amount===amt);
+  const rival=(S.fixed||[]).some(x=>x!==f&&x.type!=='income'&&x.txId==null&&x.amount===r.amount);
+  return{r,ask:!(exact.length===1&&r.id!==f.skipTx)||rival};
+}
+// 체크: 이을 출금이 있으면 그 출금과 연결하고 날짜도 출금일로(없거나 거절하면 오늘 날짜, 거절한 거래는 그 체크 동안 다시 권하지 않음).
+// 체크 해제: 연결도 푼다(예전엔 txId가 남아 그 출금이 계속 지출에서 빠지고 다음 날부터 미납으로 또 빠졌다).
+//   연결을 푼 항목은 이번 주기 동안 알림 이름으로 자동 연결하지 않고(skipIn), 푼 거래는 다시 체크할 때 묻는다(skipTx).
+//   '아니에요' 기록도 지운다 → 잘못 거절했으면 풀었다 다시 체크하면 다시 묻는다.
 function toggleFixed(id){
   const f=S.fixed.find(x=>x.id===id);if(!f)return;
   const before=f.paidDate;
-  f.paid=!f.paid;
-  f.paidDate=f.paid?toStr():'';
+  let msg='';
+  // 연결 풀기(예전 버전이 남긴 '미납인데 연결'도 여기서 정리)
+  if(f.txId!=null){f.skipTx=f.txId;f.skipIn=S.budgetStart;delete f.txId;delete f.actual;}
+  if(f.paid){
+    f.paid=false;f.paidDate='';
+    S.fixedNo=(S.fixedNo||[]).filter(k=>!k.startsWith(f.id+':'));
+  }else{
+    const pick=checkLinkPick(f);
+    f.paid=true;f.paidDate=toStr();
+    if(pick){
+      const r=pick.r,md=r.date.slice(5).replace('-','/');
+      if(!pick.ask||confirm(`${md} ${r.merchant||r.counterparty||''} ${won(r.amount)} 출금이 '${f.name}'인가요?\n\n[확인] 이 출금과 연결\n[취소] 오늘 날짜로 체크만`)){
+        f.paidDate=r.date;f.txId=r.id;f.actual=r.amount;delete f.skipTx;delete f.skipIn;msg=`${md} 출금 ${won(r.amount)}과 연결했어요`;
+      }else S.fixedNo=[...(S.fixedNo||[]),f.id+':'+r.id];
+    }
+  }
   recomputeClosedCycles([before,f.paidDate]);
   save();renderFixed();render();
+  if(msg)showToast(msg);
 }
 // 마감된 주기 결산(spent)은 저장값이라, 그 기간의 고정비 납부 표시가 바뀌면 다시 계산해야 한다.
 // 바로 덮어쓰지 않고 '불완전'으로 표시만 한다 → 곧바로 그 주기 범위를 서버에서 끝까지 다시 받고,
@@ -1873,6 +1908,8 @@ function recomputeClosedCycles(paidDates){
 function editFixedDate(id){
   const f=S.fixed.find(x=>x.id===id);
   if(!f||!f.paid)return;
+  // 출금과 연결된 항목의 날짜는 출금일이다(바꾸면 이미 나간 돈을 그날 시작 잔액에서 또 뺀다). 바꾸려면 체크를 풀었다 다시.
+  if(f.txId!=null){showToast('출금과 연결돼 있어 날짜를 바꿀 수 없어요');return;}
   const inp=document.createElement('input');
   inp.type='date';
   inp.value=f.paidDate||toStr();
