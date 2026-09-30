@@ -956,8 +956,20 @@ function confirmFixed(fid,txId,yes){
   else S.fixedNo=[...(S.fixedNo||[]),fid+':'+txId];
   save();render();
 }
-// 주간 몫: 쓸 수 있는 돈 ÷ 주기 일수 × 7(주간 예산 입력 없음)
-const weeklyShare=()=>{const{total}=getBD();return total>0?Math.round(effectiveBudget()*7/total):0;};
+// 주간 몫: 이번 주 시작 때 남은 돈 ÷ 그때 남은 일수 × 이번 주 중 주기 안 일수(주간 예산 입력 없음).
+// 지난주에 더 쓰거나 아낀 만큼 이번 주 몫이 바뀐다(2026-09-30 사용자 결정, 예전엔 주기 평균 ×7로 매주 같았음). 주 중간엔 입금·저축이 아니면 그대로.
+const kstDayDiff=(a,b)=>Math.round((Date.parse(b)-Date.parse(a))/864e5);
+const weeklyShare=()=>{
+  if(!S.budgetStart||!S.budgetEnd){const{total}=getBD();return total>0?Math.round(effectiveBudget()*7/total):0;}
+  const{weekStartStr}=getWeekInfo();
+  const ws=weekStartStr<S.budgetStart?S.budgetStart:weekStartStr; // 주기 첫 주는 주기 시작일부터
+  let we=weekStartStr;for(let i=0;i<6;i++)we=dayAfter(we);
+  if(we>S.budgetEnd)we=S.budgetEnd; // 주기 마지막 주는 종료일까지
+  const left=effectiveBudget()-(ws>S.budgetStart?sumSpentInRange(S.budgetStart,dayBefore(ws)):0);
+  const daysLeft=kstDayDiff(ws,S.budgetEnd)+1,days=Math.max(0,kstDayDiff(ws,we)+1);
+  if(daysLeft<=0||!days)return Math.max(0,left); // 종료일이 지나 월급을 기다리는 중: 남은 돈 전부
+  return Math.max(0,Math.round(left*days/daysLeft));
+};
 
 // 예산 주기는 날짜가 아니라 '월급 입금 알림'으로 넘어간다(applyTxToState → syncSalaryCycle). 월급이 늦으면 주기가 이어진다.
 async function refreshAndRoll(){await fetchTx();}
@@ -1623,7 +1635,9 @@ function getTodayBudget(){
   const useNow=!useDayStart&&staleCap&&nowBalKnown;
   // 오늘 시작 잔액이면 그 시점 미납분(오늘 낸 것 포함), 지금 잔액이면 지금 미납분만 뺀다(이미 빠져나간 고정비 이중 차감 방지)
   // 지금 잔액은 오늘 쓴 뒤라 오늘 쓴 돈을 더해 하루 시작 잔액으로 맞춘다(아래에서 다시 빼므로 이중 차감 방지)
-  const avail=useDayStart?ds.prevTotal-unpaidFixedAt(today):useNow?totBal()+spentTodayOf(ds)-unpaidFixed():null;
+  // 오늘 들어온 월급 아닌 입금(쓸 수 있는 돈에 더한 것)은 하루 시작 잔액에 없으니 더한다 → 입금되면 오늘 몫도 바로 늘어남(2026-09-30 사용자 결정)
+  const incToday=useDayStart?cycleIncomeRows().filter(r=>r.date===today).reduce((a,r)=>a+r.amount,0):0;
+  const avail=useDayStart?ds.prevTotal-unpaidFixedAt(today)+incToday:useNow?totBal()+spentTodayOf(ds)-unpaidFixed():null;
   // 모자라면 0으로 자르지 않고 음수 그대로 보여준다(2026-09-29 사용자)
   const remainAtDayStart=avail!=null?Math.min(budgetLeft, avail):budgetLeft;
   const baseline=dl>0?Math.floor(remainAtDayStart/dl):Math.min(0,remainAtDayStart);

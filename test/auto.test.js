@@ -126,10 +126,32 @@ t('이름이 없는 고정지출은 금액이 같으면 벨에서 "맞아요?" �
   assert.ok(!app.fn.computeNotices().some((x) => x.id.startsWith('fxc-')), '아니에요 → 다시 안 물음');
 });
 
-t('주간 몫 = 쓸 수 있는 돈 × 7 ÷ 주기 일수(주간 예산 입력 없음)', () => {
+t('주간 몫 = 주 시작 때 남은 돈 ÷ 남은 일수 × 이번 주 주기 안 일수(주간 예산 입력 없음, 2026-09-30 변경)', () => {
+  // 주기 9/23(수)~10/22(목) 30일. 첫 주는 9/23~9/27 5일
   const app = makeApp({ now: '2026-09-26T20:00:00+09:00' });
   app.set({ S: baseS(), TX: { rows: seedRows() } });
-  assert.strictEqual(app.fn.weeklyShare(), Math.round(1000000 * 7 / 30));
+  assert.strictEqual(app.fn.weeklyShare(), Math.round(1000000 * 5 / 30));
+  // 둘째 주(9/28~): 첫 주에 40만 썼으면 남은 60만 ÷ 남은 25일 × 7
+  const app2 = makeApp({ now: '2026-09-30T20:00:00+09:00' });
+  app2.set({ S: baseS(), TX: { rows: [...seedRows(), tx('kb', 'out', 400000, 600000, '가게', '2026-09-25'), tx('kb', 'out', 20000, 580000, '식당', '2026-09-30')] } });
+  assert.strictEqual(app2.fn.weeklyShare(), Math.round(600000 * 7 / 25), '이번 주에 쓴 돈은 주 몫을 바꾸지 않음');
+  // 마지막 주(10/19~10/22 4일): 남은 돈 전부
+  const app3 = makeApp({ now: '2026-10-20T20:00:00+09:00' });
+  app3.set({ S: baseS(), TX: { rows: [...seedRows(), tx('kb', 'out', 900000, 100000, '가게', '2026-10-01')] } });
+  assert.strictEqual(app3.fn.weeklyShare(), 100000);
+  // 종료일이 지나 월급을 기다리는 중: 남은 돈 전부, 모자라면 0
+  const app4 = makeApp({ now: '2026-10-24T20:00:00+09:00' });
+  app4.set({ S: baseS(), TX: { rows: [...seedRows(), tx('kb', 'out', 1200000, 0, '가게', '2026-10-01')] } });
+  assert.strictEqual(app4.fn.weeklyShare(), 0);
+});
+
+t('오늘 들어온 월급 아닌 입금은 오늘 권장 지출에 바로 더해짐(하루 시작 잔액 기준일 때)', () => {
+  const app = makeApp({ now: '2026-09-30T20:00:00+09:00' });
+  const rows = [...seedRows(), tx('kakao', 'in', 177200, 677200, '(주)오피엠에스', '2026-09-30', '12:22')];
+  app.set({ S: baseS({ budget: 3000000, txSince: '2026-09-21' }), TX: { rows } });
+  // 하루 시작 잔액 150만(국민 100만 + 카카오 50만) + 입금 177,200 = 1,677,200 < 남은 예산 3,177,200 → 잔액 기준
+  const days = 23; // 9/30~10/22
+  assert.strictEqual(app.fn.getTodayBudget(), Math.floor((1500000 + 177200) / days));
 });
 
 // ── Codex 1회차 지적 재현 ──
