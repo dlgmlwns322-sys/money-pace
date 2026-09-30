@@ -807,13 +807,20 @@ const effectiveBudget=()=>Math.max(0, S.budget - totFixed() - cycleSavings() + c
 const unpaidFixed=()=>(S.fixed||[]).filter(f=>!f.paid).reduce((a,f)=>a+fxSigned(f),0);
 // d일 시작 시점에 아직 안 나간 고정비(오늘·이후 납부로 표시된 것 포함) — 하루 시작 잔액과 같은 시점으로 맞춘다
 // 단, 납부일 d인 고정비가 전날 새벽(실제 d일 0~6시)에 이미 빠져나갔으면 시작 잔액에 반영돼 있으니 빼지 않는다(fixedMatchedOn ①과 같은 짝)
+// 알림 기간엔 d일에 같은 금액 출금이 있을 때만 뺀다. 출금 없이 체크만 한 것(알림 연결 전에 이미 빠져나간 저축을 오늘 체크 등)은
+// 시작 잔액에 이미 없으니 빼면 이중 차감(2026-10-01: 저축을 오늘 체크 → 오늘 권장 지출이 크게 음수). 거래가 연결된 항목은 그 거래 날짜가 납부일이라 그대로.
 const unpaidFixedAt=d=>{
   const prev=dayBefore(d);
   const early=S.txSince?(txDerived().byDate.get(prev)||[]).filter(r=>r.type==='out'&&!r.isTransfer&&isEarlyOf(r,prev)).map(r=>r.amount):[];
+  const linked=fixedLinks();
+  const dayOut=txMode(d)?(txDerived().byDate.get(d)||[]).filter(r=>r.type==='out'&&!r.isTransfer&&!linked.has(r.id)).map(r=>r.amount):null;
   return (S.fixed||[]).filter(f=>{
     if(!f.paid)return true;
     if(!(f.paidDate&&f.paidDate>=d))return false;
-    if(f.paidDate===d&&f.type!=='income'&&f.affectsBalance!==false){const j=early.indexOf(f.amount||0);if(j>=0){early.splice(j,1);return false;}}
+    if(f.paidDate===d&&f.type!=='income'&&f.affectsBalance!==false){
+      const j=early.indexOf(f.amount||0);if(j>=0){early.splice(j,1);return false;}
+      if(dayOut&&f.txId==null){const k=dayOut.indexOf(f.amount||0);if(k<0)return false;dayOut.splice(k,1);}
+    }
     return true;
   }).reduce((a,f)=>a+fxSigned(f),0);
 };

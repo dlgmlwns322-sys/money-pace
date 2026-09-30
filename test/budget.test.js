@@ -155,7 +155,18 @@ const app={setS:v=>A.set({S:v}),getS:()=>A.S,setTX:v=>A.set({TX:v}),...A.fn};
       {id:2,bank:'kakao',type:'out',amount:1,balance:0,counterparty:'가',at:'2026-08-31T12:10:00+09:00'},
       {id:3,bank:'kb',type:'out',amount:50000,balance:60000,counterparty:'보험사',at:'2026-09-26T03:00:00+09:00'}];
     assert.strictEqual(both(S5,T5,'2026-09-26'),60000,'새벽에 이미 빠진 고정비를 또 빼지 않음');
-    console.log('ok - 하루 시작 시점 미납 고정비·추정 잔액·잔액 모름·환불·새벽 고정비(앱=리포트)');n++;
+    // (2026-10-01) 알림 연결 전에 이미 빠져나간 저축을 오늘 체크: 오늘 그 금액 출금이 없으면 시작 잔액에 없는 돈이라 다시 빼지 않음
+    //   사용예산 70만(100만 − 저축 30만), 시작 잔액 40만, 남은 5일(9/6~9/10), 오늘 지출 1만 → 40만÷5 − 1만
+    const S6={budget:1000000,budgetStart:'2026-09-01',budgetEnd:'2026-09-10',txSince:'2026-09-01',captures:[],balances:{},ownerNames:'홍길동',
+      fixed:[{name:'저축',amount:300000,paid:true,paidDate:'2026-09-06'}]};
+    const T6=[{id:1,bank:'kb',type:'out',amount:1,balance:400000,counterparty:'가',at:'2026-08-31T12:00:00+09:00'},
+      {id:2,bank:'kakao',type:'out',amount:1,balance:0,counterparty:'가',at:'2026-08-31T12:10:00+09:00'},
+      {id:3,bank:'kb',type:'out',amount:10000,balance:390000,counterparty:'가게',at:'2026-09-06T12:00:00+09:00'}];
+    assert.strictEqual(both(S6,T6,'2026-09-06'),400000/5-10000,'출금 없이 오늘 체크한 고정비는 다시 빼지 않음');
+    // 오늘 같은 금액이 실제로 나갔으면(내 이름 계좌로 옮긴 저축 포함) 시작 잔액에 있던 돈이라 뺀다 → 10만÷5 − 1만
+    const T7=[...T6,{id:4,bank:'kb',type:'out',amount:300000,balance:90000,counterparty:'토스 홍길동',at:'2026-09-06T13:00:00+09:00'}];
+    assert.strictEqual(both(S6,T7,'2026-09-06'),100000/5-10000,'오늘 실제로 나간 고정비는 뺌');
+    console.log('ok - 하루 시작 시점 미납 고정비·추정 잔액·잔액 모름·환불·새벽 고정비·출금 없이 오늘 체크(앱=리포트)');n++;
   }
 
   // 감사 반영 규칙: 고정'입금' 체크가 지출을 늘리지 않음 / 환불은 지출에서 뺌 / 잔액이 안 맞으면 누락분을 지출로
