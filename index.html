@@ -1682,20 +1682,21 @@ function renderTodayTile(){
   const ds=getDailySpent();
   const tsEl=document.getElementById('todaySpent'),tsSub=document.getElementById('todaySpentSub');
   if(!tsEl)return;
-  if(ds&&ds.source==='tx'){
+  if(ds&&ds.source==='tx'&&!S.txReadSecret){tsEl.textContent='—';tsEl.style.color='var(--text3)';tsSub.textContent='이 기기엔 거래 연결 전';}
+  else if(ds&&ds.source==='tx'){
     const yd=getDailySpent(dayBefore(toStr()));
-    if(yd){
+    if(yd&&yd.source==='tx'){ // 어제도 알림 기간일 때만 비교(캡처 기간 값과는 비교하지 않음)
       // 큰 글씨 = 오늘과 어제 차이를 말로(덜 쓰면 초록 '덜 씀', 더 쓰면 빨강 '더 씀', 2026-10-01 사용자), 작은 글씨 = 어제 쓴 돈
       // '덜 씀/더 씀'은 금액 뒤에 작게 붙여 칸 너비·줄맞춤을 금액 표시와 같게 둔다
       const diff=ds.spent-yd.spent;
       if(diff)tsEl.innerHTML=`${won(diff)}<span style="font-size:.5em;font-weight:600;margin-left:3px;letter-spacing:0">${diff>0?'더 씀':'덜 씀'}</span>`;
       else tsEl.textContent='어제와 같음';
       tsEl.style.color=diff>0?'var(--red)':diff<0?'var(--green)':'var(--text3)';
-      tsSub.textContent=`어제 ${won(yd.spent)}`;
+      tsSub.textContent=yd.spent<0?`어제 ${won(yd.spent)} 환불`:`어제 ${won(yd.spent)}`; // 환불이 더 많았던 날은 '환불'로
     }else{
       tsEl.textContent=(ds.spent<0?'+':'')+won(ds.spent);
-      tsEl.style.color=ds.spent>0?'var(--red)':ds.spent<0?'var(--green)':'var(--text3)';
-      tsSub.textContent='';
+      tsEl.style.color='var(--text3)'; // 비교할 어제 기록이 없으면 오늘 금액만, 증감 색 없이
+      tsSub.textContent='어제 기록 없음';
     }
   }else if(ds&&!ds.noCaptureToday){
     tsEl.textContent=(ds.spent<0?'+':'')+won(ds.spent);tsEl.style.color=ds.spent>0?'var(--red)':'var(--green)';
