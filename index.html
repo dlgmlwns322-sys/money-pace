@@ -1685,10 +1685,12 @@ function renderTodayTile(){
   if(ds&&ds.source==='tx'){
     const yd=getDailySpent(dayBefore(toStr()));
     if(yd){
-      // 큰 글씨 = 오늘 − 어제 차이(더 쓰면 ▲빨강, 덜 쓰면 ▼파랑 — 한국 증감 표기, 2026-10-01 사용자), 작은 글씨 = 어제 쓴 돈
+      // 큰 글씨 = 오늘과 어제 차이를 말로(덜 쓰면 초록 '덜 씀', 더 쓰면 빨강 '더 씀', 2026-10-01 사용자), 작은 글씨 = 어제 쓴 돈
+      // '덜 씀/더 씀'은 금액 뒤에 작게 붙여 칸 너비·줄맞춤을 금액 표시와 같게 둔다
       const diff=ds.spent-yd.spent;
-      tsEl.textContent=(diff>0?'+':diff<0?'−':'')+won(diff);
-      tsEl.style.color=diff>0?'#DC2626':diff<0?'#2563EB':'var(--text3)';
+      if(diff)tsEl.innerHTML=`${won(diff)}<span style="font-size:.5em;font-weight:600;margin-left:3px;letter-spacing:0">${diff>0?'더 씀':'덜 씀'}</span>`;
+      else tsEl.textContent='어제와 같음';
+      tsEl.style.color=diff>0?'var(--red)':diff<0?'var(--green)':'var(--text3)';
       tsSub.textContent=`어제 ${won(yd.spent)}`;
     }else{
       tsEl.textContent=(ds.spent<0?'+':'')+won(ds.spent);
