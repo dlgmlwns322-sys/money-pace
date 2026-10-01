@@ -1684,9 +1684,17 @@ function renderTodayTile(){
   if(!tsEl)return;
   if(ds&&ds.source==='tx'){
     const yd=getDailySpent(dayBefore(toStr()));
-    tsEl.textContent=(ds.spent<0?'+':'')+won(ds.spent);
-    tsEl.style.color=ds.spent>0?'var(--red)':ds.spent<0?'var(--green)':'var(--text3)';
-    tsSub.textContent=yd?`어제 ${won(yd.spent)}`:'';
+    if(yd){
+      // 큰 글씨 = 오늘 − 어제 차이(더 쓰면 ▲빨강, 덜 쓰면 ▼파랑 — 한국 증감 표기, 2026-10-01 사용자), 작은 글씨 = 어제 쓴 돈
+      const diff=ds.spent-yd.spent;
+      tsEl.textContent=(diff>0?'+':diff<0?'−':'')+won(diff);
+      tsEl.style.color=diff>0?'#DC2626':diff<0?'#2563EB':'var(--text3)';
+      tsSub.textContent=`어제 ${won(yd.spent)}`;
+    }else{
+      tsEl.textContent=(ds.spent<0?'+':'')+won(ds.spent);
+      tsEl.style.color=ds.spent>0?'var(--red)':ds.spent<0?'var(--green)':'var(--text3)';
+      tsSub.textContent='';
+    }
   }else if(ds&&!ds.noCaptureToday){
     tsEl.textContent=(ds.spent<0?'+':'')+won(ds.spent);tsEl.style.color=ds.spent>0?'var(--red)':'var(--green)';
     tsSub.textContent=`${won(ds.prevTotal)} → ${won(ds.todayTotal)}`;
