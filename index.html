@@ -1022,8 +1022,12 @@ const isPiggyBank=r=>r.bank==='kakao'&&String(r.counterparty||'').trim()==='저�
 function txDerived(){
   const ov=JSON.stringify(S.txOverrides||{}),own=S.ownerNames||'';
   if(txMemo&&txMemo.rows===TX.rows&&txMemo.hints===TX.hints&&txMemo.ov===ov&&txMemo.own===own)return txMemo;
-  const marked=(window.TxParse&&window.TxParse.markTransfers)?window.TxParse.markTransfers(TX.rows,ownerNameList()):TX.rows.map(r=>({...r,transfer:false,transferGuess:false}));
   const overrides=S.txOverrides||{};
+  // 새 수입/지출로 직접 정한 거래는 자동 짝짓기에서도 뺀다. 한쪽만 이동으로 남으면 예산이 부풀려진다.
+  const autoRows=TX.rows.filter(r=>overrides[r.id]?.transfer!==false);
+  const autoMarked=(window.TxParse&&window.TxParse.markTransfers)?window.TxParse.markTransfers(autoRows,ownerNameList()):autoRows.map(r=>({...r,transfer:false,transferGuess:false}));
+  const byId=new Map(autoMarked.map(r=>[r.id,r]));
+  const marked=TX.rows.map(r=>byId.get(r.id)||{...r,transfer:false,transferGuess:false});
   // 저축: 본인 이름으로 나갔는데 국민·카카오로 들어온 짝이 없는 돈(토스증권·신한 등 내 다른 계좌). 사용자가 직접 지정하면 그 값.
   // 카카오뱅크 저금통(잔돈 자동 모으기, 알림 '입출금통장(0000) → 저금통')으로 옮긴 돈도 저축(2026-09-30).
   const hintOf=matchCardHints(marked);
@@ -1108,6 +1112,21 @@ function cycleSavings(from=S.budgetStart,to=toStr()){
 // 대상 아님: 내 계좌 이동·본인 이름 입금(추정 이동)·저금통에서 꺼낸 돈·환불(지출에서 차감)·월급(후보 포함).
 // 고정 입금 항목은 이미 예산에 들어 있으니 비슷한 금액(±1천 원 또는 ±20%, 고정지출 연결과 같은 기준) 입금 하나씩은 빼고 센다(이중 계산 방지).
 const incomeEligible=(r,sal)=>r.type==='in'&&!r.isTransfer&&!r.ownGuess&&!isPiggyBank(r)&&!isRefund(r)&&!sal.has(r.id);
+// 본인 이름만 일치하는 입금은 이동으로 확정하지 않고, 현재 주기에서 직접 확인한다.
+function pendingOwnIncomeRows(){
+  if(!S.budgetStart||!S.txSince)return[];
+  const sal=salaryAllIds(),today=toStr();
+  return txWithFlags().filter(r=>r.ownGuess&&incomeEligible({...r,ownGuess:false},sal)&&r.date>=S.budgetStart&&r.date>=S.txSince&&r.date<=today&&!(S.txIncomeOff||{})[r.id]);
+}
+function resolveOwnIncome(id,transfer){
+  // 알림을 연 뒤 대응 출금이 도착했거나 이미 선택한 경우, 낡은 버튼으로 덮지 않는다.
+  if(typeof transfer!=='boolean'||!pendingOwnIncomeRows().some(r=>r.id===id)){render();return;}
+  const before=S;
+  const next={...S,txOverrides:{...(S.txOverrides||{}),[id]:{...(S.txOverrides||{})[id],transfer}}};
+  S=next;
+  if(!save()&&S===next)S=before;
+  render();
+}
 function cycleIncomeRows(from=S.budgetStart,to=toStr()){
   if(!from||!S.txSince)return[];
   const sal=salaryAllIds();
@@ -1324,6 +1343,9 @@ function computeNotices(){
   if(S.budgetEnd&&window.Payday&&!Payday.holidayKnown(dayAfter(S.budgetEnd)))add('holi-'+S.budgetEnd.slice(0,4),'info','공휴일 자료가 없는 해예요','예상 종료일은 주말만 반영한 추정이에요. 앱을 업데이트하면 반영돼요.','home');
   fixedCandidates().forEach(({f,r})=>add(`fxc-${f.id}-${r.id}`,'info',`고정지출 '${escapeHtml(f.name)}' 출금 맞아요?`,`${r.date.slice(5).replace('-','/')} ${escapeHtml(r.counterparty||'')} ${won(r.amount)} — 금액이 같아요. 맞으면 자동 체크하고, 다음부터 알림 이름을 고정지출에 적어 두면 바로 체크돼요.`,'fixed',
     [{t:'맞아요',js:`confirmFixed('${f.id}',${Number(r.id)},true)`},{t:'아니에요',js:`confirmFixed('${f.id}',${Number(r.id)},false)`}]));
+  pendingOwnIncomeRows().forEach(r=>add('ownin-'+r.id,'info',`${r.date.slice(5).replace('-','/')} 확인할 입금 ${won(r.amount)}`,
+    `${bankName(r.bank)} · 본인 이름의 입금이라 예산에서 제외 중이에요.`,null,
+    [{t:'새로 받은 돈',js:`resolveOwnIncome(${Number(r.id)},false)`},{t:'내 계좌 이동',js:`resolveOwnIncome(${Number(r.id)},true)`}]));
   const bk=listBackups().find(b=>!b.k.includes('prerestore_'));
   if(bk&&Date.now()-bk.t<7*86400e3)add('bk-'+bk.t,'info','동기화가 겹쳐 백업해 뒀어요','',null,[{t:'되돌리기',js:'restoreLatestBackup()'}]);
   const syncErr=incidentStart('sync',lastSyncStatus==='error',lastSyncStatus==='saved');
@@ -1397,21 +1419,25 @@ function renderTx(){
   const last=rows[rows.length-1];
   const gaps=txGaps();const gapByAfter=new Map(gaps.map(g=>[g.afterId,g.amount]));
   const incomeIds=new Set(cycleIncomeRows().map(r=>r.id)),incomeOff=S.txIncomeOff||{};
+  const pendingIds=new Set(pendingOwnIncomeRows().map(r=>r.id));
   const waiting=ACCOUNTS.filter(a=>!rows.some(r=>r.bank===a.id)).map(a=>a.n);
   st.textContent=TX.error?`불러오기 실패: ${TX.error}`:'';
   el.innerHTML=rows.slice(-30).reverse().map(r=>{
     const a=ACCOUNTS.find(x=>x.id===r.bank)||{c:'#ccc'};
     const gap=gapByAfter.get(r.id);
     const tags=(r.isTransfer?'<span class="tx-tag">내 계좌 이동</span>':'')+(r.savings?'<span class="tx-tag">저축</span>':'')+(r.type==='out'&&!r.isTransfer&&!r.savings?`<span class="tx-tag">${txCategory(r)}</span>`:'')+(salaryIds().has(r.id)?'<span class="tx-tag">월급</span>':'')+(r.needs_review?'<span class="tx-tag warn">확인 필요</span>':'')+(isRefund(r)?'<span class="tx-tag">환불</span>':'')+(incomeIds.has(r.id)?'<span class="tx-tag">예산에 더함</span>':'')+(incomeOff[r.id]&&r.date>=S.budgetStart?'<span class="tx-tag">예산 제외</span>':'')
+      +(pendingIds.has(r.id)?'<span class="tx-tag warn">본인 이름 입금 · 확인 전 제외</span>':'')
       +(gap?`<span class="tx-tag warn">앞에 ${gap>0?'출금':'입금'} ${won(Math.abs(gap))} 누락?</span>`:'');
     return `<div class="tx-row" onclick="openTxSheet(${Number(r.id)})"><div style="width:7px;height:7px;border-radius:50%;background:${a.c};flex:none"></div><div class="tx-main"><div class="tx-cp">${escapeHtml(r.merchant||r.counterparty||r.method||'')}</div><div class="tx-sub">${txWhen(r.at)} · ${bankName(r.bank)}${tags}</div></div><div class="tx-amt ${r.type==='in'?'in':''}">${r.type==='in'?'+':'−'}${won(r.amount)}</div></div>`;
   }).join('');
 }
 // 거래를 눌러 '내 계좌끼리 이동'인지 직접 정한다(지출 계산에 반영, 다른 기기에도 동기화)
-function toggleTxTransfer(id){
+function toggleTxTransfer(id,want){
   const r=txWithFlags().find(x=>x.id===id);if(!r)return;
-  S.txOverrides={...(S.txOverrides||{}),[id]:{transfer:!r.isTransfer}};
-  save();render();
+  const before=S,next={...S,txOverrides:{...(S.txOverrides||{}),[id]:{...(S.txOverrides||{})[id],transfer:typeof want==='boolean'?want:!r.isTransfer}}};
+  S=next;
+  if(!save()&&S===next)S=before;
+  render();
 }
 // ═══ 카테고리(2026-09-26): 가맹점 이름 규칙(category.js) → 사용자가 정한 가게(S.catMap) → 이 거래만(S.txCat) 순으로 우선 ═══
 const CAT_COLORS={식비:'#4F46E5',카페:'#8B6CF6',편의점:'#14B8A6',쇼핑:'#F59E0B',병원:'#EF6A7B',배달:'#38BDF8',피시방:'#64748B',기타:'#CBD5E1'};
@@ -1480,13 +1506,15 @@ function openTxSheet(id){
   document.getElementById('txmTitle').textContent=`${r.merchant||r.counterparty||r.method||''} ${r.type==='in'?'+':'−'}${won(r.amount)}`;
   document.getElementById('txmChips').innerHTML=(r.type==='out'&&!r.isTransfer&&!r.savings||r.type==='in'&&isRefund(r))?Category.CATS.map(c=>`<button type="button" class="${c===cur?'on':''}" onclick="setTxCat(${Number(id)},'${c}')">${c}</button>`).join(''):'';
   const mv=document.getElementById('txmMove');
-  mv.textContent=r.isTransfer?'지출로 표시':'내 계좌 이동으로';
-  mv.onclick=()=>{document.getElementById('txModal').classList.add('hidden');toggleTxTransfer(id);};
+  mv.textContent=r.isTransfer?(r.type==='in'?'새로 받은 돈으로':'지출로 표시'):'내 계좌 이동으로';
+  const wantTransfer=!r.isTransfer;
+  mv.onclick=()=>{document.getElementById('txModal').classList.add('hidden');if(pending)resolveOwnIncome(id,true);else toggleTxTransfer(id,wantTransfer);};
   // 월급 아닌 입금: 쓸 수 있는 돈에 더할지(기본 더함)
-  const inc=document.getElementById('txmIncome'),canInc=incomeEligible(r,salaryAllIds())&&r.date>=S.budgetStart&&r.date>=(S.txSince||'');
+  const pending=pendingOwnIncomeRows().some(x=>x.id===id);
+  const inc=document.getElementById('txmIncome'),canInc=pending||incomeEligible(r,salaryAllIds())&&r.date>=S.budgetStart&&r.date>=(S.txSince||'');
   inc.classList.toggle('hidden',!canInc);
-  inc.textContent=(S.txIncomeOff||{})[id]?'예산에 더하기':'예산에서 빼기';
-  inc.onclick=()=>{document.getElementById('txModal').classList.add('hidden');toggleTxIncome(id);};
+  inc.textContent=pending?'새로 받은 돈':(S.txIncomeOff||{})[id]?'예산에 더하기':'예산에서 빼기';
+  inc.onclick=()=>{document.getElementById('txModal').classList.add('hidden');if(pending)resolveOwnIncome(id,false);else toggleTxIncome(id);};
   document.getElementById('txModal').classList.remove('hidden');
 }
 function setTxCat(id,cat){
@@ -1768,7 +1796,9 @@ function renderHeroSeg(){
   }else setGauge('ggWeek','<div class="gg-top"><span>이번 주</span></div>',false);
   // 이번 달(예산 주기)
   const spent=totSpent();
-  setGauge('ggMonth',gaugeHtml('이번 달',spent,eff,elapsed/total*100,`${S.budgetStart.slice(5).replace('-','/')}~${S.budgetEnd.slice(5).replace('-','/')} · ${elapsed}/${total}일`),spent>eff);
+  const pendingIncome=pendingOwnIncomeRows().reduce((a,r)=>a+r.amount,0);
+  const pendingHtml=pendingIncome?`<button class="nt-go" style="color:inherit" onclick="openNotices()">확인할 입금 ${won(pendingIncome)} · 본인 이름 입금 제외</button>`:'';
+  setGauge('ggMonth',gaugeHtml('이번 달',spent,eff,elapsed/total*100,`${S.budgetStart.slice(5).replace('-','/')}~${S.budgetEnd.slice(5).replace('-','/')} · ${elapsed}/${total}일`)+pendingHtml,spent>eff);
 }
 
 // ═══ 주간 소진 추이 막대 (이번 주 월~일, 잔액 캡처 기반 일별 지출 — getDailySpent와 동일한 소스) ═══

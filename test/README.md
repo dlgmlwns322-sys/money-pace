@@ -1,5 +1,9 @@
 # 머니페이스 테스트
 
+마지막 수정일: 2026-10-04 12:40 (KST)
+
+- 본인 이름 입금 확인: `node test/income-confirm.test.js`, `python test/browser/income_confirm_scenarios.py` (`SHOTS` 폴더 지정). 브라우저 테스트는 가짜 데이터·로컬 파일로 실행하며 클라우드에 연결하지 않는다.
+
 | 종류 | 실행 |
 |---|---|
 | 단위 | `node test/<이름>.test.js` (auto, payday, budget, daystart, audit-cases, txparse, ingest, sync-payload) — 앱 코드는 `test/app.js`가 index.html을 통째로 불러 쓴다(함수 조각 추출 없음). 옛 서버 계산 자리는 `test/calc-shim.js` |
