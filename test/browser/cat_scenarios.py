@@ -40,7 +40,7 @@ try:
         p.evaluate("showTab('capture')"); p.wait_for_timeout(200)
         p.click("#txList .tx-row:has-text('이니시스')"); p.wait_for_timeout(150)
         chips = p.evaluate("[...document.querySelectorAll('#txmChips button')].map(b=>b.textContent+(b.classList.contains('on')?'*':''))")
-        check('카테고리 버튼 8개, 지금 값(기타) 표시', len(chips) == 8 and '기타*' in chips, str(chips))
+        check('카테고리 버튼 12개(옷·교통·약속·직접 입력 포함), 지금 값(기타) 표시', len(chips) == 12 and '기타*' in chips and '직접 입력' in chips, str(chips))
         p.click("#txmChips button:has-text('쇼핑')"); p.wait_for_timeout(200)
         r = p.evaluate("({map:S.catMap,cats:cycleCategoryTotals().out})")
         check('쇼핑으로 바뀌고 가게 기억(카드도 반영)', r['map'].get('이니시스(') == '쇼핑' and r['cats']['쇼핑'] == 30000 and r['cats']['기타'] == 0, json.dumps(r, ensure_ascii=False))

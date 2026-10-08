@@ -10,7 +10,7 @@ const main = scripts.sort((a, b) => b.length - a.length)[0]; // 가장 긴 인�
 
 const EXPORTS = ['gaugeHtml', 'sumSpentInRange', 'getDailySpent', 'txGaps', 'txWithFlags', 'applyTxToState', 'getTodayBudget', 'getBD', 'effectiveBudget',
   'totSpent', 'getWeeklySpent', 'cycleSavings', 'syncSalaryCycle', 'salaryCandidates', 'undoSalary', 'pickSalary', 'linkFixedTx', 'fixedCandidates',
-  'confirmFixed', 'toggleFixed', 'computeNotices', 'toStr', 'txDate', 'capMs', 'timeToMinutes', 'weeklyShare', 'recomputeClosedCycles', 'balanceBefore', 'cycleCategoryTotals', 'txCategory', 'cycleIncome', 'cycleIncomeRows', 'startSalaryCycle', 'pendingOwnIncomeRows', 'resolveOwnIncome'];
+  'confirmFixed', 'toggleFixed', 'computeNotices', 'toStr', 'txDate', 'capMs', 'timeToMinutes', 'weeklyShare', 'recomputeClosedCycles', 'balanceBefore', 'cycleCategoryTotals', 'txCategory', 'cycleIncome', 'cycleIncomeRows', 'startSalaryCycle', 'pendingOwnIncomeRows', 'resolveOwnIncome', 'setTxCat', 'catName'];
 
 module.exports = function makeApp(opt = {}) {
   let nowMs = Date.parse(opt.now || '2026-09-26T12:00:00+09:00');
@@ -26,7 +26,7 @@ module.exports = function makeApp(opt = {}) {
   const window = { TxParse: require(path.join(root, 'txparse.js')), Payday: require(path.join(root, 'payday.js')), Category: require(path.join(root, 'category.js')), addEventListener() {}, confirm: (m) => (opt.confirm ? opt.confirm(m) : true), location: { href: '' } };
   const ctx = { Date: FakeDate, document, localStorage, window, Payday: window.Payday, TxParse: window.TxParse, Category: window.Category, navigator: {}, Notification: undefined, setInterval: () => 0, setTimeout: () => 0, clearTimeout() {},
     location: { hash: '', pathname: '/', search: '' }, history: { replaceState() {} },
-    fetch: async () => ({ ok: false, status: 599, json: async () => ({}), text: async () => '', headers: { get: () => null } }), alert() {}, confirm: (m) => (opt.confirm ? opt.confirm(m) : true), console, Object };
+    fetch: async () => ({ ok: false, status: 599, json: async () => ({}), text: async () => '', headers: { get: () => null } }), alert() {}, confirm: (m) => (opt.confirm ? opt.confirm(m) : true), prompt: (m) => (opt.prompt ? opt.prompt(m) : null), console, Object };
   const body = `with(ctx){${main}\n;return{get S(){return S},set S(v){S=v},get TX(){return TX},set TX(v){TX=v},fn:{${EXPORTS.map((n) => `${n}:typeof ${n}==='function'?${n}:undefined`).join(',')}}};}`;
   const api = new Function('ctx', body)(ctx);
   return {

@@ -453,6 +453,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
   <div class="sg" style="margin-top:14px">
     <div class="sr"><div class="slbl">회사명</div><input type="text" class="sinp" id="sPayer" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="오피엠에스"/></div>
     <div class="sr"><div class="slbl">월급날</div><input type="text" class="sinp" id="sPayDay" inputmode="numeric" autocomplete="off" placeholder="25" style="max-width:70px"/></div>
+    <div class="sr"><div class="slbl">내 카테고리</div><input type="text" class="sinp" id="sCatName" maxlength="10" autocomplete="off" spellcheck="false" placeholder="직접 입력"/></div>
   </div>
   <div style="padding:6px 0 0;"><button class="btn btn-primary" onclick="saveSets()">저장하기</button></div>
 </div>
@@ -1440,7 +1441,10 @@ function toggleTxTransfer(id,want){
   render();
 }
 // ═══ 카테고리(2026-09-26): 가맹점 이름 규칙(category.js) → 사용자가 정한 가게(S.catMap) → 이 거래만(S.txCat) 순으로 우선 ═══
-const CAT_COLORS={식비:'#4F46E5',카페:'#8B6CF6',편의점:'#14B8A6',쇼핑:'#F59E0B',병원:'#EF6A7B',배달:'#38BDF8',피시방:'#64748B',기타:'#CBD5E1'};
+const CAT_COLORS={식비:'#4F46E5',카페:'#8B6CF6',편의점:'#14B8A6',쇼핑:'#F59E0B',옷:'#D946EF',교통:'#22C55E',약속:'#FB923C',병원:'#EF6A7B',배달:'#38BDF8',피시방:'#64748B',직접:'#84CC16',기타:'#CBD5E1'};
+// '직접' 칸은 사용자가 정한 이름으로 보인다(저장 키는 '직접' 그대로라 이름을 바꿔도 지정한 거래가 유지됨, 2026-10-07)
+const catName=c=>c==='직접'?(S.customCat||'직접 입력'):c;
+const catLabel=v=>Array.from(String(v||'').trim()).slice(0,10).join(''); // 이모지를 반으로 자르지 않게 글자 단위 10자
 const ownCat=(o,k)=>o&&Object.prototype.hasOwnProperty.call(o,k)&&Category.CATS.includes(o[k])?o[k]:null; // 상속 속성·엉뚱한 값 무시
 function txCategory(r){
   const t=ownCat(S.txCat,r.id);if(t)return t;
@@ -1483,8 +1487,8 @@ function renderCatCard(){
   el.innerHTML=`<div class="cat-hd"><span class="t">${m}월 지출</span><span class="v num">${won(total)}</span></div>
     <div class="cat-body">
       <div class="cat-pie"><svg width="132" height="132" viewBox="0 0 132 132"><circle cx="66" cy="66" r="${R}" fill="none" stroke="var(--bar-l)" stroke-width="18"></circle>${arcs}</svg>
-        <div class="cat-mid">${sel?`<div class="n">${sel.c}</div><div class="a num">${won(sel.v)}</div><div class="p num">${pct(sel.v)}%</div>`:`<div class="n">${list[0].c}</div><div class="p num">${pct(list[0].v)}%</div>`}</div></div>
-      <div class="cat-list">${list.map(x=>`<div class="cat-row${catSel===x.c?' on':''}" onclick="selCat('${x.c}')"><i style="background:${CAT_COLORS[x.c]}"></i><span class="nm">${x.c}</span><span class="pc num">${pct(x.v)}%</span><span class="am num">${won(x.v)}</span></div>`).join('')}</div>
+        <div class="cat-mid">${sel?`<div class="n">${escapeHtml(catName(sel.c))}</div><div class="a num">${won(sel.v)}</div><div class="p num">${pct(sel.v)}%</div>`:`<div class="n">${escapeHtml(catName(list[0].c))}</div><div class="p num">${pct(list[0].v)}%</div>`}</div></div>
+      <div class="cat-list">${list.map(x=>`<div class="cat-row${catSel===x.c?' on':''}" onclick="selCat('${x.c}')"><i style="background:${CAT_COLORS[x.c]}"></i><span class="nm">${escapeHtml(catName(x.c))}</span><span class="pc num">${pct(x.v)}%</span><span class="am num">${won(x.v)}</span></div>`).join('')}</div>
     </div>${sel?catTxHtml(sel.c,sel.v):''}`;
 }
 // 고른 카테고리의 이번 주기 거래(최근 순). 누르면 카테고리 바꾸기. 알림 누락 추정분은 기타에만 한 줄.
@@ -1504,7 +1508,7 @@ function openTxSheet(id){
   const r=txWithFlags().find(x=>x.id===id);if(!r)return;
   const cur=txCategory(r);
   document.getElementById('txmTitle').textContent=`${r.merchant||r.counterparty||r.method||''} ${r.type==='in'?'+':'−'}${won(r.amount)}`;
-  document.getElementById('txmChips').innerHTML=(r.type==='out'&&!r.isTransfer&&!r.savings||r.type==='in'&&isRefund(r))?Category.CATS.map(c=>`<button type="button" class="${c===cur?'on':''}" onclick="setTxCat(${Number(id)},'${c}')">${c}</button>`).join(''):'';
+  document.getElementById('txmChips').innerHTML=(r.type==='out'&&!r.isTransfer&&!r.savings||r.type==='in'&&isRefund(r))?Category.CATS.map(c=>`<button type="button" class="${c===cur?'on':''}" onclick="setTxCat(${Number(id)},'${c}')">${escapeHtml(catName(c))}</button>`).join(''):'';
   const mv=document.getElementById('txmMove');
   mv.textContent=r.isTransfer?(r.type==='in'?'새로 받은 돈으로':'지출로 표시'):'내 계좌 이동으로';
   const wantTransfer=!r.isTransfer;
@@ -1519,6 +1523,7 @@ function openTxSheet(id){
 }
 function setTxCat(id,cat){
   const r=txWithFlags().find(x=>x.id===id);if(!r)return;
+  if(cat==='직접'&&!S.customCat){const n=catLabel(prompt('이 카테고리 이름을 정해 주세요\n(설정에서 바꿀 수 있어요)'));if(!n)return;S.customCat=n;}
   const all=document.getElementById('txmAll').checked,key=Category.key(r.merchant||r.counterparty);
   if(all&&key){S.catMap={...(S.catMap||{}),[key]:cat};const t={...(S.txCat||{})};delete t[id];S.txCat=t;}
   else S.txCat={...(S.txCat||{}),[id]:cat};
@@ -1702,7 +1707,7 @@ function render(){
   renderBalTile();
   renderTodayTile();
   const setv=(id,v)=>{const e=document.getElementById(id);if(e&&document.activeElement!==e)e.value=v;};
-  setv('sPayer',S.payer??'오피엠에스');setv('sPayDay',S.payDay||25);
+  setv('sPayer',S.payer??'오피엠에스');setv('sPayDay',S.payDay||25);setv('sCatName',S.customCat||'');
   renderAccBal();renderTx();renderFixed();renderHeroSeg();renderWeekBars();renderCatCard();
 }
 // 어제 대비 오늘 타일
@@ -2027,6 +2032,7 @@ function parseMoney(id){return parseInt((document.getElementById(id).value||'').
 function saveSets(){
   const pay=(document.getElementById('sPayer')||{}).value;if(pay!==undefined)S.payer=pay.trim();
   const pd=parseInt((document.getElementById('sPayDay')||{}).value,10);if(pd>=1&&pd<=31)S.payDay=pd;
+  const cn=(document.getElementById('sCatName')||{}).value;if(cn!==undefined)S.customCat=catLabel(cn);
   if(!save())return;
   applyTxToState(null);showToast('저장됐어요 ✓');
 }
