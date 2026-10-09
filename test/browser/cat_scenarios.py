@@ -1,4 +1,4 @@
-# 홈 '○월 지출' 원형 그래프 카드 + 거래 눌러 카테고리 바꾸기. 실행: python test/browser/cat_scenarios.py
+# 홈 '이번 달 지출' 원형 그래프 카드 + 거래 눌러 카테고리 바꾸기. 실행: python test/browser/cat_scenarios.py
 import subprocess, sys, time, os, json
 from datetime import datetime
 from playwright.sync_api import sync_playwright
@@ -28,7 +28,7 @@ try:
         p.goto(URL, wait_until='load'); p.wait_for_timeout(1200)
         card = p.evaluate("[...document.querySelectorAll('#catCard .cat-row')].map(r=>[r.querySelector('.nm').textContent,r.querySelector('.am').textContent])")
         head = p.evaluate("document.querySelector('#catCard .cat-hd').innerText.replace(/\\n/g,' ')")
-        check('카드 제목 "9월 지출"과 합계', head.startswith('9월 지출') and '73,600원' in head, head)
+        check('카드 제목 "이번 달 지출"과 합계', head.startswith('이번 달 지출') and '73,600원' in head, head)
         check('많이 쓴 순 정렬(기타 3만 → 배달 → 식비 → 피시방 → 카페 → 편의점)', [c[0] for c in card] == ['기타', '배달', '식비', '피시방', '카페', '편의점'], str(card))
         over = p.evaluate("(()=>{const W=document.documentElement.clientWidth;return [...document.querySelectorAll('#catCard *')].filter(e=>e.getBoundingClientRect().right>W+1).length})()")
         check('360px에서 넘침 없음', over == 0, str(over))

@@ -1476,15 +1476,15 @@ let catSel=null;
 function renderCatCard(){
   const el=document.getElementById('catCard');if(!el)return;
   const{out,total}=cycleCategoryTotals();
-  const m=S.budgetStart?Number(S.budgetStart.slice(5,7)):Number(toStr().slice(5,7));
+  // 제목은 위 '이번 달' 막대와 같은 월급 주기라 '이번 달 지출'(2026-10-09 사용자 A안 — 시작 달 '9월'이 달력과 어긋나 보여서)
   const list=Category.CATS.map(c=>({c,v:out[c]})).filter(x=>x.v>0).sort((a,b)=>b.v-a.v);
-  if(!list.length){el.innerHTML=`<div class="cat-hd"><span class="t">${m}월 지출</span><span class="v num">0원</span></div><div class="cat-empty">아직 지출이 없어요</div>`;return;}
+  if(!list.length){el.innerHTML=`<div class="cat-hd"><span class="t">이번 달 지출</span><span class="v num">0원</span></div><div class="cat-empty">아직 지출이 없어요</div>`;return;}
   if(catSel&&!list.some(x=>x.c===catSel))catSel=null;
   const R=52,C=2*Math.PI*R;let acc=0;const pos=list.reduce((a,x)=>a+x.v,0)||1;
   const arcs=list.map(x=>{const len=C*x.v/pos;const a=`<circle cx="66" cy="66" r="${R}" fill="none" stroke="${CAT_COLORS[x.c]}" stroke-width="${catSel===x.c?22:18}" stroke-dasharray="${Math.max(0,len-1.5)} ${C}" stroke-dashoffset="${-acc}" style="opacity:${catSel&&catSel!==x.c?.35:1}" onclick="selCat('${x.c}')"></circle>`;acc+=len;return a;}).join('');
   const sel=catSel?list.find(x=>x.c===catSel):null;
   const pct=v=>Math.round(v/pos*100);
-  el.innerHTML=`<div class="cat-hd"><span class="t">${m}월 지출</span><span class="v num">${won(total)}</span></div>
+  el.innerHTML=`<div class="cat-hd"><span class="t">이번 달 지출</span><span class="v num">${won(total)}</span></div>
     <div class="cat-body">
       <div class="cat-pie"><svg width="132" height="132" viewBox="0 0 132 132"><circle cx="66" cy="66" r="${R}" fill="none" stroke="var(--bar-l)" stroke-width="18"></circle>${arcs}</svg>
         <div class="cat-mid">${sel?`<div class="n">${escapeHtml(catName(sel.c))}</div><div class="a num">${won(sel.v)}</div><div class="p num">${pct(sel.v)}%</div>`:`<div class="n">${escapeHtml(catName(list[0].c))}</div><div class="p num">${pct(list[0].v)}%</div>`}</div></div>
