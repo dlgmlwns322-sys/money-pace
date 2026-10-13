@@ -453,7 +453,6 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
   <div class="sg" style="margin-top:14px">
     <div class="sr"><div class="slbl">회사명</div><input type="text" class="sinp" id="sPayer" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="오피엠에스"/></div>
     <div class="sr"><div class="slbl">월급날</div><input type="text" class="sinp" id="sPayDay" inputmode="numeric" autocomplete="off" placeholder="25" style="max-width:70px"/></div>
-    <div class="sr"><div class="slbl">내 카테고리</div><input type="text" class="sinp" id="sCatName" maxlength="10" autocomplete="off" spellcheck="false" placeholder="직접 입력"/></div>
   </div>
   <div style="padding:6px 0 0;"><button class="btn btn-primary" onclick="saveSets()">저장하기</button></div>
 </div>
@@ -1050,7 +1049,16 @@ function txDerived(){
     });
   });
   const missingByDate=new Map();gaps.forEach(g=>{if(g.amount>0)missingByDate.set(g.date,(missingByDate.get(g.date)||0)+g.amount);});
-  txMemo={rows:TX.rows,hints:TX.hints,ov,own,flags,byDate,perBank,gaps,missingByDate};
+  // 환불 ↔ 원래 결제 짝(1:1): 같은 은행·같은 금액·환불 전 7일 안의 출금. 가게 이름이 같으면 그걸, 아니면 가장 최근 것.
+  // 국민은행 취소 알림은 가게 이름 대신 '출금취소'로 와서 이름만으로는 못 짝짓는다(2026-10-13 배달 환불이 '기타'에서 빠지던 문제)
+  const refundOf=new Map(),usedOut=new Set();
+  flags.filter(r=>r.type==='in'&&isRefund(r)).sort((a,b)=>Date.parse(a.at)-Date.parse(b.at)||a.id-b.id).forEach(r=>{
+    const t=Date.parse(r.at);
+    const c=flags.filter(x=>x.type==='out'&&!usedOut.has(x.id)&&x.bank===r.bank&&x.amount===r.amount&&Date.parse(x.at)<=t&&Date.parse(x.at)>=t-7*86400e3&&x.id<r.id);
+    const o=c.filter(x=>x.counterparty===r.counterparty||x.merchant===r.counterparty).pop()||c.pop();
+    if(o){refundOf.set(r.id,o.id);usedOut.add(o.id);}
+  });
+  txMemo={rows:TX.rows,hints:TX.hints,ov,own,flags,byDate,perBank,gaps,missingByDate,refundOf};
   return txMemo;
 }
 const txMode=d=>!!S.txSince&&d>=S.txSince;
@@ -1444,12 +1452,27 @@ function toggleTxTransfer(id,want){
 const CAT_COLORS={식비:'#4F46E5',카페:'#8B6CF6',편의점:'#14B8A6',쇼핑:'#F59E0B',옷:'#D946EF',교통:'#22C55E',약속:'#FB923C',병원:'#EF6A7B',배달:'#38BDF8',피시방:'#64748B',직접:'#84CC16',기타:'#CBD5E1'};
 // '직접' 칸은 사용자가 정한 이름으로 보인다(저장 키는 '직접' 그대로라 이름을 바꿔도 지정한 거래가 유지됨, 2026-10-07)
 const catName=c=>c==='직접'?(S.customCat||'직접 입력'):c;
+// 내가 만든 카테고리(S.customCats): 거래마다 '＋ 직접 입력'으로 이름을 정하면 하나씩 늘어난다(버스·키보드…, 2026-10-13 사용자). 예전 '직접' 한 칸은 migrateCustomCat이 이름 카테고리로 옮긴다.
+const allCats=()=>[...Category.CATS.filter(c=>c!=='직접'&&c!=='기타'),...(S.customCats||[]).filter(c=>!Category.CATS.includes(c)),'기타'];
+const CUSTOM_COLORS=['#84CC16','#06B6D4','#A855F7','#F43F5E','#EAB308','#0EA5E9','#10B981','#F97316'];
+const catColor=c=>CAT_COLORS[c]||CUSTOM_COLORS[Math.max(0,(S.customCats||[]).indexOf(c))%CUSTOM_COLORS.length];
+const cleanCatName=v=>catLabel(String(v||'').replace(/["'`<>\\]/g,'')); // 버튼 onclick에 들어가므로 따옴표 등은 뺀다
+function migrateCustomCat(){
+  const n=cleanCatName(S.customCat);let changed=false;
+  if(n){
+    const fix=o=>{if(!o)return o;const r={...o};Object.keys(r).forEach(k=>{if(r[k]==='직접'){r[k]=n;changed=true;}});return r;};
+    S.txCat=fix(S.txCat);S.catMap=fix(S.catMap);
+    if(!(S.customCats||[]).includes(n)&&!Category.CATS.includes(n)){S.customCats=[...(S.customCats||[]),n];changed=true;}
+  }
+  if(S.customCat!=null){delete S.customCat;changed=true;}
+  return changed;
+}
 const catLabel=v=>Array.from(String(v||'').trim()).slice(0,10).join(''); // 이모지를 반으로 자르지 않게 글자 단위 10자
-const ownCat=(o,k)=>o&&Object.prototype.hasOwnProperty.call(o,k)&&Category.CATS.includes(o[k])?o[k]:null; // 상속 속성·엉뚱한 값 무시
+const ownCat=(o,k)=>o&&Object.prototype.hasOwnProperty.call(o,k)&&(Category.CATS.includes(o[k])||(S.customCats||[]).includes(o[k]))?o[k]:null; // 상속 속성·엉뚱한 값 무시
 function txCategory(r){
   const t=ownCat(S.txCat,r.id);if(t)return t;
   // 환불은 원래 구매(같은 가게·같은 금액, 먼저 나간 출금)와 같은 카테고리
-  if(r.type==='in'&&isRefund(r)){const o=txWithFlags().filter(x=>x.type==='out'&&(x.counterparty===r.counterparty||x.merchant===r.counterparty)&&x.amount===r.amount&&x.id<r.id).pop();if(o)return txCategory(o);}
+  if(r.type==='in'&&isRefund(r)){const oid=txDerived().refundOf.get(r.id);const o=oid!=null&&txWithFlags().find(x=>x.id===oid);if(o)return txCategory(o);}
   const name=r.merchant||r.counterparty;
   const key=Category.key(name);const m=key&&ownCat(S.catMap,key);if(m)return m;
   return Category.categorize(name);
@@ -1457,19 +1480,20 @@ function txCategory(r){
 // 이번 월급 주기 카테고리별 지출. 저축·내 계좌 이동·고정지출 연결 출금은 빼고, 환불은 그 가게 카테고리에서 뺀다.
 // 합계가 이번 달 막대(totSpent: 누락 의심·고정비 차이 포함)와 같도록 차이는 '기타'에 둔다.
 function cycleCategoryTotals(){
-  const out=Object.fromEntries(Category.CATS.map(c=>[c,0]));
+  const out=Object.fromEntries([...allCats(),'직접'].map(c=>[c,0]));
   if(!S.budgetStart||!S.txSince)return{out,total:0};
   const today=toStr(),linked=fixedLinks();
   txWithFlags().forEach(r=>{
     if(r.date<S.budgetStart||r.date>today||r.date<S.txSince||r.isTransfer||r.savings||linked.has(r.id))return;
-    if(r.type==='out')out[txCategory(r)]+=r.amount;
-    else if(isRefund(r))out[txCategory(r)]-=r.amount;
+    const c=out[txCategory(r)]!=null?txCategory(r):'기타';
+    if(r.type==='out')out[c]+=r.amount;
+    else if(isRefund(r))out[c]-=r.amount;
   });
   // 합계는 항상 이번 달 막대(totSpent)와 같다. 환불이 더 커서 음수인 카테고리는 0으로 보이고, 나머지 차이는 기타.
   const total=Math.max(0,totSpent());
-  const named=Category.CATS.filter(c=>c!=='기타').reduce((a,c)=>a+out[c],0);
+  const named=Object.keys(out).filter(c=>c!=='기타').reduce((a,c)=>a+out[c],0);
   out['기타']+=total-named-out['기타'];
-  Category.CATS.forEach(c=>{if(out[c]<0)out[c]=0;});
+  Object.keys(out).forEach(c=>{if(out[c]<0)out[c]=0;});
   return{out,total};
 }
 let catSel=null;
@@ -1477,18 +1501,18 @@ function renderCatCard(){
   const el=document.getElementById('catCard');if(!el)return;
   const{out,total}=cycleCategoryTotals();
   // 제목은 위 '이번 달' 막대와 같은 월급 주기라 '이번 달 지출'(2026-10-09 사용자 A안 — 시작 달 '9월'이 달력과 어긋나 보여서)
-  const list=Category.CATS.map(c=>({c,v:out[c]})).filter(x=>x.v>0).sort((a,b)=>b.v-a.v);
+  const list=Object.keys(out).map(c=>({c,v:out[c]})).filter(x=>x.v>0).sort((a,b)=>b.v-a.v);
   if(!list.length){el.innerHTML=`<div class="cat-hd"><span class="t">이번 달 지출</span><span class="v num">0원</span></div><div class="cat-empty">아직 지출이 없어요</div>`;return;}
   if(catSel&&!list.some(x=>x.c===catSel))catSel=null;
   const R=52,C=2*Math.PI*R;let acc=0;const pos=list.reduce((a,x)=>a+x.v,0)||1;
-  const arcs=list.map(x=>{const len=C*x.v/pos;const a=`<circle cx="66" cy="66" r="${R}" fill="none" stroke="${CAT_COLORS[x.c]}" stroke-width="${catSel===x.c?22:18}" stroke-dasharray="${Math.max(0,len-1.5)} ${C}" stroke-dashoffset="${-acc}" style="opacity:${catSel&&catSel!==x.c?.35:1}" onclick="selCat('${x.c}')"></circle>`;acc+=len;return a;}).join('');
+  const arcs=list.map(x=>{const len=C*x.v/pos;const a=`<circle cx="66" cy="66" r="${R}" fill="none" stroke="${catColor(x.c)}" stroke-width="${catSel===x.c?22:18}" stroke-dasharray="${Math.max(0,len-1.5)} ${C}" stroke-dashoffset="${-acc}" style="opacity:${catSel&&catSel!==x.c?.35:1}" onclick="selCat('${x.c}')"></circle>`;acc+=len;return a;}).join('');
   const sel=catSel?list.find(x=>x.c===catSel):null;
   const pct=v=>Math.round(v/pos*100);
   el.innerHTML=`<div class="cat-hd"><span class="t">이번 달 지출</span><span class="v num">${won(total)}</span></div>
     <div class="cat-body">
       <div class="cat-pie"><svg width="132" height="132" viewBox="0 0 132 132"><circle cx="66" cy="66" r="${R}" fill="none" stroke="var(--bar-l)" stroke-width="18"></circle>${arcs}</svg>
         <div class="cat-mid">${sel?`<div class="n">${escapeHtml(catName(sel.c))}</div><div class="a num">${won(sel.v)}</div><div class="p num">${pct(sel.v)}%</div>`:`<div class="n">${escapeHtml(catName(list[0].c))}</div><div class="p num">${pct(list[0].v)}%</div>`}</div></div>
-      <div class="cat-list">${list.map(x=>`<div class="cat-row${catSel===x.c?' on':''}" onclick="selCat('${x.c}')"><i style="background:${CAT_COLORS[x.c]}"></i><span class="nm">${escapeHtml(catName(x.c))}</span><span class="pc num">${pct(x.v)}%</span><span class="am num">${won(x.v)}</span></div>`).join('')}</div>
+      <div class="cat-list">${list.map(x=>`<div class="cat-row${catSel===x.c?' on':''}" onclick="selCat('${x.c}')"><i style="background:${catColor(x.c)}"></i><span class="nm">${escapeHtml(catName(x.c))}</span><span class="pc num">${pct(x.v)}%</span><span class="am num">${won(x.v)}</span></div>`).join('')}</div>
     </div>${sel?catTxHtml(sel.c,sel.v):''}`;
 }
 // 고른 카테고리의 이번 주기 거래(최근 순). 누르면 카테고리 바꾸기. 알림 누락 추정분은 기타에만 한 줄.
@@ -1508,7 +1532,7 @@ function openTxSheet(id){
   const r=txWithFlags().find(x=>x.id===id);if(!r)return;
   const cur=txCategory(r);
   document.getElementById('txmTitle').textContent=`${r.merchant||r.counterparty||r.method||''} ${r.type==='in'?'+':'−'}${won(r.amount)}`;
-  document.getElementById('txmChips').innerHTML=(r.type==='out'&&!r.isTransfer&&!r.savings||r.type==='in'&&isRefund(r))?Category.CATS.map(c=>`<button type="button" class="${c===cur?'on':''}" onclick="setTxCat(${Number(id)},'${c}')">${escapeHtml(catName(c))}</button>`).join(''):'';
+  document.getElementById('txmChips').innerHTML=(r.type==='out'&&!r.isTransfer&&!r.savings||r.type==='in'&&isRefund(r))?allCats().map(c=>`<button type="button" class="${c===cur?'on':''}" onclick="setTxCat(${Number(id)},'${c}')">${escapeHtml(catName(c))}</button>`).join('')+`<button type="button" onclick="setTxCatNew(${Number(id)})">＋ 직접 입력</button>`:'';
   const mv=document.getElementById('txmMove');
   mv.textContent=r.isTransfer?(r.type==='in'?'새로 받은 돈으로':'지출로 표시'):'내 계좌 이동으로';
   const wantTransfer=!r.isTransfer;
@@ -1521,9 +1545,14 @@ function openTxSheet(id){
   inc.onclick=()=>{document.getElementById('txModal').classList.add('hidden');if(pending)resolveOwnIncome(id,false);else toggleTxIncome(id);};
   document.getElementById('txModal').classList.remove('hidden');
 }
+// 새 이름으로 카테고리 만들기: 칠 때마다 정한다. 같은 이름이 있으면 그걸 쓴다.
+function setTxCatNew(id){
+  const n=cleanCatName(prompt('카테고리 이름을 입력해 주세요 (예: 버스, 키보드)'));if(!n)return;
+  if(!Category.CATS.includes(n)&&!(S.customCats||[]).includes(n))S.customCats=[...(S.customCats||[]),n];
+  setTxCat(id,n);
+}
 function setTxCat(id,cat){
   const r=txWithFlags().find(x=>x.id===id);if(!r)return;
-  if(cat==='직접'&&!S.customCat){const n=catLabel(prompt('이 카테고리 이름을 정해 주세요\n(설정에서 바꿀 수 있어요)'));if(!n)return;S.customCat=n;}
   const all=document.getElementById('txmAll').checked,key=Category.key(r.merchant||r.counterparty);
   if(all&&key){S.catMap={...(S.catMap||{}),[key]:cat};const t={...(S.txCat||{})};delete t[id];S.txCat=t;}
   else S.txCat={...(S.txCat||{}),[id]:cat};
@@ -1707,7 +1736,7 @@ function render(){
   renderBalTile();
   renderTodayTile();
   const setv=(id,v)=>{const e=document.getElementById(id);if(e&&document.activeElement!==e)e.value=v;};
-  setv('sPayer',S.payer??'오피엠에스');setv('sPayDay',S.payDay||25);setv('sCatName',S.customCat||'');
+  setv('sPayer',S.payer??'오피엠에스');setv('sPayDay',S.payDay||25);
   renderAccBal();renderTx();renderFixed();renderHeroSeg();renderWeekBars();renderCatCard();
 }
 // 어제 대비 오늘 타일
@@ -2032,7 +2061,6 @@ function parseMoney(id){return parseInt((document.getElementById(id).value||'').
 function saveSets(){
   const pay=(document.getElementById('sPayer')||{}).value;if(pay!==undefined)S.payer=pay.trim();
   const pd=parseInt((document.getElementById('sPayDay')||{}).value,10);if(pd>=1&&pd<=31)S.payDay=pd;
-  const cn=(document.getElementById('sCatName')||{}).value;if(cn!==undefined)S.customCat=catLabel(cn);
   if(!save())return;
   applyTxToState(null);showToast('저장됐어요 ✓');
 }
@@ -2090,6 +2118,7 @@ render();
 
 // 앱 시작 시: 클라우드 동기화 → 공유 이미지 체크 (AI 코멘트는 자동 생성 안 함)
 slimOldBackups();
+if(migrateCustomCat())save(); // 예전 '직접' 한 칸 → 이름 카테고리
 try{if(sessionStorage.getItem('mp_stale_reload')){sessionStorage.removeItem('mp_stale_reload');setTimeout(()=>showToast('다른 창에서 바뀐 내용을 불러왔어요. 방금 바꾼 게 있으면 다시 해 주세요'),300);}}catch(e){}
 // 이미 열린 앱 창에서 설정 링크를 열면 주소의 # 뒤만 바뀌어 새로 읽지 않는다 → 그때도 적용(검토 반영)
 window.addEventListener('hashchange',()=>{if(/[#&]setup=/.test(location.hash)&&applySetupLink()){TX.lastFetch=0;refreshAndRoll();}});

@@ -29,21 +29,27 @@ t('KB Pay 가게 이름 짝짓기: 국민은행 카드 출금만, 3분 안, 시�
 t('카테고리 12개(약속·직접은 자동 분류 없이 직접 고름, 2026-10-07)', () => {
   assert.deepStrictEqual(CATS, ['식비', '카페', '편의점', '쇼핑', '옷', '교통', '약속', '병원', '배달', '피시방', '직접', '기타']);
 });
-t('직접 칸: 처음 고를 때 이름을 받고, 이름을 바꿔도 지정한 거래는 그대로', () => {
-  let answer = '  데이트비용이름이아주긴경우  ';
+t('내 카테고리: 거래마다 이름을 쳐서 여러 개 만들고, 예전 직접 한 칸은 이름 카테고리로 옮김(2026-10-13)', () => {
+  let answer = null;
   const app = require('./app.js')({ now: '2026-09-26T12:00:00+09:00', prompt: () => answer });
-  const rows = [{ id: 1, bank: 'kb', type: 'out', amount: 9000, balance: 1000, counterparty: '어딘가', at: '2026-09-25T12:00:00+09:00' }];
+  const rows = [{ id: 1, bank: 'kb', type: 'out', amount: 9000, balance: 1000, counterparty: '어딘가', at: '2026-09-25T12:00:00+09:00' },
+    { id: 2, bank: 'kb', type: 'out', amount: 1500, balance: 1000, counterparty: '저기', at: '2026-09-25T13:00:00+09:00' }];
   app.set({ S: { budget: 1, budgetStart: '2026-09-23', budgetEnd: '2026-10-22', txSince: '2026-09-21', ownerNames: '홍길동', fixed: [] }, TX: { rows } });
-  assert.strictEqual(app.fn.catName('직접'), '직접 입력');
-  answer = null; app.fn.setTxCat(1, '직접');
+  app.fn.setTxCatNew(1);
   assert.strictEqual(app.fn.txCategory(rows[0]), '기타', '이름을 안 정하면 바꾸지 않음');
-  answer = '  데이트비용이름이아주긴경우  '; app.fn.setTxCat(1, '직접');
-  assert.strictEqual(app.S.customCat, '데이트비용이름이아주', '앞뒤 공백 없이 10자까지');
-  assert.strictEqual(app.fn.txCategory(rows[0]), '직접');
-  app.S.customCat = '데이트';
-  assert.strictEqual(app.fn.catName('직접'), '데이트');
-  answer = '가나다라마바사아자😀🙂'; app.S.customCat = ''; app.fn.setTxCat(1, '직접');
-  assert.strictEqual(app.S.customCat, '가나다라마바사아자😀', '이모지를 반으로 자르지 않음');
-  assert.strictEqual(app.fn.txCategory(rows[0]), '직접', '이름을 바꿔도 지정 유지');
+  answer = '  키보드이름이아주아주긴경우  '; app.fn.setTxCatNew(1);
+  assert.strictEqual(app.fn.txCategory(rows[0]), '키보드이름이아주아주', '앞뒤 공백 없이 10자까지');
+  answer = "버'스"; app.fn.setTxCatNew(2);
+  assert.strictEqual(app.fn.txCategory(rows[1]), '버스', '따옴표는 뺌');
+  assert.deepStrictEqual(app.S.customCats, ['키보드이름이아주아주', '버스'], '여러 개가 쌓임');
+  answer = '버스'; app.fn.setTxCatNew(1);
+  assert.deepStrictEqual(app.S.customCats, ['키보드이름이아주아주', '버스'], '같은 이름은 다시 만들지 않음');
+  answer = '가나다라마바사아자😀🙂'; app.fn.setTxCatNew(2);
+  assert.strictEqual(app.fn.txCategory(rows[1]), '가나다라마바사아자😀', '이모지를 반으로 자르지 않음');
+  // 예전 데이터: 직접 칸(이름 '통신')으로 지정한 거래 → '통신' 카테고리
+  app.set({ S: { budget: 1, budgetStart: '2026-09-23', budgetEnd: '2026-10-22', txSince: '2026-09-21', fixed: [], customCat: '통신', txCat: { 1: '직접' }, catMap: { 저기: '직접' } }, TX: { rows } });
+  assert.strictEqual(app.fn.migrateCustomCat(), true);
+  assert.deepStrictEqual([app.fn.txCategory(rows[0]), app.S.catMap.저기, app.S.customCats, app.S.customCat], ['통신', '통신', ['통신'], undefined]);
+  assert.strictEqual(app.fn.migrateCustomCat(), false, '두 번째는 할 일 없음');
 });
 console.log(`\n통과 ${ok}개`);

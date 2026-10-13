@@ -301,6 +301,35 @@ t('입금: 같은 달 월급 후보가 둘(아직 안 고름)이면 둘 다 입�
   assert.strictEqual(app2.fn.cycleIncome(), 0);
 });
 
+t("국민은행 취소 알림('출금취소')도 원래 결제와 짝지어 그 카테고리(배달)에서 뺌, 우아한형제들=배달", () => {
+  const app = makeApp({ now: '2026-09-30T23:59:00+09:00' });
+  const rows = [...seedRows(),
+    tx('kb', 'out', 10000, 990000, '우아한형제들', '2026-09-29', '20:42', { method: '체크카드출금' }),
+    tx('kb', 'in', 10000, 1000000, '출금취소', '2026-09-29', '20:43'),
+    tx('kb', 'out', 12900, 987100, '우아한형제들', '2026-09-30', '15:41', { method: '체크카드출금' }),
+    tx('kb', 'out', 10000, 977100, '편의점', '2026-09-30', '16:00', { method: '체크카드출금' })];
+  app.set({ S: baseS({ txSince: '2026-09-21' }), TX: { rows } });
+  assert.strictEqual(app.fn.txCategory(rows[3]), '배달', '취소는 원래 결제의 카테고리');
+  const { out } = app.fn.cycleCategoryTotals();
+  assert.strictEqual(out.배달, 12900, '취소된 1만 원은 배달에서 빠짐');
+  assert.strictEqual(app.fn.sumSpentInRange('2026-09-29', '2026-09-29'), 0);
+});
+
+t('내 카테고리 여러 개: 거래마다 정한 이름(버스·키보드)이 각각 카테고리로 합산', () => {
+  const app = makeApp({ now: '2026-09-30T23:59:00+09:00' });
+  const rows = [...seedRows(),
+    tx('kb', 'out', 1500, 998500, '서울버스', '2026-09-29', '08:00', { method: '체크카드출금' }),
+    tx('kb', 'out', 89000, 909500, '쿠팡', '2026-09-30', '12:00', { method: '체크카드출금' }),
+    tx('kb', 'out', 55000, 854500, 'SKT', '2026-09-30', '13:00', { method: '체크카드출금' })];
+  app.set({ S: baseS({ txSince: '2026-09-21', customCats: ['통신', '버스', '키보드'], txCat: { [rows[2].id]: '버스', [rows[3].id]: '키보드', [rows[4].id]: '통신' } }), TX: { rows } });
+  assert.strictEqual(app.fn.txCategory(rows[3]), '키보드');
+  const { out } = app.fn.cycleCategoryTotals();
+  assert.deepStrictEqual([out.버스, out.키보드, out.통신], [1500, 89000, 55000]);
+  // 목록에 없는 이름이 남아 있으면 무시하고 자동 분류
+  app.S.txCat = { [rows[3].id]: '없는이름' };
+  assert.notStrictEqual(app.fn.txCategory(rows[3]), '없는이름');
+});
+
 t('주기 마감: 지난 주기 입금은 이월에 더하고 기록에 남긴다', () => {
   const app = makeApp({ now: '2026-10-24T12:00:00+09:00' });
   const rows = [...seedRows(),
