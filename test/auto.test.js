@@ -330,6 +330,21 @@ t('내 카테고리 여러 개: 거래마다 정한 이름(버스·키보드)이
   assert.notStrictEqual(app.fn.txCategory(rows[3]), '없는이름');
 });
 
+t('실제 잔액 기준(2026-10-14): 계좌 잔액을 알면 남은 돈 = 잔액 − 안 나간 고정지출, 장부가 틀려도 따라감', () => {
+  const app = makeApp({ now: '2026-10-14T20:00:00+09:00' }); // 수요일, 주 시작 10/12
+  const rows = [...seedRows(),
+    tx('kb', 'out', 70600, 929400, '가게', '2026-10-12', '12:00', { method: '체크카드출금' }),
+    tx('kb', 'out', 7000, 922400, '식당', '2026-10-13', '12:00', { method: '체크카드출금' }),
+    tx('kb', 'out', 10000, 912400, '식당', '2026-10-14', '12:00', { method: '체크카드출금' })];
+  // 장부상 예산 10만(틀린 값)인데 실제 잔액은 국민 912,400 + 카카오 500,000
+  app.set({ S: baseS({ budget: 100000, txSince: '2026-09-21', fixed: [{ id: 1, name: '테니스', amount: 180000, paid: false }] }), TX: { rows } });
+  app.fn.applyTxToState(null);
+  const real = 912400 + 500000 - 180000;
+  assert.strictEqual(app.fn.spendable() - app.fn.totSpent(), real, '이번 달 남은 돈 = 실제');
+  assert.strictEqual(app.fn.getTodayBudget(), Math.floor((real + 10000) / 9) - 10000, '오늘: (실제 남은 돈 + 오늘 쓴 돈) ÷ 남은 9일 − 오늘');
+  assert.strictEqual(app.fn.weeklyShare(), Math.round((real + 87600) * 7 / 11), '주간: 주 시작 때 실제 남은 돈 ÷ 11일 × 7');
+});
+
 t('주기 마감: 지난 주기 입금은 이월에 더하고 기록에 남긴다', () => {
   const app = makeApp({ now: '2026-10-24T12:00:00+09:00' });
   const rows = [...seedRows(),

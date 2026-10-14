@@ -802,6 +802,13 @@ const totFixedIncome=()=>(S.fixed||[]).filter(f=>f.type==='income').reduce((a,f)
 // 쓸 수 있는 돈 = (월급 + 지난 주기 이월) − 고정지출 − 이번 주기 저축
 // + 이번 주기 월급 아닌 입금(경비정산·더치페이 등, 2026-09-30)
 const effectiveBudget=()=>Math.max(0, S.budget - totFixed() - cycleSavings() + cycleIncome());
+// 화면·페이스·주간·오늘에 쓰는 '쓸 수 있는 돈'(2026-10-14 사용자: 실제 잔액 기준).
+// 모든 계좌 잔액을 알림으로 알면 = 이번 주기 쓴 돈 + 지금 실제로 남은 돈(잔액 − 아직 안 나간 고정지출) → 남은 돈이 늘 통장과 맞는다.
+// 손으로 넣은 예산·추정 지출이 틀려도 따라가지 않는다. 잔액을 모르면 예전처럼 장부(effectiveBudget).
+const balKnown=()=>!!S.txSince&&ACCOUNTS.every(a=>S.balanceTxId&&S.balanceTxId[a.id]!=null&&S.balanceAt&&S.balanceAt[a.id]);
+// 아직 안 나간 고정 "지출"만 뺀다(안 들어온 고정 입금은 실제 돈이 아니라 더하지 않음 — Codex 검토 반영)
+const realLeft=()=>totBal()-(S.fixed||[]).filter(f=>!f.paid&&f.type!=="income"&&f.affectsBalance!==false).reduce((a,f)=>a+(f.amount||0),0);
+const spendable=()=>balKnown()?Math.max(0,totSpent()+realLeft()):effectiveBudget();
 // 미납(아직 안 빠져나간 지출 / 아직 안 들어온 입금)의 순액 = 잔액엔 아직 미반영이지만 곧 반영될 돈.
 // 입금은 음수라 여기서 빼면(usableBal) 예정입금만큼 쓸 수 있는 돈이 늘어난다(A방식: 즉시 반영).
 const unpaidFixed=()=>(S.fixed||[]).filter(f=>!f.paid).reduce((a,f)=>a+fxSigned(f),0);
@@ -968,12 +975,13 @@ function confirmFixed(fid,txId,yes){
 // 지난주에 더 쓰거나 아낀 만큼 이번 주 몫이 바뀐다(2026-09-30 사용자 결정, 예전엔 주기 평균 ×7로 매주 같았음). 주 중간엔 입금·저축이 아니면 그대로.
 const kstDayDiff=(a,b)=>Math.round((Date.parse(b)-Date.parse(a))/864e5);
 const weeklyShare=()=>{
-  if(!S.budgetStart||!S.budgetEnd){const{total}=getBD();return total>0?Math.round(effectiveBudget()*7/total):0;}
+  if(!S.budgetStart||!S.budgetEnd){const{total}=getBD();return total>0?Math.round(spendable()*7/total):0;}
   const{weekStartStr}=getWeekInfo();
   const ws=weekStartStr<S.budgetStart?S.budgetStart:weekStartStr; // 주기 첫 주는 주기 시작일부터
   let we=weekStartStr;for(let i=0;i<6;i++)we=dayAfter(we);
   if(we>S.budgetEnd)we=S.budgetEnd; // 주기 마지막 주는 종료일까지
-  const left=effectiveBudget()-(ws>S.budgetStart?sumSpentInRange(S.budgetStart,dayBefore(ws)):0);
+  // 실제 잔액을 알면: 지금 남은 실제 돈 + 이번 주에 이미 쓴 돈 = 주 시작 때 남아 있던 돈
+  const left=balKnown()?realLeft()+sumSpentInRange(ws,toStr()):effectiveBudget()-(ws>S.budgetStart?sumSpentInRange(S.budgetStart,dayBefore(ws)):0);
   const daysLeft=kstDayDiff(ws,S.budgetEnd)+1,days=Math.max(0,kstDayDiff(ws,we)+1);
   if(daysLeft<=0||!days)return Math.max(0,left); // 종료일이 지나 월급을 기다리는 중: 남은 돈 전부
   return Math.max(0,Math.round(left*days/daysLeft));
@@ -1688,14 +1696,14 @@ function sumSpentInRange(fromStr, toStr){
 // 오늘 쓴 돈: 알림 기간이면 순지출(환불로 음수 가능), 캡처 기간이면 양수만
 const spentTodayOf=ds=>!ds?0:ds.source==='tx'?ds.spent:(!ds.noCaptureToday&&ds.spent>0?ds.spent:0);
 function getTodayBudget(){
-  const eff=effectiveBudget();
+  const eff=spendable();
   const{remaining:dl}=getBD();
   const ds=getDailySpent();
   // 오늘 시작 시점의 남은 예산 = 사용 예산 − 어제까지 쓴 돈. 통장 잔액(−미납 고정비)이 더 적으면 그만큼만.
   // (예전엔 예산 전체를 잔액으로만 눌러서, 잔액이 예산보다 많으면 이미 쓴 돈이 하루 몫에 반영되지 않았다)
   const today=toStr();
   const spentBefore=S.budgetStart&&today>S.budgetStart?sumSpentInRange(S.budgetStart,dayBefore(today)):0;
-  const budgetLeft=eff-spentBefore;
+  const budgetLeft=balKnown()?realLeft()+spentTodayOf(getDailySpent()):eff-spentBefore; // 실제 잔액을 알면 지금 남은 돈 + 오늘 쓴 돈
   // 이번 주기 시작 전의 옛 캡처 잔액은 기준으로 쓰지 않는다(캡처 폐지 뒤 남은 기록, 2026-09-29) → 지금 잔액(알림 기준)
   // 알림을 쓰기 시작한 뒤(txSince 있음)에만 해당. 캡처만 쓰는 경우는 예전 그대로(주기 첫날 전날 캡처도 정상 기준).
   const staleCap=!!(S.txSince&&ds&&ds.source!=='tx'&&S.budgetStart&&ds.prevDate&&ds.prevDate<S.budgetStart);
@@ -1728,7 +1736,7 @@ function calcPace(budget, spent, elapsed, total){
 
 function getPace(){
   const{total,elapsed}=getBD();
-  return calcPace(effectiveBudget(), totSpent(), elapsed, total);
+  return calcPace(spendable(), totSpent(), elapsed, total);
 }
 
 function render(){
@@ -1801,7 +1809,7 @@ function setGauge(id,html,over){const el=document.getElementById(id);if(!el)retu
 function renderHeroSeg(){
   const amtEl=document.getElementById('hero2Amt'),sub=document.getElementById('hero2Sub'),badgeText=document.getElementById('heroBadgeText');
   if(!amtEl)return;
-  const eff=effectiveBudget();
+  const eff=spendable();
   const hasPeriod=!!(S.budgetStart&&S.budgetEnd);
   // 월 페이스 → 배지·카드 색
   const pace=getPace();
