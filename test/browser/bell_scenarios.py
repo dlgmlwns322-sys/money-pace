@@ -61,7 +61,7 @@ try:
         tj = ' | '.join(titles)
         check('폰 자동화 멈춤 경고(40시간)', 'warn:폰 자동화가 멈춘 것 같아요' in tj, tj)
         check('미해석 2건 경고', 'warn:해석하지 못한 은행 알림 2건' in tj)
-        check('국민은행 14일 무알림 안내(카카오는 없음)', '국민은행 알림이 14일' in tj and '카카오뱅크 알림이 14일' not in tj)
+        check('국민은행 2일 무알림 안내(카카오는 1일 전이라 없음)', '국민은행 알림이 2일' in tj and '카카오뱅크 알림이 2일' not in tj)
         check('확인 필요 거래 1건', '확인이 필요한 거래 1건' in tj)
         p.screenshot(path=os.path.join(os.environ.get('SHOTS', '.'), 'bell_home.png'))
 

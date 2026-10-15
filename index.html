@@ -1397,7 +1397,8 @@ function computeNotices(){
   const anyCollected=!!st.heartbeatAt||ACCOUNTS.some(a=>lastTx[a.id]);
   ACCOUNTS.forEach(a=>{
     const at=lastTx[a.id];
-    if(at&&asOf-Date.parse(at)>14*24*HOUR_MS)add(`quiet-${a.id}-${at}`,'info',`${a.n} 알림이 14일 넘게 없어요`,'거래가 없었다면 괜찮아요. 아니라면 은행 앱 알림 설정을 확인해 주세요.','capture');
+    // 2일(2026-10-15, 14일→2일): 카카오뱅크가 알림톡→앱 푸시로 바꿔 사흘간 조용히 끊긴 일 재발 방지. 평소 은행별 최대 공백 2~4일이라 가끔 회색 점이 뜰 수 있다.
+    if(at&&asOf-Date.parse(at)>2*24*HOUR_MS)add(`quiet-${a.id}-${at}`,'info',`${a.n} 알림이 2일 넘게 없어요`,'거래가 없었다면 괜찮아요. 아니라면 은행 앱 알림 설정과 MacroDroid 매크로를 확인해 주세요.','capture');
     // 자동화는 돌고 있는데 이 은행 알림은 한 번도 안 왔으면(처음부터 설정이 빠졌을 수 있음)
     if(!at&&anyCollected&&!out.some(n=>n.id==='wait-'+a.id))add(`never-${a.id}`,'info',`${a.n} 알림을 아직 한 번도 받지 못했어요`,`MacroDroid에 ${a.n} 매크로가 있는지, 은행 앱 알림이 켜져 있는지 확인해 주세요(설정 가이드 참고).`,'settings');
   });
