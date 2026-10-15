@@ -7,6 +7,20 @@ export { secretMatches };
 
 export const MAX_BODY = 8000; // 알림 한 건은 수백 바이트. 크게 오면 거절(남용·실수 방지)
 
+// JSON 문자열 "…" 안의 실제 줄바꿈(\r\n·\r·\n)·탭만 이스케이프한다(필드 사이 줄바꿈은 그대로 둬야 JSON이 안 깨짐).
+function escapeInStrings(t) {
+  let out = "", inStr = false;
+  for (let i = 0; i < t.length; i++) {
+    const c = t[i];
+    if (!inStr) { if (c === '"') inStr = true; out += c; continue; }
+    if (c === "\\") { out += c + (t[i + 1] ?? ""); i++; continue; }
+    if (c === '"') { inStr = false; out += c; continue; }
+    if (c === "\r") { if (t[i + 1] === "\n") i++; out += "\\n"; continue; }
+    out += c === "\n" ? "\\n" : c === "\t" ? "\\t" : c;
+  }
+  return out;
+}
+
 // MacroDroid 본문은 설정에 따라 JSON이거나(줄바꿈이 이스케이프 안 될 수 있음) 폼 형식일 수 있어 둘 다 받는다.
 export function parseBody(bodyText, contentType) {
   const ct = (contentType || "").toLowerCase();
@@ -14,7 +28,7 @@ export function parseBody(bodyText, contentType) {
   if (!ct.includes("x-www-form-urlencoded")) {
     const j = tryJson(bodyText) ||
       // 문자열 안의 실제 줄바꿈·탭을 이스케이프해서 한 번 더 시도(카카오뱅크 앱 푸시는 줄바꿈이 \r 하나로도 온다)
-      tryJson(bodyText.replace(/\r\n|\r|\n/g, "\\n").replace(/\t/g, "\\t"));
+      tryJson(escapeInStrings(bodyText));
     if (j) return j;
   }
   const params = new URLSearchParams(bodyText);

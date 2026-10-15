@@ -61,6 +61,11 @@ let ok = 0; const t = async (n, f) => { await f(); ok++; console.log('ok -', n);
     const raw = '{"app":"com.kakaobank.channel","title":"출금 1,000원","text":"입출금통장(0000) → 토스 홍길동\r 잔액 139,000원","big":"입출금통장(0000) → 토스 홍길동\r\n잔액 139,000원"}';
     assert.strictEqual((await handleIngest(req(raw), deps)).body, 'ok');
     assert.deepStrictEqual([rows[0].bank, rows[0].type, rows[0].amount, rows[0].balance, rows[0].counterparty], ['kakao', 'out', 1000, 139000, '토스 홍길동']);
+    // 필드 사이에 실제 줄바꿈이 있는 여러 줄 본문 + 문자열 안 단독 \r (Codex 2차 검토 반례)
+    const pretty = '{\n"app":"com.kakaobank.channel",\r\n"title":"입금 2,000원",\n"big":"홍길동 → 입출금통장(0000)\r잔액 141,000원"\n}';
+    assert.strictEqual((await handleIngest(req(pretty), deps)).body, 'ok');
+    assert.deepStrictEqual([rows[1].type, rows[1].amount, rows[1].balance], ['in', 2000, 141000]);
+    assert.deepStrictEqual(parseBody('{"a":"x\\"y\nz"}'), { a: 'x"y\nz' }); // 이스케이프된 따옴표 뒤도 문자열 안으로 봄
   });
 
   await t('카톡 외 모르는 앱은 원문 보관(앱 이름 확인용)', async () => {
