@@ -73,6 +73,8 @@ let ok = 0; const t = async (n, f) => { await f(); ok++; console.log('ok -', n);
   await t('parseBody·은행 판별', async () => {
     assert.strictEqual(parseBody('', 'application/json'), null);
     assert.ok(isBankNotification('com.kbstar.kbbank', '출금 100원'));
+    assert.ok(isBankNotification('com.kakaobank.channel', '출금 100원'));
+    assert.ok(!isBankNotification('com.kakaopay.app', '출금 100원'));
     assert.ok(!isBankNotification('com.kakao.talk', '카카오뱅크 동호회'));
   });
 

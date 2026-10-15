@@ -23,10 +23,10 @@ export function parseBody(bodyText, contentType) {
   return Object.keys(o).length ? o : null;
 }
 
-// 은행 알림인지(서버 쪽 재확인). 카카오톡은 제목이 정확히 '카카오뱅크'인 것만.
+// 은행 알림인지(서버 쪽 재확인). 카카오톡은 제목이 정확히 '카카오뱅크'인 것만. 카카오뱅크 앱 푸시(2026-10-15~)는 앱 전체.
 export function isBankNotification(app, title) {
   const a = String(app || "").toLowerCase(), t = String(title || "").trim();
-  return (a === "com.kakao.talk" && t === "카카오뱅크") || a.startsWith("com.kbstar.");
+  return (a === "com.kakao.talk" && t === "카카오뱅크") || a.startsWith("com.kbstar.") || a.startsWith("com.kakaobank.");
 }
 
 // req: {method, headers: {get(name)}, readBody(): Promise<string>, contentType, now}

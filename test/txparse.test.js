@@ -17,6 +17,27 @@ t('카카오뱅크 입금', () => {
   assert.strictEqual(kakao.at, '2026-09-25T02:08:00+09:00');
 });
 
+// 카카오뱅크 앱 푸시(2026-10-15~): 제목에 금액, 본문에 날짜 없음 → 게시 시각(KST)
+const push = (title, text, app = 'com.kakaobank.channel') => parseNotification({ app, title, postedAt: posted, text });
+t('카카오뱅크 앱 푸시 출금', () => {
+  const r = push('출금 150,000원', '입출금통장(0000) → 홍길동\n잔액 140,000원');
+  assert.deepStrictEqual([r.bank, r.type, r.amount, r.balance, r.counterparty, r.account, r.at],
+    ['kakao', 'out', 150000, 140000, '홍길동', '입출금통장(0000)', '2026-09-25T02:08:00+09:00']);
+});
+t('카카오뱅크 앱 푸시 입금·한 줄 본문', () => {
+  const r = push('입금 100원', '홍길동 → 입출금통장(0000) 잔액 235,300원');
+  assert.deepStrictEqual([r.type, r.amount, r.balance, r.counterparty, r.account], ['in', 100, 235300, '홍길동', '입출금통장(0000)']);
+  const o = push('출금 100원', '입출금통장(0000) → 홍길동 잔액 235,200원');
+  assert.strictEqual(o.counterparty, '홍길동');
+});
+t('카카오뱅크 앱 푸시: 광고·안내는 무시, 게시 시각 없으면 무시', () => {
+  assert.strictEqual(push('이번 주 혜택', '최대 5,000원 받아가세요'), null);
+  assert.strictEqual(parseNotification({ app: 'com.kakaobank.channel', title: '출금 100원', text: '입출금통장(0000) → 홍길동' }), null);
+});
+t('카카오뱅크 앱 푸시: 본문에 날짜가 있으면 그 날짜', () => {
+  assert.strictEqual(push('출금 100원', '09/24 23:59\n입출금통장(0000) → 홍길동').at, '2026-09-24T23:59:00+09:00');
+});
+
 const kb = parseNotification({ app: 'com.kbstar.kbbank', title: '출금 100원', postedAt: posted,
   text: '홍*동님 09/25 02:08 123456-**-***789 토스홍길동 오픈뱅킹출금 100 잔액376,715' });
 t('KB 출금', () => {

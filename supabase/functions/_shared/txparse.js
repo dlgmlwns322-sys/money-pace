@@ -24,17 +24,28 @@
     return num(m[1]);
   }
 
+  // 알림 게시 시각 → KST [MM/DD, HH:MM] (본문에 날짜가 없는 카카오뱅크 앱 푸시용)
+  function kstParts(postedAt) {
+    const k = new Date(new Date(postedAt).getTime() + 9 * 3600e3), p = (x) => String(x).padStart(2, '0');
+    return [`${p(k.getUTCMonth() + 1)}/${p(k.getUTCDate())}`, `${p(k.getUTCHours())}:${p(k.getUTCMinutes())}`];
+  }
+
   // 카카오뱅크 — 카카오톡 알림톡. 제목 "카카오뱅크", 본문 예:
   //   09/25 02:08 / 입금 100원 / 보낸사람 → 입출금통장(0000) / 잔액 235,300원
-  function parseKakao(n) {
+  // 2026-10-15부터는 카카오뱅크 앱 푸시(push=true). 제목 "출금 100원", 본문 예(날짜 없음 → 게시 시각):
+  //   입출금통장(0000) → 받는사람 / 잔액 235,300원
+  function parseKakao(n, push) {
     const t = n.text || '';
-    const dt = t.match(/(\d{2}\/\d{2})\s+(\d{2}:\d{2})/);
-    const kind = t.match(/(입금|출금|결제|승인|취소)\s*([\d,]+)원/);
+    let dt = t.match(/(\d{2}\/\d{2})\s+(\d{2}:\d{2})/);
+    const KIND = /(입금|출금|결제|승인|취소)\s*([\d,]+)원/;
+    const kind = (push && (n.title || '').match(KIND)) || t.match(KIND);
+    if (!dt && push && n.postedAt && !isNaN(new Date(n.postedAt))) dt = [null, ...kstParts(n.postedAt)];
     if (!dt || !kind) return null;
     const flow = t.match(/([^\n→]+?)\s*→\s*([^\n]+)/);
     let account = null, counterparty = null, type = null;
     if (flow) {
-      const a = flow[1].trim(), b = flow[2].trim();
+      // 앱 푸시가 한 줄로 오면 받는 쪽 뒤에 '잔액…'이 붙는다 → 떼어낸다.
+      const a = flow[1].trim(), b = flow[2].replace(/\s*잔액\s*[\d,].*$/, '').trim();
       // 내 계좌 쪽은 "통장(끝4자리)" 형태. 화살표가 내 계좌로 오면 입금, 나가면 출금.
       // (취소 알림은 원거래 방향에 따라 입금·출금이 갈리므로 단어가 아니라 화살표로 판단)
       if (/\(\d{4}\)/.test(b)) { account = b; counterparty = a; type = 'in'; }
@@ -78,6 +89,7 @@
     const app = (n.app || '').toLowerCase();
     let r = null;
     if (/kakao\.talk|카카오톡/.test(app) && /카카오뱅크/.test(n.title || '')) r = parseKakao(n);
+    else if (/kakaobank|카카오뱅크/.test(app)) r = parseKakao(n, true);
     else if (/kbstar|kb스타|국민/.test(app)) r = parseKb(n);
     if (!r || !r.amount) return null;
     r.raw = [n.title, n.text].filter(Boolean).join('\n');
