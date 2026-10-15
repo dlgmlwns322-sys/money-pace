@@ -56,6 +56,13 @@ let ok = 0; const t = async (n, f) => { await f(); ok++; console.log('ok -', n);
     assert.strictEqual(rows.length + unparsed.length, 0);
   });
 
+  await t('카톡 외 모르는 앱은 원문 보관(앱 이름 확인용)', async () => {
+    const { rows, unparsed, deps } = mk();
+    const r = await handleIngest(req(JSON.stringify({ app: 'com.example.bank', title: '출금 100원', text: '입출금통장(0000) → 홍길동' })), deps);
+    assert.strictEqual(r.body, 'unknown app');
+    assert.strictEqual(rows.length, 0); assert.strictEqual(unparsed[0].app, 'com.example.bank');
+  });
+
   await t('은행 알림인데 해석 못 하면 unparsed로 보관', async () => {
     const { rows, unparsed, deps } = mk();
     const r = await handleIngest(req(JSON.stringify({ app: 'com.kbstar.kbbank', title: 'KB 이벤트', text: '포인트 받으세요' })), deps);

@@ -61,7 +61,13 @@ export async function handleIngest(req, deps) {
     await deps.saveHint(h);
     return { status: 200, body: "hint" };
   }
-  if (!isBankNotification(app, title)) return { status: 200, body: "skip" }; // 은행 알림 아님 → 아무것도 저장 안 함
+  if (!isBankNotification(app, title)) {
+    // 일반 카톡(폰에서 이미 거름)은 아무것도 저장 안 함. 그 밖의 앱은 폰 매크로가 은행 알림으로 보고 보낸 것이라
+    // 앱 이름이 예상과 다를 수 있다(2026-10-15 카카오뱅크 앱 푸시) → 원문을 보관해 벨에 띄우고 나중에 맞춘다.
+    if (app.toLowerCase() === "com.kakao.talk") return { status: 200, body: "skip" };
+    await deps.saveUnparsed({ app: app.slice(0, 200), title: title.slice(0, 200), body: String(data.big || data.text || "").slice(0, 2000) });
+    return { status: 200, body: "unknown app" };
+  }
 
   // 펼친 알림 전체 글(big)이 있으면 그걸 쓴다(카카오 알림톡은 여러 줄이라 미리보기가 잘릴 수 있음)
   const text = String(data.big || data.text || "");
