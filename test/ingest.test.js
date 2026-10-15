@@ -56,6 +56,13 @@ let ok = 0; const t = async (n, f) => { await f(); ok++; console.log('ok -', n);
     assert.strictEqual(rows.length + unparsed.length, 0);
   });
 
+  await t('카카오뱅크 앱 푸시: 줄바꿈이 \\r 하나로 와도 읽음(실제 형식, 가명)', async () => {
+    const { rows, deps } = mk();
+    const raw = '{"app":"com.kakaobank.channel","title":"출금 1,000원","text":"입출금통장(0000) → 토스 홍길동\r 잔액 139,000원","big":"입출금통장(0000) → 토스 홍길동\r\n잔액 139,000원"}';
+    assert.strictEqual((await handleIngest(req(raw), deps)).body, 'ok');
+    assert.deepStrictEqual([rows[0].bank, rows[0].type, rows[0].amount, rows[0].balance, rows[0].counterparty], ['kakao', 'out', 1000, 139000, '토스 홍길동']);
+  });
+
   await t('카톡 외 모르는 앱은 원문 보관(앱 이름 확인용)', async () => {
     const { rows, unparsed, deps } = mk();
     const r = await handleIngest(req(JSON.stringify({ app: 'com.example.bank', title: '출금 100원', text: '입출금통장(0000) → 홍길동' })), deps);

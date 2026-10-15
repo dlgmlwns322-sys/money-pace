@@ -13,8 +13,8 @@ export function parseBody(bodyText, contentType) {
   const tryJson = (t) => { try { const v = JSON.parse(t); return v && typeof v === "object" ? v : null; } catch { return null; } };
   if (!ct.includes("x-www-form-urlencoded")) {
     const j = tryJson(bodyText) ||
-      // 문자열 안의 실제 줄바꿈·탭을 이스케이프해서 한 번 더 시도
-      tryJson(bodyText.replace(/\r?\n/g, "\\n").replace(/\t/g, "\\t"));
+      // 문자열 안의 실제 줄바꿈·탭을 이스케이프해서 한 번 더 시도(카카오뱅크 앱 푸시는 줄바꿈이 \r 하나로도 온다)
+      tryJson(bodyText.replace(/\r\n|\r|\n/g, "\\n").replace(/\t/g, "\\t"));
     if (j) return j;
   }
   const params = new URLSearchParams(bodyText);
