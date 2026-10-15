@@ -65,7 +65,9 @@ export async function handleIngest(req, deps) {
     // 일반 카톡(폰에서 이미 거름)은 아무것도 저장 안 함. 그 밖의 앱은 폰 매크로가 은행 알림으로 보고 보낸 것이라
     // 앱 이름이 예상과 다를 수 있다(2026-10-15 카카오뱅크 앱 푸시) → 원문을 보관해 벨에 띄우고 나중에 맞춘다.
     if (app.toLowerCase() === "com.kakao.talk") return { status: 200, body: "skip" };
-    await deps.saveUnparsed({ app: app.slice(0, 200), title: title.slice(0, 200), body: String(data.big || data.text || "").slice(0, 2000) });
+    // 앱 이름이 비었으면(본문 형식이 깨졌거나 매직 텍스트가 안 채워짐) 받은 본문 원문을 그대로 남긴다(비밀키는 헤더라 안 들어감).
+    const body = app ? String(data.big || data.text || "") : bodyText;
+    await deps.saveUnparsed({ app: app.slice(0, 200), title: title.slice(0, 200), body: body.slice(0, 2000) });
     return { status: 200, body: "unknown app" };
   }
 

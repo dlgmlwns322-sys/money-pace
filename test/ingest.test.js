@@ -61,6 +61,9 @@ let ok = 0; const t = async (n, f) => { await f(); ok++; console.log('ok -', n);
     const r = await handleIngest(req(JSON.stringify({ app: 'com.example.bank', title: '출금 100원', text: '입출금통장(0000) → 홍길동' })), deps);
     assert.strictEqual(r.body, 'unknown app');
     assert.strictEqual(rows.length, 0); assert.strictEqual(unparsed[0].app, 'com.example.bank');
+    const raw = '{"app":"","title":"","text":"x"} 깨진 꼬리';
+    await handleIngest(req(raw), deps);
+    assert.strictEqual(unparsed[1].body, raw);
   });
 
   await t('은행 알림인데 해석 못 하면 unparsed로 보관', async () => {
