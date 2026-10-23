@@ -90,6 +90,10 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 .tx-amt.in{color:var(--blue)}
 .tx-tag{display:inline-block;font-size:10px;font-weight:700;padding:1px 6px;border-radius:6px;margin-left:4px;background:var(--bg);color:var(--text2)}
 .tx-tag.warn{background:var(--orange-light);color:var(--orange)}
+.tx-periods{display:flex;gap:7px;margin-bottom:9px}
+.tx-periods button{padding:7px 12px;border:1px solid var(--border);border-radius:18px;background:var(--bg);color:var(--text2);font-size:12px;font-weight:700;font-family:inherit;cursor:pointer}
+.tx-periods button.on{border-color:var(--blue);background:var(--blue-light);color:var(--blue)}
+.tx-period-info{font-size:11px;color:var(--text3);margin-bottom:6px}
 .ocr-inp{background:transparent;border:none;color:var(--text);font-size:15px;font-weight:800;width:140px;text-align:right;outline:none;font-family:inherit;}
 .masked{-webkit-text-security:disc;}
 .eye-btn{position:absolute;right:24px;top:50%;transform:translateY(-50%);background:transparent;border:none;font-size:15px;cursor:pointer;opacity:0.55;padding:4px;}
@@ -414,6 +418,8 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
   </div>
   <div class="card">
     <div class="card-title">거래</div>
+    <div id="txPeriodBar" class="tx-periods"></div>
+    <div id="txPeriodInfo" class="tx-period-info"></div>
     <div id="txStatus" style="font-size:11px;color:var(--text3);margin-bottom:8px"></div>
     <div id="txList"></div>
   </div>
@@ -1429,25 +1435,36 @@ function openNotices(){
   try{localStorage.setItem(NOTICE_SEEN_KEY,JSON.stringify(noticeSeen));}catch(e){}
 }
 function closeNotices(){document.getElementById('noticeModal').classList.add('hidden');renderBell();}
+let txPeriodView='current';
+function selectTxPeriod(period){txPeriodView=period==='previous'?'previous':'current';renderTx();}
 function renderTx(){
   const el=document.getElementById('txList'),st=document.getElementById('txStatus');
   if(!el||!st)return;
   if(!S.txReadSecret){st.textContent='설정에서 읽기 키를 넣으면 은행 알림으로 거래가 자동 기록돼요';el.innerHTML='';return;}
   const rows=txWithFlags();
-  const last=rows[rows.length-1];
+  const prev=(S.cycles||[]).at(-1);
+  if(!prev)txPeriodView='current';
+  const previous=txPeriodView==='previous'&&!!prev;
+  const from=previous?prev.start:S.budgetStart;
+  const to=previous?prev.end:toStr();
+  document.getElementById('txPeriodBar').innerHTML=`<button type="button" class="${previous?'':'on'}" aria-pressed="${!previous}" onclick="selectTxPeriod('current')">이번 주기</button>`
+    +(prev?`<button type="button" class="${previous?'on':''}" aria-pressed="${previous}" onclick="selectTxPeriod('previous')">지난 주기</button>`:'');
+  document.getElementById('txPeriodInfo').textContent=from&&to?`${from.slice(5).replace('-','/')}~${to.slice(5).replace('-','/')}`+(previous?` · 지출 ${won(prev.spent||0)}`:''):'';
   const gaps=txGaps();const gapByAfter=new Map(gaps.map(g=>[g.afterId,g.amount]));
   const incomeIds=new Set(cycleIncomeRows().map(r=>r.id)),incomeOff=S.txIncomeOff||{};
   const pendingIds=new Set(pendingOwnIncomeRows().map(r=>r.id));
   const waiting=ACCOUNTS.filter(a=>!rows.some(r=>r.bank===a.id)).map(a=>a.n);
   st.textContent=TX.error?`불러오기 실패: ${TX.error}`:'';
-  el.innerHTML=rows.slice(-30).reverse().map(r=>{
+  const visible=from?rows.filter(r=>r.date>=from&&r.date<=to).reverse():rows.slice(-30).reverse();
+  const adjustment=previous?spentAdjustIn(from,to):0;
+  el.innerHTML=visible.map(r=>{
     const a=ACCOUNTS.find(x=>x.id===r.bank)||{c:'#ccc'};
     const gap=gapByAfter.get(r.id);
     const tags=(r.isTransfer?'<span class="tx-tag">내 계좌 이동</span>':'')+(r.savings?'<span class="tx-tag">저축</span>':'')+(r.type==='out'&&!r.isTransfer&&!r.savings?`<span class="tx-tag">${txCategory(r)}</span>`:'')+(salaryIds().has(r.id)?'<span class="tx-tag">월급</span>':'')+(r.needs_review?'<span class="tx-tag warn">확인 필요</span>':'')+(isRefund(r)?'<span class="tx-tag">환불</span>':'')+(incomeIds.has(r.id)?'<span class="tx-tag">예산에 더함</span>':'')+(incomeOff[r.id]&&r.date>=S.budgetStart?'<span class="tx-tag">예산 제외</span>':'')
       +(pendingIds.has(r.id)?'<span class="tx-tag warn">본인 이름 입금 · 확인 전 제외</span>':'')
       +(gap?`<span class="tx-tag warn">앞에 ${gap>0?'출금':'입금'} ${won(Math.abs(gap))} 누락?</span>`:'');
     return `<div class="tx-row" onclick="openTxSheet(${Number(r.id)})"><div style="width:7px;height:7px;border-radius:50%;background:${a.c};flex:none"></div><div class="tx-main"><div class="tx-cp">${escapeHtml(r.merchant||r.counterparty||r.method||'')}</div><div class="tx-sub">${txWhen(r.at)} · ${bankName(r.bank)}${tags}</div></div><div class="tx-amt ${r.type==='in'?'in':''}">${r.type==='in'?'+':'−'}${won(r.amount)}</div></div>`;
-  }).join('');
+  }).join('')+(adjustment?`<div class="tx-row"><div class="tx-main"><div class="tx-cp">${escapeHtml(S.spentAdjust.note||'직접 기록')}</div><div class="tx-sub">${S.spentAdjust.date.slice(5).replace('-','/')} · 거래 알림 연결 전</div></div><div class="tx-amt">−${won(adjustment)}</div></div>`:'');
 }
 // 거래를 눌러 '내 계좌끼리 이동'인지 직접 정한다(지출 계산에 반영, 다른 기기에도 동기화)
 function toggleTxTransfer(id,want){
@@ -1714,9 +1731,12 @@ function getTodayBudget(){
   const useNow=!useDayStart&&staleCap&&nowBalKnown;
   // 오늘 시작 잔액이면 그 시점 미납분(오늘 낸 것 포함), 지금 잔액이면 지금 미납분만 뺀다(이미 빠져나간 고정비 이중 차감 방지)
   // 지금 잔액은 오늘 쓴 뒤라 오늘 쓴 돈을 더해 하루 시작 잔액으로 맞춘다(아래에서 다시 빼므로 이중 차감 방지)
-  // 오늘 들어온 월급 아닌 입금(쓸 수 있는 돈에 더한 것)은 하루 시작 잔액에 없으니 더한다 → 입금되면 오늘 몫도 바로 늘어남(2026-09-30 사용자 결정)
+  // 오늘 들어온 입금은 하루 시작 잔액에 없으니 더한다. 새 월급 주기 첫날에는 월급도 포함한다.
+  // 월급은 cycleIncomeRows에서 제외되지만 전날 잔액은 월급 입금 전이라, 빠뜨리면 새 주기 첫날 몫이 크게 음수가 된다.
   const incToday=useDayStart?cycleIncomeRows().filter(r=>r.date===today).reduce((a,r)=>a+r.amount,0):0;
-  const avail=useDayStart?ds.prevTotal-unpaidFixedAt(today)+incToday:useNow?totBal()+spentTodayOf(ds)-unpaidFixed():null;
+  const salaryToday=useDayStart&&S.budgetStart===today&&S.salaryTxId!=null
+    ?(txWithFlags().find(r=>r.id===S.salaryTxId&&r.date===today)?.amount||0):0;
+  const avail=useDayStart?ds.prevTotal-unpaidFixedAt(today)+incToday+salaryToday:useNow?totBal()+spentTodayOf(ds)-unpaidFixed():null;
   // 모자라면 0으로 자르지 않고 음수 그대로 보여준다(2026-09-29 사용자)
   const remainAtDayStart=avail!=null?Math.min(budgetLeft, avail):budgetLeft;
   const baseline=dl>0?Math.floor(remainAtDayStart/dl):Math.min(0,remainAtDayStart);

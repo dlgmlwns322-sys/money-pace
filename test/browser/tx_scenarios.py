@@ -1,4 +1,5 @@
 import subprocess, sys, time, os, json
+from datetime import datetime
 from urllib.parse import urlparse, parse_qs
 from playwright.sync_api import sync_playwright
 root = os.path.expanduser('~/claude-vault')
@@ -17,12 +18,13 @@ rows = [
     {"id": 4, "bank": "kakao", "type": "out", "amount": 4500, "balance": 595500, "counterparty": "스타벅스", "method": "출금", "at": "2026-09-24T08:10:00+09:00", "needs_review": False},
     {"id": 5, "bank": "kb", "type": "out", "amount": 7000, "balance": 2488000, "counterparty": "모르는가게", "method": "체크카드", "at": "2026-09-24T19:00:00+09:00", "needs_review": True},
 ]
-seed = {"budget": 1000000, "weeklyBudget": 250000, "budgetStart": "2026-09-25", "budgetEnd": "2026-10-24",
+seed = {"budget": 1000000, "weeklyBudget": 250000, "budgetStart": "2026-09-21", "budgetEnd": "2026-10-24",
         "balances": {"kakao": 1, "kb": 1}, "balanceAt": {"kakao": "2026-09-20T00:00:00Z", "kb": "2026-09-20T00:00:00Z"},
         "captures": [], "fixed": [], "memos": {}, "supabaseUrl": SB, "supabaseKey": "anon", "txReadSecret": "READKEY", "ownerNames": "홍길동"}
 try:
     with sync_playwright() as pw:
         b = pw.chromium.launch(channel='msedge'); p = b.new_page(viewport={'width': 420, 'height': 900}, locale='ko-KR')
+        p.clock.install(time=datetime.fromisoformat('2026-09-25T14:00:00+09:00'))
         errs = []; p.on('pageerror', lambda e: errs.append(str(e)[:200]))
         calls = {'read': [], 'rest': 0}
         p.add_init_script(f"localStorage.setItem('mp_v6', {json.dumps(json.dumps(seed))});localStorage.setItem('mp_sync', JSON.stringify({{rev:3,seq:1,sentSeq:1}}));")
@@ -121,6 +123,7 @@ try:
 
         # 다시 받을 범위: 오랜 공백(마지막 확인 10일 전) / 불완전 주기 / 1만 건 상한 도달은 미완료
         b = pw.chromium.launch(channel='msedge'); p = b.new_page(locale='ko-KR')
+        p.clock.install(time=datetime.fromisoformat('2026-09-25T14:00:00+09:00'))
         seen = []; mode = {'full500': False}
         def sb4(route):
             u = route.request.url
@@ -136,7 +139,7 @@ try:
             if 'select=rev' in u: return route.fulfill(status=200, content_type='application/json', body=json.dumps([{"rev": "3"}]))
             return route.fulfill(status=200, content_type='application/json', body='[{"id":"my_money_data"}]')
         tx_cache = {"rows": [{"id": 1, "bank": "kb", "type": "out", "amount": 1, "balance": 1, "at": "2026-09-01T01:00:00+09:00"}], "maxId": 1}
-        p.add_init_script(f"localStorage.setItem('mp_v6', {json.dumps(json.dumps({**seed, 'balanceAt': {}, 'cycles': [{'start': '2026-08-25', 'end': '2026-09-24', 'spent': 0, 'incomplete': True}]}))});"
+        p.add_init_script(f"localStorage.setItem('mp_v6', {json.dumps(json.dumps({**seed, 'budgetStart': '2026-09-25', 'balanceAt': {}, 'cycles': [{'start': '2026-08-25', 'end': '2026-09-24', 'spent': 0, 'incomplete': True}]}))});"
                           f"localStorage.setItem('mp_sync', JSON.stringify({{rev:3,seq:1,sentSeq:1}}));"
                           f"localStorage.setItem('mp_tx', JSON.stringify(Object.assign({json.dumps(tx_cache)}, {{lastFull: Date.now()-10*86400e3}})));")
         p.route(SB + '/**', sb4)
