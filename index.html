@@ -1503,51 +1503,57 @@ function txCategory(r){
   const key=Category.key(name);const m=key&&ownCat(S.catMap,key);if(m)return m;
   return Category.categorize(name);
 }
-// 이번 월급 주기 카테고리별 지출. 저축·내 계좌 이동·고정지출 연결 출금은 빼고, 환불은 그 가게 카테고리에서 뺀다.
+// 선택한 월급 주기 카테고리별 지출. 저축·내 계좌 이동·고정지출 연결 출금은 빼고, 환불은 그 가게 카테고리에서 뺀다.
 // 합계가 이번 달 막대(totSpent: 누락 의심·고정비 차이 포함)와 같도록 차이는 '기타'에 둔다.
-function cycleCategoryTotals(){
+function cycleCategoryTotals(from=S.budgetStart,to=toStr(),total=Math.max(0,totSpent())){
   const out=Object.fromEntries([...allCats(),'직접'].map(c=>[c,0]));
-  if(!S.budgetStart||!S.txSince)return{out,total:0};
-  const today=toStr(),linked=fixedLinks();
+  if(!from||!S.txSince)return{out,total:0};
+  const linked=fixedLinks();
   txWithFlags().forEach(r=>{
-    if(r.date<S.budgetStart||r.date>today||r.date<S.txSince||r.isTransfer||r.savings||linked.has(r.id))return;
+    if(r.date<from||r.date>to||r.date<S.txSince||r.isTransfer||r.savings||linked.has(r.id))return;
     const c=out[txCategory(r)]!=null?txCategory(r):'기타';
     if(r.type==='out')out[c]+=r.amount;
     else if(isRefund(r))out[c]-=r.amount;
   });
   // 합계는 항상 이번 달 막대(totSpent)와 같다. 환불이 더 커서 음수인 카테고리는 0으로 보이고, 나머지 차이는 기타.
-  const total=Math.max(0,totSpent());
   const named=Object.keys(out).filter(c=>c!=='기타').reduce((a,c)=>a+out[c],0);
   out['기타']+=total-named-out['기타'];
   Object.keys(out).forEach(c=>{if(out[c]<0)out[c]=0;});
   return{out,total};
 }
 let catSel=null;
+let catPeriodView='current';
+function selectCatPeriod(period){catPeriodView=period==='previous'?'previous':'current';catSel=null;renderCatCard();}
 function renderCatCard(){
   const el=document.getElementById('catCard');if(!el)return;
-  const{out,total}=cycleCategoryTotals();
+  const prev=(S.cycles||[]).at(-1),previous=catPeriodView==='previous'&&!!prev;
+  const from=previous?prev.start:S.budgetStart,to=previous?prev.end:toStr();
+  const{out,total}=previous?cycleCategoryTotals(from,to,Math.max(0,prev.spent||0)):cycleCategoryTotals();
+  const title=previous?'지난 주기 지출':'이번 달 지출';
+  const header=`<div class="cat-hd"><span class="t">${title}</span><span class="v num">${won(total)}</span></div>`
+    +(prev?`<div class="tx-periods"><button type="button" class="${previous?'':'on'}" aria-pressed="${!previous}" onclick="selectCatPeriod('current')">이번 주기</button><button type="button" class="${previous?'on':''}" aria-pressed="${previous}" onclick="selectCatPeriod('previous')">지난 주기</button></div><div class="tx-period-info">${from.slice(5).replace('-','/')}~${to.slice(5).replace('-','/')}</div>`:'');
   // 제목은 위 '이번 달' 막대와 같은 월급 주기라 '이번 달 지출'(2026-10-09 사용자 A안 — 시작 달 '9월'이 달력과 어긋나 보여서)
   const list=Object.keys(out).map(c=>({c,v:out[c]})).filter(x=>x.v>0).sort((a,b)=>b.v-a.v);
-  if(!list.length){el.innerHTML=`<div class="cat-hd"><span class="t">이번 달 지출</span><span class="v num">0원</span></div><div class="cat-empty">아직 지출이 없어요</div>`;return;}
+  if(!list.length){el.innerHTML=header+`<div class="cat-empty">아직 지출이 없어요</div>`;return;}
   if(catSel&&!list.some(x=>x.c===catSel))catSel=null;
   const R=52,C=2*Math.PI*R;let acc=0;const pos=list.reduce((a,x)=>a+x.v,0)||1;
   const arcs=list.map(x=>{const len=C*x.v/pos;const a=`<circle cx="66" cy="66" r="${R}" fill="none" stroke="${catColor(x.c)}" stroke-width="${catSel===x.c?22:18}" stroke-dasharray="${Math.max(0,len-1.5)} ${C}" stroke-dashoffset="${-acc}" style="opacity:${catSel&&catSel!==x.c?.35:1}" onclick="selCat('${x.c}')"></circle>`;acc+=len;return a;}).join('');
   const sel=catSel?list.find(x=>x.c===catSel):null;
   const pct=v=>Math.round(v/pos*100);
-  el.innerHTML=`<div class="cat-hd"><span class="t">이번 달 지출</span><span class="v num">${won(total)}</span></div>
+  el.innerHTML=header+`
     <div class="cat-body">
       <div class="cat-pie"><svg width="132" height="132" viewBox="0 0 132 132"><circle cx="66" cy="66" r="${R}" fill="none" stroke="var(--bar-l)" stroke-width="18"></circle>${arcs}</svg>
         <div class="cat-mid">${sel?`<div class="n">${escapeHtml(catName(sel.c))}</div><div class="a num">${won(sel.v)}</div><div class="p num">${pct(sel.v)}%</div>`:`<div class="n">${escapeHtml(catName(list[0].c))}</div><div class="p num">${pct(list[0].v)}%</div>`}</div></div>
       <div class="cat-list">${list.map(x=>`<div class="cat-row${catSel===x.c?' on':''}" onclick="selCat('${x.c}')"><i style="background:${catColor(x.c)}"></i><span class="nm">${escapeHtml(catName(x.c))}</span><span class="pc num">${pct(x.v)}%</span><span class="am num">${won(x.v)}</span></div>`).join('')}</div>
-    </div>${sel?catTxHtml(sel.c,sel.v):''}`;
+    </div>${sel?catTxHtml(sel.c,sel.v,from,to):''}`;
 }
-// 고른 카테고리의 이번 주기 거래(최근 순). 누르면 카테고리 바꾸기. 알림 누락 추정분은 기타에만 한 줄.
-function catTxHtml(cat,catTotal){
-  const today=toStr(),linked=fixedLinks();
-  const rows=txWithFlags().filter(r=>r.date>=S.budgetStart&&r.date<=today&&r.date>=S.txSince&&!r.isTransfer&&!r.savings&&!linked.has(r.id)
+// 고른 카테고리의 선택한 주기 거래(최근 순). 누르면 카테고리 바꾸기. 알림 누락 추정분은 기타에만 한 줄.
+function catTxHtml(cat,catTotal,from=S.budgetStart,to=toStr()){
+  const linked=fixedLinks();
+  const rows=txWithFlags().filter(r=>r.date>=from&&r.date<=to&&r.date>=S.txSince&&!r.isTransfer&&!r.savings&&!linked.has(r.id)
     &&(r.type==='out'||isRefund(r))&&txCategory(r)===cat).sort((a,b)=>Date.parse(b.at)-Date.parse(a.at));
   const sum=rows.reduce((a,r)=>a+(r.type==='out'?r.amount:-r.amount),0);
-  const adj=cat==='기타'?spentAdjustIn(S.budgetStart,today):0;
+  const adj=cat==='기타'?spentAdjustIn(from,to):0;
   const extra=cat==='기타'?catTotal-sum-adj:0;
   const adjRow=adj>0?`<div class="cat-tx-row"><span class="d num">${S.spentAdjust.date.slice(5).replace('-','/')}</span><span class="m">${escapeHtml(S.spentAdjust.note||'직접 기록')}</span><span class="a num">${won(adj)}</span></div>`:'';
   return`<div class="cat-tx">${adjRow}${rows.map(r=>`<div class="cat-tx-row" onclick="openTxSheet(${Number(r.id)})"><span class="d num">${txDate(r.at).slice(5).replace('-','/')}</span><span class="m">${escapeHtml(r.merchant||r.counterparty||r.method||'')}</span><span class="a num">${r.type==='in'?'+':''}${won(r.amount)}</span></div>`).join('')}${extra>0?`<div class="cat-tx-row"><span class="d"></span><span class="m" style="color:var(--text3)">누락 추정</span><span class="a num">${won(extra)}</span></div>`:''}</div>`;

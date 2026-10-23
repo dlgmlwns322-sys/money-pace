@@ -12,7 +12,7 @@ seed = {'budget': 1000000, 'budgetStart': '2026-10-23', 'budgetEnd': '2026-11-24
         'cycles': [{'start': '2026-09-23', 'end': '2026-10-22', 'spent': 155000}]}
 rows = [
     {'id': i, 'bank': 'kb', 'type': 'out', 'amount': 1000, 'balance': 100000 - i * 1000,
-     'counterparty': f'지난가게{i}', 'method': '카드', 'at': f'2026-10-20T12:{i:02d}:00+09:00'}
+     'counterparty': '메가MGC커피' if i == 1 else f'지난가게{i}', 'method': '카드', 'at': f'2026-10-20T12:{i:02d}:00+09:00'}
     for i in range(1, 36)
 ]
 rows.append({'id': 36, 'bank': 'kb', 'type': 'out', 'amount': 2000, 'balance': 63000,
@@ -27,6 +27,13 @@ with sync_playwright() as pw:
       localStorage.setItem('mp_tx', JSON.stringify({{rows:{json.dumps(rows)},maxId:36,
         lastFull:Date.now(),lastFetch:Date.now(),lastOk:Date.now()}}));""")
     page.goto(url, wait_until='load')
+    assert '2,000원' in page.locator('#catCard .cat-hd').inner_text()
+    page.locator('#catCard').get_by_role('button', name='지난 주기').click()
+    assert '155,000원' in page.locator('#catCard .cat-hd').inner_text()
+    assert '09/23~10/22' in page.locator('#catCard .tx-period-info').inner_text()
+    assert '1,000원' in page.locator('#catCard .cat-row:has-text("카페")').inner_text()
+    page.locator('#catCard .cat-row:has-text("기타")').click()
+    assert page.locator('#catCard .cat-tx-row').count() == 35
     page.evaluate("showTab('capture')")
     assert page.locator('#txList .tx-row').count() == 1, '이번 주기만 기본 표시'
     page.get_by_role('button', name='지난 주기').click()
